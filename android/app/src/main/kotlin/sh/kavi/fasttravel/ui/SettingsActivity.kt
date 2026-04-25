@@ -1950,8 +1950,7 @@ fun DefaultCommandPicker(
                                             }
                                         } else {
                                             editableStore.saveLocalConfig(updated)
-                                            themePrefs.configSourceDirty = true
-                                            ConfigRefreshScheduler.schedule(context, ConfigRefreshInterval.MANUAL)
+                                            markDirtyAndCancelRefresh(context, themePrefs)
                                             onConfigChanged()
                                             scope.launch {
                                                 snackbarHostState.showSnackbar(
