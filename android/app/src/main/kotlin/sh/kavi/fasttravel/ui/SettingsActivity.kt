@@ -148,7 +148,9 @@ import sh.kavi.fasttravel.ui.appearance.resolveAppearance
 import sh.kavi.fasttravel.ui.appearance.resolveFromPrefs
 import sh.kavi.fasttravel.ui.theme.FastTravelTheme
 import sh.kavi.fasttravel.ui.theme.LocalAppearance
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -158,7 +160,6 @@ import java.util.Locale
 sealed class SettingsRoute(val route: String) {
     data object Home : SettingsRoute("settings_home")
     data object Appearance : SettingsRoute("appearance")
-    data object ConfigSource : SettingsRoute("config_source")
     data object CommandsHome : SettingsRoute("config/commands")
     data object GroupsHome : SettingsRoute("config/groups")
     data object GroupNew : SettingsRoute("config/groups/new")
@@ -195,6 +196,23 @@ sealed class SettingsRoute(val route: String) {
 // ==================== Activity ====================
 
 class SettingsActivity : ComponentActivity() {
+
+    private var importLauncherCallback: ((android.net.Uri) -> Unit)? = null
+    private var exportLauncherCallback: ((android.net.Uri) -> Unit)? = null
+
+    private val importFileLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@registerForActivityResult
+        importLauncherCallback?.invoke(uri)
+    }
+
+    private val exportFileLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri ?: return@registerForActivityResult
+        exportLauncherCallback?.invoke(uri)
+    }
 
     /**
      * Settings isn't meant to outlive a task switch. If the user backgrounds
@@ -239,6 +257,14 @@ class SettingsActivity : ComponentActivity() {
                         onFinish = { finish() },
                         themePrefs = themePrefs,
                         onAppearanceChanged = { appearance = it },
+                        onImportFile = { callback ->
+                            importLauncherCallback = callback
+                            importFileLauncher.launch(arrayOf("application/json", "text/plain"))
+                        },
+                        onExportFile = { filename, callback ->
+                            exportLauncherCallback = callback
+                            exportFileLauncher.launch(filename)
+                        },
                     )
                 }
             }
@@ -253,6 +279,8 @@ fun SettingsNavHost(
     onFinish: () -> Unit,
     themePrefs: ThemePreferences,
     onAppearanceChanged: (ResolvedAppearance) -> Unit = {},
+    onImportFile: (callback: (android.net.Uri) -> Unit) -> Unit = {},
+    onExportFile: (filename: String, callback: (android.net.Uri) -> Unit) -> Unit = { _, _ -> },
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -299,13 +327,16 @@ fun SettingsNavHost(
                 snackbarHostState = snackbarHostState,
             )
         }
-        composable(SettingsRoute.ConfigSource.route) {
-            ConfigSourceScreen(
+        composable(SettingsRoute.ImportExport.route) {
+            ImportExportScreen(
                 navController = navController,
                 themePrefs = themePrefs,
                 configRepository = configRepository,
+                editableStore = editableStore,
                 onConfigChanged = refreshConfig,
                 snackbarHostState = snackbarHostState,
+                onImportFile = onImportFile,
+                onExportFile = onExportFile,
             )
         }
         composable(SettingsRoute.CommandsHome.route) {
@@ -619,6 +650,244 @@ fun ConfigurationScreen(
     }
 }
 
+// ==================== Import / Export Screen ====================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ImportExportScreen(
+    navController: NavHostController,
+    themePrefs: ThemePreferences,
+    configRepository: ConfigRepository,
+    editableStore: EditableConfigStore,
+    onConfigChanged: () -> Unit,
+    snackbarHostState: SnackbarHostState,
+    onImportFile: (callback: (android.net.Uri) -> Unit) -> Unit,
+    onExportFile: (filename: String, callback: (android.net.Uri) -> Unit) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isLoading by remember { mutableStateOf(false) }
+    var urlFieldValue by remember { mutableStateOf(themePrefs.configUrl) }
+    var selectedInterval by remember { mutableStateOf(themePrefs.configRefreshInterval) }
+    var intervalDropdownExpanded by remember { mutableStateOf(false) }
+    var statusText by remember {
+        mutableStateOf(
+            if (themePrefs.configSourceDirty) "Local config · auto-refresh paused"
+            else if (themePrefs.configUrl.isNotEmpty()) "Synced from ${themePrefs.configUrl}"
+            else "No remote source"
+        )
+    }
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = { SettingsTopBar(title = "Import / Export", onBack = { navController.popBackStack() }) },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            SettingsCategoryHeader(title = "Status")
+            SettingsCard {
+                ListItem(
+                    headlineContent = { Text(statusText, style = MaterialTheme.typography.bodyMedium) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+            }
+
+            SettingsCategoryHeader(title = "Import")
+            SettingsCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Button(
+                        onClick = {
+                            onImportFile { uri ->
+                                scope.launch {
+                                    val text = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText()
+                                    } ?: return@launch
+                                    val parsed = sh.kavi.fasttravel.core.ConfigParser.safeParseConfig(text)
+                                    if (parsed == null) {
+                                        snackbarHostState.showSnackbar("Invalid config file")
+                                        return@launch
+                                    }
+                                    val errors = ConfigValidator.validate(parsed)
+                                    if (errors.isNotEmpty()) {
+                                        snackbarHostState.showSnackbar("Validation failed: ${errors.first()}")
+                                        return@launch
+                                    }
+                                    editableStore.saveLocalConfig(parsed)
+                                    markDirtyAndCancelRefresh(context, themePrefs)
+                                    onConfigChanged()
+                                    statusText = "Local config · auto-refresh paused"
+                                    snackbarHostState.showSnackbar("Config imported from file")
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                    ) { Text("Choose file…") }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = urlFieldValue,
+                        onValueChange = { urlFieldValue = it },
+                        label = { Text("Config URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                        singleLine = true,
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ExposedDropdownMenuBox(
+                        expanded = intervalDropdownExpanded,
+                        onExpandedChange = { intervalDropdownExpanded = it },
+                    ) {
+                        OutlinedTextField(
+                            value = selectedInterval.displayName,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Auto-refresh") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = intervalDropdownExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            shape = RoundedCornerShape(8.dp),
+                        )
+                        ExposedDropdownMenu(
+                            expanded = intervalDropdownExpanded,
+                            onDismissRequest = { intervalDropdownExpanded = false },
+                        ) {
+                            ConfigRefreshInterval.entries.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option.displayName) },
+                                    onClick = { selectedInterval = option; intervalDropdownExpanded = false },
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val url = urlFieldValue.trim()
+                            if (url.isEmpty()) return@Button
+                            isLoading = true
+                            scope.launch {
+                                val fetched = configRepository.fetchFromUrl(url)
+                                if (fetched == null) {
+                                    snackbarHostState.showSnackbar("Failed to fetch config from URL")
+                                    isLoading = false
+                                    return@launch
+                                }
+                                editableStore.saveLocalConfig(fetched)
+                                themePrefs.configUrl = url
+                                themePrefs.configRefreshInterval = selectedInterval
+                                if (selectedInterval != ConfigRefreshInterval.MANUAL) {
+                                    themePrefs.configSourceDirty = false
+                                    ConfigRefreshScheduler.schedule(context, selectedInterval)
+                                    statusText = "Synced from $url"
+                                } else {
+                                    markDirtyAndCancelRefresh(context, themePrefs)
+                                    statusText = "Local config · auto-refresh paused"
+                                }
+                                onConfigChanged()
+                                snackbarHostState.showSnackbar("Config imported from URL")
+                                isLoading = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = !isLoading,
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(if (isLoading) "Fetching…" else "Fetch & Import")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            SettingsCategoryHeader(title = "Export")
+            SettingsCard {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                val cfg = configRepository.getConfig()
+                                val json = sh.kavi.fasttravel.core.ConfigWriter.writeConfig(cfg)
+                                onExportFile("fast-travel-config.json") { uri ->
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                                        }
+                                        snackbarHostState.showSnackbar("Config exported")
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                    ) { Text("Export config") }
+                }
+            }
+
+            if (themePrefs.configUrl.isNotEmpty() && themePrefs.configSourceDirty) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsCategoryHeader(title = "Reset")
+                SettingsCard {
+                    ListItem(
+                        headlineContent = {
+                            Text("Reset to remote", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                        },
+                        supportingContent = {
+                            Text(
+                                "Re-fetch from ${themePrefs.configUrl} and re-enable auto-refresh",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { showResetDialog = true },
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("Reset to remote?") },
+            text = { Text("This will discard local edits and re-fetch from ${themePrefs.configUrl}.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showResetDialog = false
+                    scope.launch {
+                        val fetched = configRepository.fetchFromUrl(themePrefs.configUrl)
+                        if (fetched != null) {
+                            editableStore.saveLocalConfig(fetched)
+                            themePrefs.configSourceDirty = false
+                            ConfigRefreshScheduler.schedule(context, themePrefs.configRefreshInterval)
+                            onConfigChanged()
+                            statusText = "Synced from ${themePrefs.configUrl}"
+                            snackbarHostState.showSnackbar("Reset to remote config")
+                        } else {
+                            snackbarHostState.showSnackbar("Failed to fetch remote config")
+                        }
+                    }
+                }) { Text("Reset", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { showResetDialog = false }) { Text("Cancel") } },
+        )
+    }
+}
+
 // ==================== Appearance Screen ====================
 
 private data class AppearanceDraft(
@@ -928,245 +1197,6 @@ private fun AppearanceRowsSlider(
     }
 }
 
-
-// ==================== Config Source Screen ====================
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ConfigSourceScreen(
-    navController: NavHostController,
-    themePrefs: ThemePreferences,
-    configRepository: ConfigRepository,
-    onConfigChanged: () -> Unit,
-    snackbarHostState: SnackbarHostState,
-) {
-    var configUrl by remember { mutableStateOf(themePrefs.configUrl) }
-    var refreshInterval by remember { mutableStateOf(themePrefs.configRefreshInterval) }
-    var dropdownExpanded by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-
-    val syncOptions = ConfigRefreshInterval.entries
-
-    var lastSyncedTimestamp by remember {
-        val prefs = navController.context.getSharedPreferences("fast_travel_config", 0)
-        mutableStateOf(prefs.getLong("cache_timestamp", 0L))
-    }
-    val lastSynced = if (lastSyncedTimestamp > 0) {
-        SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault()).format(Date(lastSyncedTimestamp))
-    } else {
-        "Never"
-    }
-
-    Scaffold(
-        topBar = {
-            SettingsTopBar(
-                title = "Config Source",
-                onBack = { navController.popBackStack() },
-            )
-        },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            // Config URL
-            SettingsCategoryHeader(title = "Source")
-            SettingsCard {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    OutlinedTextFieldS(
-                        value = configUrl,
-                        onValueChange = {
-                            configUrl = it
-                            themePrefs.configUrl = it
-                        },
-                        label = { Text("Config URL") },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Sync interval
-            SettingsCategoryHeader(title = "Sync")
-            SettingsCard {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    ExposedDropdownMenuBox(
-                        expanded = dropdownExpanded,
-                        onExpandedChange = { dropdownExpanded = it },
-                    ) {
-                        OutlinedTextField(
-                            value = refreshInterval.displayName,
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Auto-refresh") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                            shape = RoundedCornerShape(8.dp),
-                        )
-                        ExposedDropdownMenu(
-                            expanded = dropdownExpanded,
-                            onDismissRequest = { dropdownExpanded = false },
-                        ) {
-                            syncOptions.forEach { option ->
-                                DropdownMenuItem(
-                                    text = { Text(option.displayName) },
-                                    onClick = {
-                                        refreshInterval = option
-                                        themePrefs.configRefreshInterval = option
-                                        sh.kavi.fasttravel.data.ConfigRefreshScheduler
-                                            .schedule(context, option)
-                                        dropdownExpanded = false
-                                    },
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = "Last synced: $lastSynced",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Button(
-                        onClick = {
-                            if (isRefreshing) return@Button
-                            isRefreshing = true
-                            scope.launch {
-                                val result = configRepository.fetchFromGitHub()
-                                if (result != null) {
-                                    onConfigChanged()
-                                    lastSyncedTimestamp = configRepository.lastSyncedAt() ?: 0L
-                                    snackbarHostState.showSnackbar("Config refreshed")
-                                } else {
-                                    snackbarHostState.showSnackbar("Failed to refresh config")
-                                }
-                                isRefreshing = false
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        enabled = !isRefreshing,
-                    ) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh configuration",
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(if (isRefreshing) "Refreshing..." else "Refresh Now")
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Icon cache (Coil memory + disk cache for favicons)
-            SettingsCategoryHeader(title = "Icon Cache")
-            SettingsCard {
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            "Clear icon cache",
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            "Force re-fetch all command favicons",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable {
-                        scope.launch {
-                            val loader = coil.Coil.imageLoader(context)
-                            loader.memoryCache?.clear()
-                            loader.diskCache?.clear()
-                            snackbarHostState.showSnackbar("Icon cache cleared")
-                        }
-                    },
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Reset to remote default (clears local edits)
-            SettingsCategoryHeader(title = "Local Edits")
-            SettingsCard {
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            "Reset to remote default",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.error,
-                        )
-                    },
-                    supportingContent = {
-                        Text(
-                            "Discard all local edits and re-fetch from the config URL",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable { showResetDialog = true },
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-        }
-    }
-
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            title = { Text("Reset to remote default") },
-            text = { Text("This will discard all local edits and reload from the config URL. Are you sure?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showResetDialog = false
-                    scope.launch {
-                        configRepository.resetToRemote()
-                        onConfigChanged()
-                        snackbarHostState.showSnackbar("Reset to remote default")
-                    }
-                }) {
-                    Text("Reset", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) {
-                    Text("Cancel")
-                }
-            },
-        )
-    }
-}
 
 // ==================== Ignore List Screen ====================
 
