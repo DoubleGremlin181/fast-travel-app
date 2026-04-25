@@ -1,5 +1,6 @@
 package sh.kavi.fasttravel.ui
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -1223,6 +1224,7 @@ fun IgnoreListScreen(
         val trimmed = newItem.trim()
         if (cfg.ignoreList.none { it.equals(trimmed, ignoreCase = true) }) {
             editableStore.saveLocalConfig(cfg.withIgnoreAdded(trimmed))
+            markDirtyAndCancelRefresh(context, themePrefs)
         }
         // If the trigger was a candidate (possibly red-flagged), delete it so
         // manual add wins cleanly. Matches the design doc's "manual add
@@ -1236,6 +1238,7 @@ fun IgnoreListScreen(
     fun removePermanent(trigger: String) {
         val cfg = config ?: return
         editableStore.saveLocalConfig(cfg.withIgnoreRemoved(trigger))
+        markDirtyAndCancelRefresh(context, themePrefs)
         // No counter side-effect: permanent entries never had active counters.
         onConfigChanged()
         refreshTick++
@@ -1245,6 +1248,7 @@ fun IgnoreListScreen(
         val cfg = config ?: return
         if (cfg.ignoreList.none { it.equals(trigger, ignoreCase = true) }) {
             editableStore.saveLocalConfig(cfg.withIgnoreAdded(trigger))
+            markDirtyAndCancelRefresh(context, themePrefs)
         }
         autoIgnoreStore.remove(trigger)
         onConfigChanged()
@@ -1978,6 +1982,8 @@ fun GroupsHomeScreen(
     onConfigChanged: () -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
+    val context = LocalContext.current
+    val themePrefs = remember { ThemePreferences(context) }
     var searchQuery by remember { mutableStateOf("") }
     val groups = config?.groups ?: emptyList()
     val filteredGroups = remember(groups, searchQuery) {
@@ -2043,6 +2049,7 @@ fun GroupsHomeScreen(
                     val toIdx = (to.index - 1).coerceAtLeast(0)
                     val cfg = config ?: return@rememberReorderableLazyListState
                     editableStore.saveLocalConfig(cfg.withGroupMoved(fromIdx, toIdx))
+                    markDirtyAndCancelRefresh(context, themePrefs)
                     onConfigChanged()
                 }
                 LazyColumn(
@@ -2165,6 +2172,8 @@ fun GroupEditScreen(
         if (!isNew && config != null) config.findGroupById(groupId!!) else null
     }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val themePrefs = remember { ThemePreferences(context) }
 
     var idField by remember(existing) { mutableStateOf(existing?.id ?: "") }
     var nameField by remember(existing) { mutableStateOf(existing?.name ?: "") }
@@ -2282,6 +2291,7 @@ fun GroupEditScreen(
                             cfg.withGroupUpdated(id, name, color)
                         }
                         editableStore.saveLocalConfig(newCfg)
+                        markDirtyAndCancelRefresh(context, themePrefs)
                         onConfigChanged()
                         scope.launch {
                             snackbarHostState.showSnackbar(if (isNew) "Group created" else "Group updated")
@@ -2341,6 +2351,7 @@ fun GroupEditScreen(
                         showDeleteDialog = false
                         if (cfg != null && !hasContents) {
                             editableStore.saveLocalConfig(cfg.withGroupDeleted(existing.id))
+                            markDirtyAndCancelRefresh(context, themePrefs)
                             onConfigChanged()
                             scope.launch {
                                 snackbarHostState.showSnackbar("Deleted \"${existing.name}\"")
@@ -2369,6 +2380,11 @@ private fun parseGroupColor(hex: String?): Color? {
 }
 
 // ==================== Helper Functions ====================
+
+fun markDirtyAndCancelRefresh(context: Context, themePrefs: ThemePreferences) {
+    themePrefs.configSourceDirty = true
+    ConfigRefreshScheduler.schedule(context, ConfigRefreshInterval.MANUAL)
+}
 
 internal fun getAllCommands(config: FastTravelConfig): List<Command> {
     val commands = mutableListOf<Command>()
