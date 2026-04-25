@@ -120,6 +120,7 @@ import sh.kavi.fasttravel.core.FastTravelConfig
 import sh.kavi.fasttravel.core.Group
 import sh.kavi.fasttravel.data.AutoIgnoreStore
 import sh.kavi.fasttravel.data.ConfigRefreshInterval
+import sh.kavi.fasttravel.data.ConfigRefreshScheduler
 import sh.kavi.fasttravel.data.ConfigRepository
 import sh.kavi.fasttravel.data.ConfigValidator
 import sh.kavi.fasttravel.data.EditableConfigStore
@@ -1946,7 +1947,7 @@ fun DefaultCommandPicker(
                                         } else {
                                             editableStore.saveLocalConfig(updated)
                                             themePrefs.configSourceDirty = true
-                                            sh.kavi.fasttravel.data.ConfigRefreshScheduler.schedule(context, sh.kavi.fasttravel.data.ConfigRefreshInterval.MANUAL)
+                                            ConfigRefreshScheduler.schedule(context, ConfigRefreshInterval.MANUAL)
                                             onConfigChanged()
                                             scope.launch {
                                                 snackbarHostState.showSnackbar(
