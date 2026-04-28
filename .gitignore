@@ -44,3 +44,30 @@ extension/test-results/
 # Dev/debug Playwright scripts (local-path-dependent, not real tests)
 extension/ft-pw-*.mjs
 extension/ft-test-*.mjs
+extension/preview.mjs
+extension/screenshot-themes.mjs
+
+# Extension build outputs
+extension/dist-chrome/
+extension/dist-firefox/
+
+# Root-level build output
+build/
+
+# Root-level dev/debug test scripts (local-path-dependent, not real tests)
+test-*.mjs
+
+# Signing artifacts (never commit keys)
+*.keystore
+*.jks
+*.p12
+*.pfx
+signing.properties
+
+# npm/yarn debug logs
+npm-debug.log*
+yarn-error.log
+
+# Environment files
+.env
+.env.*
