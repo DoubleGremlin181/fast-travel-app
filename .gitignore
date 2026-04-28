@@ -1,0 +1,46 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.apk
+*.aab
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+test-results/
+
+# Claude Code (machine-specific)
+.claude/
+
+# Playwright MCP debug logs
+.playwright-mcp/
+
+# JVM crash dumps (Android)
+android/hs_err_pid*.log
+android/replay_pid*.log
+
+# Generated screenshots (regenerate with screenshot scripts)
+docs/screenshots/
+android/screenshots/
+extension/theme-screenshots/
+
+# Playwright test results
+extension/test-results/
+
+# Dev/debug Playwright scripts (local-path-dependent, not real tests)
+extension/ft-pw-*.mjs
+extension/ft-test-*.mjs
