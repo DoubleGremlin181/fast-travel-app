@@ -55,7 +55,7 @@ extension/dist-firefox/
 build/
 
 # Root-level dev/debug test scripts (local-path-dependent, not real tests)
-test-*.mjs
+/test-*.mjs
 
 # Signing artifacts (never commit keys)
 *.keystore
