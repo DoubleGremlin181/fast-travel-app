@@ -27,7 +27,7 @@ Add to GitHub secrets:
 
 ## Chrome Web Store
 
-1. Pay the one-time $5 developer fee at [chrome.google.com/webstore/devconsole](https://chrome.google.com/webstore/devconsole)
+1. Pay the one-time $5 developer fee at [chromewebstore.google.com/devconsole](https://chromewebstore.google.com/devconsole)
 2. Create a new item, upload a zip of `extension/dist/` for the initial review
 3. Note the extension ID from the dashboard
 4. Create a Google Cloud project, enable the Chrome Web Store API

@@ -56,7 +56,7 @@ npm run test:e2e       # End-to-end tests (requires Chrome)
 cd android
 ./gradlew assembleDebug   # Debug APK
 ./gradlew test            # Unit tests
-./gradlew connectedTest   # Instrumented tests (requires device/emulator)
+./gradlew connectedAndroidTest   # Instrumented tests (requires device/emulator)
 ```
 
 ### Config validation
