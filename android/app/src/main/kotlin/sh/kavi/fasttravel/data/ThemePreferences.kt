@@ -35,7 +35,7 @@ class ThemePreferences(context: Context) {
         const val AUTO_IGNORE_THRESHOLD_MAX = 20
 
         const val DEFAULT_CONFIG_URL =
-            "https://raw.githubusercontent.com/DoubleGremlin181/fast-travel/main/shared/config/default-config.json"
+            "https://raw.githubusercontent.com/DoubleGremlin181/fast-travel-app/main/shared/config/default-config.json"
     }
 
     private val prefs: SharedPreferences =

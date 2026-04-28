@@ -1893,7 +1893,7 @@ fun AboutScreen(navController: NavHostController) {
                     },
                     supportingContent = {
                         Text(
-                            "github.com/DoubleGremlin181/fast-travel",
+                            "github.com/DoubleGremlin181/fast-travel-app",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -1902,7 +1902,7 @@ fun AboutScreen(navController: NavHostController) {
                     modifier = Modifier.clickable {
                         val intent = Intent(
                             Intent.ACTION_VIEW,
-                            Uri.parse("https://github.com/DoubleGremlin181/fast-travel"),
+                            Uri.parse("https://github.com/DoubleGremlin181/fast-travel-app"),
                         )
                         context.startActivity(intent)
                     },
