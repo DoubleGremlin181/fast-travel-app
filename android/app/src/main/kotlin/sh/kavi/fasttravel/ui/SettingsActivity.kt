@@ -3,6 +3,7 @@ package sh.kavi.fasttravel.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import sh.kavi.fasttravel.BuildConfig
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -138,13 +139,12 @@ import sh.kavi.fasttravel.data.withGroupMoved
 import sh.kavi.fasttravel.data.withGroupUpdated
 import sh.kavi.fasttravel.data.withIgnoreAdded
 import sh.kavi.fasttravel.data.withIgnoreRemoved
-import androidx.compose.ui.graphics.BlurEffect
-import androidx.compose.ui.graphics.graphicsLayer
 import sh.kavi.fasttravel.ui.appearance.AppearanceMode
 import sh.kavi.fasttravel.ui.appearance.AppearanceShape
 import sh.kavi.fasttravel.ui.appearance.AppearanceVariant
 import sh.kavi.fasttravel.ui.appearance.ResolvedAppearance
 import sh.kavi.fasttravel.ui.appearance.resolveAppearance
+import sh.kavi.fasttravel.ui.appearance.forSettings
 import sh.kavi.fasttravel.ui.appearance.resolveFromPrefs
 import sh.kavi.fasttravel.ui.theme.FastTravelTheme
 import sh.kavi.fasttravel.ui.theme.LocalAppearance
@@ -237,36 +237,20 @@ class SettingsActivity : ComponentActivity() {
             val themePrefs = remember { ThemePreferences(context) }
             var appearance by remember { mutableStateOf(resolveFromPrefs(applicationContext, themePrefs)) }
 
-            FastTravelTheme(appearance = appearance) {
-                val skin = LocalAppearance.current
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (skin.surfaceBrush != null)
-                                Modifier.background(skin.surfaceBrush)
-                            else Modifier
-                        )
-                        .then(
-                            if (skin.applyBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-                                Modifier.graphicsLayer { renderEffect = BlurEffect(20f, 20f) }
-                            else Modifier
-                        )
-                ) {
-                    SettingsNavHost(
-                        onFinish = { finish() },
-                        themePrefs = themePrefs,
-                        onAppearanceChanged = { appearance = it },
-                        onImportFile = { callback ->
-                            importLauncherCallback = callback
-                            importFileLauncher.launch(arrayOf("application/json", "text/plain"))
-                        },
-                        onExportFile = { filename, callback ->
-                            exportLauncherCallback = callback
-                            exportFileLauncher.launch(filename)
-                        },
-                    )
-                }
+            FastTravelTheme(appearance = appearance.forSettings()) {
+                SettingsNavHost(
+                    onFinish = { finish() },
+                    themePrefs = themePrefs,
+                    onAppearanceChanged = { appearance = it },
+                    onImportFile = { callback ->
+                        importLauncherCallback = callback
+                        importFileLauncher.launch(arrayOf("application/json", "text/plain"))
+                    },
+                    onExportFile = { filename, callback ->
+                        exportLauncherCallback = callback
+                        exportFileLauncher.launch(filename)
+                    },
+                )
             }
         }
     }
@@ -477,7 +461,7 @@ fun SettingsCategoryHeader(title: String) {
         style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.SemiBold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp, end = 16.dp),
+        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp, end = 16.dp),
     )
 }
 
@@ -581,7 +565,7 @@ fun SettingsHomeScreen(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 NavigableListItem(
                     headlineText = "About",
-                    supportingText = "v2.0.0",
+                    supportingText = "v${BuildConfig.VERSION_NAME}",
                     onClick = { navController.navigate(SettingsRoute.About.route) },
                 )
             }
@@ -638,6 +622,35 @@ fun ConfigurationScreen(
                     snackbarHostState = snackbarHostState,
                     scope = scope,
                 )
+                if (config != null) {
+                    val context = LocalContext.current
+                    var defaultApiText by remember(config.defaultSuggestionsApi) {
+                        mutableStateOf(config.defaultSuggestionsApi ?: "")
+                    }
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        OutlinedTextFieldS(
+                            value = defaultApiText,
+                            onValueChange = { defaultApiText = it },
+                            label = { Text("Default suggestions API") },
+                            placeholder = { Text("https://…?q={query}") },
+                            supportingText = { Text("Fallback for commands without a suggestions URL.") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            trailingIcon = {
+                                if (defaultApiText.trim() != (config.defaultSuggestionsApi ?: "")) {
+                                    IconButton(onClick = {
+                                        val url = defaultApiText.trim().ifEmpty { null }
+                                        editableStore.saveLocalConfig(config.copy(defaultSuggestionsApi = url))
+                                        markDirtyAndCancelRefresh(context, themePrefs)
+                                        onConfigChanged()
+                                    }) {
+                                        Icon(Icons.Default.Check, contentDescription = "Save")
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 NavigableListItem(
                     headlineText = "Import / Export",
@@ -936,16 +949,8 @@ fun AppearanceScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Appearance") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
+        topBar = { SettingsTopBar(title = "Appearance", onBack = onBack) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { padding ->
         Column(
             Modifier
@@ -953,44 +958,78 @@ fun AppearanceScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState()),
         ) {
+            Spacer(Modifier.height(16.dp))
             // 1. Live preview
-            CompositionLocalProvider(LocalAppearance provides appearance) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .height(120.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    WidgetPreview(opacityPercent = draft.opacity)
+            SettingsCard {
+                CompositionLocalProvider(LocalAppearance provides appearance) {
+                    Box(
+                        Modifier.fillMaxWidth().height(80.dp).padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        WidgetPreview(opacityPercent = draft.opacity)
+                    }
                 }
             }
             // 2. Mode segmented control
-            AppearanceModePicker(draft.mode) { draft = draft.copy(mode = it) }
-            // 3. Variant picker — LazyRow of 9 thumbnails
-            AppearanceVariantPicker(
-                current = draft.variant,
-                mode = draft.mode,
-                shape = draft.shape,
-                onSelect = { draft = draft.copy(variant = it) },
-            )
-            // 4. Shape picker — LazyRow of 4 thumbnails
-            AppearanceShapePicker(
-                current = draft.shape,
-                mode = draft.mode,
-                variant = draft.variant,
-                onSelect = { draft = draft.copy(shape = it) },
-            )
-            // 5. Opacity slider
-            AppearanceOpacitySlider(
-                value = draft.opacity,
-                onChange = { draft = draft.copy(opacity = it) },
-            )
-            // 6. Shortcut rows slider
-            AppearanceRowsSlider(
-                value = draft.rows,
-                onChange = { draft = draft.copy(rows = it) },
-            )
+            SettingsCategoryHeader("Mode")
+            SettingsCard {
+                AppearanceModePicker(
+                    selected = draft.mode,
+                    enabled = draft.variant != AppearanceVariant.AMOLED,
+                    onSelect = { draft = draft.copy(mode = it) },
+                )
+            }
+            // 3. Variant picker
+            SettingsCategoryHeader("Style")
+            SettingsCard {
+                AppearanceVariantPicker(
+                    current = draft.variant,
+                    mode = draft.mode,
+                    shape = draft.shape,
+                    onSelect = { draft = draft.copy(variant = it) },
+                )
+            }
+            // 4. Shape picker
+            SettingsCategoryHeader("Shape")
+            SettingsCard {
+                AppearanceShapePicker(
+                    current = draft.shape,
+                    mode = draft.mode,
+                    variant = draft.variant,
+                    onSelect = { draft = draft.copy(shape = it) },
+                )
+            }
+            // 5 & 6. Widget settings (opacity + rows)
+            SettingsCategoryHeader("Widget")
+            SettingsCard {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Text(
+                        "Widget opacity: ${draft.opacity}%",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Slider(
+                        value = draft.opacity.toFloat(),
+                        onValueChange = { draft = draft.copy(opacity = it.toInt()) },
+                        valueRange = 0f..100f,
+                    )
+                    Text(
+                        "Applies to the home-screen widget only.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                    Text(
+                        "Shortcut rows on widget: ${draft.rows}",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Slider(
+                        value = draft.rows.toFloat(),
+                        onValueChange = { draft = draft.copy(rows = it.toInt()) },
+                        valueRange = 1f..3f,
+                        steps = 1,
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -1000,30 +1039,38 @@ fun AppearanceScreen(
 @Composable
 private fun AppearanceModePicker(
     selected: AppearanceMode,
+    enabled: Boolean = true,
     onSelect: (AppearanceMode) -> Unit,
 ) {
-    SingleChoiceSegmentedButtonRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-    ) {
-        AppearanceMode.entries.forEachIndexed { index, m ->
-            SegmentedButton(
-                selected = selected == m,
-                onClick = { onSelect(m) },
-                shape = SegmentedButtonDefaults.itemShape(
-                    index = index,
-                    count = AppearanceMode.entries.size,
-                ),
-            ) {
-                Text(
-                    when (m) {
-                        AppearanceMode.LIGHT -> "Light"
-                        AppearanceMode.DARK -> "Dark"
-                        AppearanceMode.SYSTEM -> "System"
-                    }
-                )
+    Column(Modifier.padding(16.dp)) {
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            AppearanceMode.entries.forEachIndexed { index, m ->
+                SegmentedButton(
+                    selected = selected == m,
+                    onClick = { onSelect(m) },
+                    enabled = enabled,
+                    shape = SegmentedButtonDefaults.itemShape(
+                        index = index,
+                        count = AppearanceMode.entries.size,
+                    ),
+                ) {
+                    Text(
+                        when (m) {
+                            AppearanceMode.LIGHT -> "Light"
+                            AppearanceMode.DARK -> "Dark"
+                            AppearanceMode.SYSTEM -> "System"
+                        }
+                    )
+                }
             }
+        }
+        if (!enabled) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "This style is always dark.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -1036,9 +1083,8 @@ private fun AppearanceVariantPicker(
     onSelect: (AppearanceVariant) -> Unit,
 ) {
     val context = LocalContext.current
-    SettingsCategoryHeader(title = "Style")
     LazyRow(
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -1100,9 +1146,8 @@ private fun AppearanceShapePicker(
     onSelect: (AppearanceShape) -> Unit,
 ) {
     val context = LocalContext.current
-    SettingsCategoryHeader(title = "Shape")
     LazyRow(
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -1154,49 +1199,6 @@ private fun AppearanceShapePicker(
         }
     }
 }
-
-@Composable
-private fun AppearanceOpacitySlider(
-    value: Int,
-    onChange: (Int) -> Unit,
-) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            "Widget opacity: ${value}%",
-            style = MaterialTheme.typography.labelLarge,
-        )
-        Slider(
-            value = value.toFloat(),
-            onValueChange = { onChange(it.toInt()) },
-            valueRange = 0f..100f,
-        )
-        Text(
-            "Applies to the home-screen widget only.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun AppearanceRowsSlider(
-    value: Int,
-    onChange: (Int) -> Unit,
-) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(
-            "Shortcut rows on widget: ${value}",
-            style = MaterialTheme.typography.labelLarge,
-        )
-        Slider(
-            value = value.toFloat(),
-            onValueChange = { onChange(it.toInt()) },
-            valueRange = 1f..3f,
-            steps = 1,
-        )
-    }
-}
-
 
 // ==================== Ignore List Screen ====================
 
@@ -1320,12 +1322,16 @@ fun IgnoreListScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { inner ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(inner),
+                .padding(inner)
+                .padding(top = 16.dp, bottom = 16.dp),
         ) {
+        SettingsCard(modifier = Modifier.weight(1f)) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
             // ----- Permanent section -----
             item {
                 IgnoreSectionHeader(
@@ -1475,6 +1481,8 @@ fun IgnoreListScreen(
                 }
             }
         }
+        } // SettingsCard
+        } // Column
     }
 
     // ----- Bottom sheets + dialog -----
@@ -1708,20 +1716,16 @@ fun SearchHistoryScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .padding(top = 16.dp, bottom = 16.dp),
         ) {
             if (history.isNotEmpty()) {
-                // Clear all button
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    color = Color.Transparent,
-                ) {
+                SettingsCard {
                     OutlinedButton(
                         onClick = {
                             searchHistory.clearHistory()
@@ -1730,53 +1734,52 @@ fun SearchHistoryScreen(
                                 snackbarHostState.showSnackbar("Search history cleared")
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error,
                         ),
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Clear all",
-                        )
+                        Icon(imageVector = Icons.Default.Delete, contentDescription = "Clear all")
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Clear All")
                     }
                 }
-
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    items(history) { entry ->
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    text = entry.query,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                            },
-                            supportingContent = {
-                                val time = SimpleDateFormat(
-                                    "MMM d, h:mm a",
-                                    Locale.getDefault(),
-                                ).format(Date(entry.timestamp))
-                                Text(
-                                    text = buildString {
-                                        if (entry.commandId != null) {
-                                            append(entry.commandId)
-                                            append(" \u00b7 ")
-                                        }
-                                        append(time)
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier.combinedClickable(
-                                onClick = {},
-                                onLongClick = { pendingDelete = entry.query },
-                            ),
-                        )
+                Spacer(Modifier.height(8.dp))
+                SettingsCard(modifier = Modifier.weight(1f)) {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(history) { entry ->
+                            ListItem(
+                                headlineContent = {
+                                    Text(
+                                        text = entry.query,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                },
+                                supportingContent = {
+                                    val time = SimpleDateFormat(
+                                        "MMM d, h:mm a",
+                                        Locale.getDefault(),
+                                    ).format(Date(entry.timestamp))
+                                    Text(
+                                        text = buildString {
+                                            if (entry.commandId != null) {
+                                                append(entry.commandId)
+                                                append(" \u00b7 ")
+                                            }
+                                            append(time)
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                modifier = Modifier.combinedClickable(
+                                    onClick = {},
+                                    onLongClick = { pendingDelete = entry.query },
+                                ),
+                            )
+                        }
                     }
                 }
             } else {
@@ -1832,6 +1835,7 @@ fun AboutScreen(navController: NavHostController) {
                 onBack = { navController.popBackStack() },
             )
         },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -1850,7 +1854,7 @@ fun AboutScreen(navController: NavHostController) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "v2.0.0",
+                text = "v${BuildConfig.VERSION_NAME}",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -2038,8 +2042,9 @@ fun GroupsHomeScreen(
                 text = { Text("New group") },
             )
         },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding).padding(top = 8.dp, bottom = 16.dp)) {
             OutlinedTextFieldS(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -2073,7 +2078,6 @@ fun GroupsHomeScreen(
                 val reorderableState = rememberReorderableLazyListState(
                     lazyListState = lazyListState,
                 ) { from, to ->
-                    // LazyColumn index 0 is the section header; subtract it to get group index.
                     val fromIdx = (from.index - 1).coerceAtLeast(0)
                     val toIdx = (to.index - 1).coerceAtLeast(0)
                     val cfg = config ?: return@rememberReorderableLazyListState
@@ -2081,45 +2085,47 @@ fun GroupsHomeScreen(
                     markDirtyAndCancelRefresh(context, themePrefs)
                     onConfigChanged()
                 }
-                LazyColumn(
-                    state = lazyListState,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    item(key = "header") {
-                        Text(
-                            text = "GROUPS (${filteredGroups.size})",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 1.sp,
-                            modifier = Modifier.padding(
-                                start = 16.dp, top = 16.dp, bottom = 4.dp, end = 16.dp,
-                            ),
-                        )
-                    }
-                    if (filteredGroups.isEmpty()) {
-                        item {
+                SettingsCard(modifier = Modifier.weight(1f)) {
+                    LazyColumn(
+                        state = lazyListState,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        item(key = "header") {
                             Text(
-                                text = "No groups match \"$searchQuery\"",
-                                style = MaterialTheme.typography.bodyLarge,
+                                text = "GROUPS (${filteredGroups.size})",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(32.dp),
+                                letterSpacing = 1.sp,
+                                modifier = Modifier.padding(
+                                    start = 16.dp, top = 16.dp, bottom = 4.dp, end = 16.dp,
+                                ),
                             )
                         }
-                    }
-                    items(filteredGroups, key = { it.id }) { group ->
-                        ReorderableItem(reorderableState, key = group.id) { isDragging ->
-                            GroupListRow(
-                                group = group,
-                                isDragging = isDragging,
-                                onClick = {
-                                    navController.navigate(SettingsRoute.GroupEdit.build(group.id))
-                                },
-                                dragHandleModifier = Modifier.longPressDraggableHandle(),
-                            )
+                        if (filteredGroups.isEmpty()) {
+                            item {
+                                Text(
+                                    text = "No groups match \"$searchQuery\"",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(32.dp),
+                                )
+                            }
                         }
+                        items(filteredGroups, key = { it.id }) { group ->
+                            ReorderableItem(reorderableState, key = group.id) { isDragging ->
+                                GroupListRow(
+                                    group = group,
+                                    isDragging = isDragging,
+                                    onClick = {
+                                        navController.navigate(SettingsRoute.GroupEdit.build(group.id))
+                                    },
+                                    dragHandleModifier = Modifier.longPressDraggableHandle(),
+                                )
+                            }
+                        }
+                        item { Spacer(Modifier.height(80.dp)) }
                     }
-                    item { Spacer(Modifier.height(80.dp)) }
                 }
             }
         }
@@ -2221,80 +2227,92 @@ fun GroupEditScreen(
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .verticalScroll(rememberScrollState()),
         ) {
-            OutlinedTextFieldS(
-                value = idField,
-                onValueChange = {
-                    idField = it.lowercase().replace(Regex("[^a-z0-9-]+"), "-")
-                    idError = null
-                },
-                label = { Text("ID") },
-                supportingText = {
-                    Text(idError ?: "Lowercase letters, digits, hyphens. Cannot change after create.")
-                },
-                isError = idError != null,
-                enabled = isNew,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextFieldS(
-                value = nameField,
-                onValueChange = { nameField = it },
-                label = { Text("Name") },
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text(
-                text = "Color",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GROUP_COLOR_PRESETS.forEach { hex ->
-                    val parsed = parseGroupColor(hex) ?: return@forEach
-                    val selected = colorField.equals(hex, ignoreCase = true)
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(parsed)
-                            .border(
-                                width = if (selected) 3.dp else 0.dp,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                shape = RoundedCornerShape(20.dp),
-                            )
-                            .clickable {
-                                colorField = hex
-                                colorError = null
-                            },
+            SettingsCategoryHeader("Details")
+            SettingsCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    OutlinedTextFieldS(
+                        value = idField,
+                        onValueChange = {
+                            idField = it.lowercase().replace(Regex("[^a-z0-9-]+"), "-")
+                            idError = null
+                        },
+                        label = { Text("ID") },
+                        supportingText = {
+                            Text(idError ?: "Lowercase letters, digits, hyphens. Cannot change after create.")
+                        },
+                        isError = idError != null,
+                        enabled = isNew,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextFieldS(
+                        value = nameField,
+                        onValueChange = { nameField = it },
+                        label = { Text("Name") },
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
-
-            OutlinedTextFieldS(
-                value = colorField,
-                onValueChange = {
-                    colorField = it.trim()
-                    colorError = null
-                },
-                label = { Text("Custom hex (#RRGGBB)") },
-                supportingText = {
-                    Text(colorError ?: "Any 6-digit hex. Chips derive a tint automatically.")
-                },
-                isError = colorError != null,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SettingsCategoryHeader("Color")
+            SettingsCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        GROUP_COLOR_PRESETS.forEach { hex ->
+                            val parsed = parseGroupColor(hex) ?: return@forEach
+                            val selected = colorField.equals(hex, ignoreCase = true)
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        colorField = hex
+                                        colorError = null
+                                    },
+                                contentAlignment = androidx.compose.ui.Alignment.Center,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(if (selected) 32.dp else 40.dp)
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(parsed)
+                                        .then(
+                                            if (selected) Modifier.border(
+                                                width = 2.dp,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                shape = RoundedCornerShape(20.dp),
+                                            ) else Modifier
+                                        ),
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextFieldS(
+                        value = colorField,
+                        onValueChange = {
+                            colorField = it.trim()
+                            colorError = null
+                        },
+                        label = { Text("Custom hex (#RRGGBB)") },
+                        supportingText = {
+                            Text(colorError ?: "Any 6-digit hex. Chips derive a tint automatically.")
+                        },
+                        isError = colorError != null,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Button(
                     onClick = {
                         val id = idField.trim()
@@ -2338,12 +2356,11 @@ fun GroupEditScreen(
                     Text("Cancel")
                 }
             }
-
             if (!isNew) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(8.dp))
                 OutlinedButton(
                     onClick = { showDeleteDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     shape = RoundedCornerShape(8.dp),
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
@@ -2351,13 +2368,12 @@ fun GroupEditScreen(
                     Text("Delete group", color = MaterialTheme.colorScheme.error)
                 }
             }
-
             Spacer(Modifier.height(32.dp))
         }
     }
 
     if (showDeleteDialog && existing != null) {
-        val hasContents = existing.commands.isNotEmpty() || existing.groups.isNotEmpty()
+        val hasContents = existing.commands.isNotEmpty()
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Delete group") },
@@ -2365,7 +2381,7 @@ fun GroupEditScreen(
                 if (hasContents) {
                     Text(
                         "\"${existing.name}\" still contains ${existing.commands.size} " +
-                            "commands and ${existing.groups.size} subgroups. Move or delete " +
+                            "command${if (existing.commands.size == 1) "" else "s"}. Move or delete " +
                             "those first.",
                     )
                 } else {
@@ -2415,15 +2431,6 @@ fun markDirtyAndCancelRefresh(context: Context, themePrefs: ThemePreferences) {
     ConfigRefreshScheduler.schedule(context, ConfigRefreshInterval.MANUAL)
 }
 
-internal fun getAllCommands(config: FastTravelConfig): List<Command> {
-    val commands = mutableListOf<Command>()
-    fun walk(groups: List<Group>) {
-        for (group in groups) {
-            commands.addAll(group.commands)
-            walk(group.groups)
-        }
-    }
-    walk(config.groups)
-    return commands.sortedBy { it.triggers.first() }
-}
+internal fun getAllCommands(config: FastTravelConfig): List<Command> =
+    config.groups.flatMap { it.commands }.sortedBy { it.triggers.first() }
 
