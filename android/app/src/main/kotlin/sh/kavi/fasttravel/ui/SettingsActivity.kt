@@ -3,7 +3,6 @@ package sh.kavi.fasttravel.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import sh.kavi.fasttravel.BuildConfig
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -117,6 +116,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import sh.kavi.fasttravel.BuildConfig
 import sh.kavi.fasttravel.core.Command
 import sh.kavi.fasttravel.core.FastTravelConfig
 import sh.kavi.fasttravel.core.Group
