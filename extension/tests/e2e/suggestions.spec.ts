@@ -22,9 +22,12 @@ test("suggestions: typing a command prefix shows suggestions dropdown", async ({
   // Type "g " — matches the Google command; suggestions dropdown should appear.
   await input.fill("g hello world");
 
-  // The input should still be visible and contain the typed value — page has not crashed.
+  // The input should still be visible and contain the typed value.
   await expect(input).toBeVisible();
   await expect(input).toHaveValue("g hello world");
+
+  // The suggestions dropdown should now be visible (hidden class removed by renderSuggestions).
+  await expect(page.locator("#suggestions-dropdown")).not.toHaveClass(/hidden/);
 });
 
 test("suggestions: typing a query with no matching command prefix does not crash", async ({

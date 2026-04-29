@@ -1,9 +1,11 @@
 package sh.kavi.fasttravel.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -21,11 +23,14 @@ class ImportExportTest {
     }
 
     @Test
-    fun importExport_allThreeSectionsVisible() {
+    fun urlImport_urlFieldAcceptsTypedInput() {
         navigateToImportExport()
-        composeTestRule.onNodeWithText("Choose file…").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Fetch & Import").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Export config").assertIsDisplayed()
+        // The "Config URL" OutlinedTextField should accept typed text and display it.
+        val testUrl = "https://example.com/config.json"
+        composeTestRule.onNodeWithText("Config URL").performClick()
+        composeTestRule.onNodeWithText("Config URL").performTextInput(testUrl)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithText(testUrl).assertIsDisplayed()
     }
 
     @Test

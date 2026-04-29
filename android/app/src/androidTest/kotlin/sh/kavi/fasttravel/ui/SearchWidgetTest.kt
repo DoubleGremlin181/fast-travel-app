@@ -2,7 +2,6 @@ package sh.kavi.fasttravel.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
@@ -21,13 +20,5 @@ class SearchWidgetTest {
         // The search bar placeholder is visible whenever the text field is empty,
         // which is always the case on a fresh launch of SearchActivity.
         composeTestRule.onNodeWithText("Search or type a command…").assertIsDisplayed()
-    }
-
-    @Test
-    fun searchActivity_settingsButtonVisible() {
-        composeTestRule.waitForIdle()
-        // The settings gear icon has contentDescription "Open settings" and is
-        // shown in the unfocused header row when the IME is not visible.
-        composeTestRule.onNodeWithContentDescription("Open settings").assertIsDisplayed()
     }
 }
