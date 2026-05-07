@@ -1,0 +1,705 @@
+import { parseCommand, buildTriggerMap } from "../core/parser.js";
+import { fetchSuggestions } from "../core/suggestions.js";
+import { detectDevice } from "../core/device.js";
+import { resolveIconUrl } from "../core/icon.js";
+import type {
+  FastTravelConfig,
+  TypoResult,
+  Command,
+  Group,
+} from "../core/types.js";
+import type { Suggestion } from "../core/suggestions.js";
+import { resolveGroupTint } from "../ui/group-colors.js";
+import { renderFavicon } from "../ui/favicon.js";
+import { applyAppearance, getAppearance, subscribe as subscribeAppearance } from "../ui/appearance.js";
+import {
+  decrementCandidate,
+  incrementCandidate,
+  removeCandidate,
+  loadCandidates,
+  getAutoIgnoreThreshold,
+  type AutoIgnoreStore,
+} from "../core/auto-ignore-store.js";
+import { effectiveIgnoreList } from "../core/effective-ignore-list.js";
+
+interface HistoryEntry {
+  query: string;
+  commandId: string | null;
+  timestamp: number;
+}
+
+type SuggestionKind = "command" | "api" | "history";
+
+interface SuggestionItem {
+  text: string;
+  display: string;
+  kind: SuggestionKind;
+  command?: Command;
+  matchedTrigger?: string;
+  timestamp?: number;
+  iconUrl?: string;
+  groupColor?: string;
+}
+
+interface ResolvedCommand {
+  cmd: Command;
+  groupColor?: string;
+}
+
+function flattenWithColors(cfg: FastTravelConfig): ResolvedCommand[] {
+  const out: ResolvedCommand[] = [];
+  function walk(groups: Group[], parentColor?: string): void {
+    for (const group of groups) {
+      const color = parentColor ?? group.color;
+      if (group.commands) {
+        for (const cmd of group.commands) out.push({ cmd, groupColor: color });
+      }
+      if (group.groups) walk(group.groups, color);
+    }
+  }
+  walk(cfg.groups);
+  return out;
+}
+
+function findCommandColor(cfg: FastTravelConfig, predicate: (c: Command) => boolean): string | undefined {
+  for (const { cmd, groupColor } of flattenWithColors(cfg)) {
+    if (predicate(cmd)) return groupColor;
+  }
+  return undefined;
+}
+
+function findResolvedById(cfg: FastTravelConfig, id: string | null): ResolvedCommand | null {
+  if (!id) return null;
+  for (const rc of flattenWithColors(cfg)) if (rc.cmd.id === id) return rc;
+  return null;
+}
+
+function findResolvedByTrigger(cfg: FastTravelConfig, trigger: string): ResolvedCommand | null {
+  const t = trigger.toLowerCase();
+  for (const rc of flattenWithColors(cfg)) {
+    if (rc.cmd.triggers.some((x) => x.toLowerCase() === t)) return rc;
+  }
+  return null;
+}
+
+// State
+let config: FastTravelConfig | null = null;
+let permanentIgnoreList: string[] = [];
+let candidates: AutoIgnoreStore = {};
+let threshold = 3;
+let currentTypo: TypoResult | null = null;
+const device = detectDevice();
+
+async function refreshIgnoreState(): Promise<void> {
+  permanentIgnoreList = (await chrome.runtime.sendMessage({ type: "getIgnoreList" })) ?? [];
+  candidates = await loadCandidates();
+  threshold = await getAutoIgnoreThreshold();
+}
+
+function currentEffectiveIgnoreList(): string[] {
+  return effectiveIgnoreList(permanentIgnoreList, candidates, threshold);
+}
+
+// DOM
+const searchInput = document.getElementById("search-input") as HTMLInputElement;
+const searchWrapper = document.getElementById("search-wrapper")!;
+const suggestionsDropdown = document.getElementById("suggestions-dropdown")!;
+const leadingIcon = document.getElementById("leading-icon")!;
+const typoContainer = document.getElementById("typo-container")!;
+const typoMessage = document.getElementById("typo-message")!;
+const typoAccept = document.getElementById("typo-accept")!;
+const typoSearch = document.getElementById("typo-search")!;
+const typoIgnore = document.getElementById("typo-ignore")!;
+const chipsSection = document.getElementById("chips-section")!;
+const chipsContent = document.getElementById("chips-content")!;
+
+const defaultLeadingIcon = leadingIcon.innerHTML;
+
+const ONBOARDING_HINT_DISMISSED_KEY = "fast-travel-onboarding-hint-dismissed";
+const SEARCH_ENGINE_ACTIVE_KEY = "fast-travel-search-engine-active";
+
+async function setupOnboardingHint(): Promise<void> {
+  const hint = document.getElementById("onboarding-hint");
+  const dismissBtn = document.getElementById("onboarding-hint-dismiss");
+  if (!hint || !dismissBtn) return;
+  const stored = await chrome.storage.local.get([ONBOARDING_HINT_DISMISSED_KEY, SEARCH_ENGINE_ACTIVE_KEY]);
+  if (stored[ONBOARDING_HINT_DISMISSED_KEY] || stored[SEARCH_ENGINE_ACTIVE_KEY]) return;
+  hint.classList.remove("hidden");
+  dismissBtn.addEventListener("click", async () => {
+    hint.classList.add("hidden");
+    await chrome.storage.local.set({ [ONBOARDING_HINT_DISMISSED_KEY]: true });
+  });
+}
+
+async function init(): Promise<void> {
+  applyAppearance(await getAppearance());
+  subscribeAppearance(applyAppearance);
+  config = await chrome.runtime.sendMessage({ type: "getConfig" });
+  await refreshIgnoreState();
+
+  // Omnibox search-provider path: ?q=<query> → resolve + navigate immediately.
+  // The presence of ?q= proves Fast Travel is the active default search engine.
+  const q = new URLSearchParams(window.location.search).get("q");
+  if (q !== null) {
+    chrome.storage.local.set({ [SEARCH_ENGINE_ACTIVE_KEY]: true });
+  }
+  if (q !== null && config) {
+    const trimmed = q.trim();
+    if (trimmed) {
+      const result = parseCommand({
+        rawQuery: trimmed,
+        device,
+        config,
+        ignoreList: currentEffectiveIgnoreList(),
+      });
+      if (result.type === "redirect") {
+        if (!/^(https?|mailto|tel|file):/i.test(result.url)) return;
+        chrome.runtime.sendMessage({
+          type: "addHistory",
+          value: { query: trimmed, commandId: result.commandId, timestamp: Date.now() },
+        });
+        window.location.replace(result.url);
+        return;
+      }
+      if (result.type === "typo") {
+        history.replaceState(null, "", window.location.pathname);
+        searchInput.value = trimmed;
+        updateLeadingIcon(trimmed);
+        if (config) renderQuickChips();
+        showTypoSuggestion(result);
+        return;
+      }
+    }
+    history.replaceState(null, "", window.location.pathname);
+  }
+
+  if (config) renderQuickChips();
+  void setupOnboardingHint();
+}
+
+function focusSearchInput(): void {
+  const grab = () => {
+    if (!document.hasFocus()) return;
+    if (document.activeElement === searchInput) return;
+    searchInput.focus({ preventScroll: true });
+  };
+  grab();
+  requestAnimationFrame(grab);
+  setTimeout(grab, 50);
+
+  // Re-grab when switching back to this tab or returning from the omnibox.
+  window.addEventListener("focus", grab);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") grab();
+  });
+
+  // Type-anywhere: route printable keystrokes to the search bar when the page
+  // has focus but a non-input element is active.
+  document.addEventListener("keydown", (e) => {
+    if (!document.hasFocus()) return;
+    if (e.target === searchInput) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length !== 1) return;
+    e.preventDefault();
+    searchInput.focus({ preventScroll: true });
+    const start = searchInput.selectionStart ?? searchInput.value.length;
+    const end = searchInput.selectionEnd ?? searchInput.value.length;
+    searchInput.value = searchInput.value.slice(0, start) + e.key + searchInput.value.slice(end);
+    searchInput.selectionStart = searchInput.selectionEnd = start + 1;
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+// Start grabbing focus immediately — before init() awaits config/storage, which
+// is the window where Chrome's omnibox otherwise wins the focus race.
+focusSearchInput();
+
+/** Pastel-tinted quick command chips under the search bar. Hidden while the
+ * user is typing and while the suggestions dropdown is open. */
+function renderQuickChips(): void {
+  if (!config) return;
+  chipsContent.replaceChildren();
+  const resolved = flattenWithColors(config).filter(({ cmd }) => cmd.type === "standard");
+  for (const { cmd, groupColor } of resolved.slice(0, 8)) {
+    const tint = resolveGroupTint(groupColor);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "quick-chip";
+    btn.style.background = tint.fill;
+    btn.style.color = tint.fg;
+    btn.title = cmd.name;
+
+    const faviconEl = document.createElement("span");
+    faviconEl.className = "quick-chip-favicon";
+    renderFavicon(faviconEl, { iconUrl: resolveIconUrl(cmd, device), trigger: cmd.triggers[0], groupColor, size: 16 });
+    btn.appendChild(faviconEl);
+
+    const label = document.createElement("span");
+    label.textContent = cmd.triggers[0];
+    btn.appendChild(label);
+
+    btn.addEventListener("click", () => {
+      searchInput.value = cmd.triggers[0] + " ";
+      searchInput.focus();
+      showSuggestions(searchInput.value);
+    });
+
+    chipsContent.appendChild(btn);
+  }
+}
+
+function updateChipsVisibility(): void {
+  const hasText = searchInput.value.trim().length > 0;
+  const dropdownOpen = !suggestionsDropdown.classList.contains("hidden");
+  chipsSection.classList.toggle("hidden", hasText || dropdownOpen);
+}
+
+function handleSearch(): void {
+  if (!config) return;
+  const query = searchInput.value.trim();
+  if (!query) return;
+
+  const result = parseCommand({
+    rawQuery: query,
+    device,
+    config,
+    ignoreList: currentEffectiveIgnoreList(),
+  });
+
+  if (result.type === "redirect") {
+    if (!/^(https?|mailto|tel|file):/i.test(result.url)) return;
+    chrome.runtime.sendMessage({
+      type: "addHistory",
+      value: { query, commandId: result.commandId, timestamp: Date.now() },
+    });
+    window.location.href = result.url;
+  } else if (result.type === "typo") {
+    showTypoSuggestion(result);
+  }
+}
+
+function showTypoSuggestion(typo: TypoResult): void {
+  currentTypo = typo;
+  typoContainer.classList.remove("hidden");
+  typoMessage.textContent = "";
+  typoMessage.append(
+    "Did you mean ",
+    Object.assign(document.createElement("strong"), { textContent: typo.suggestedTrigger }),
+    ` (${typo.suggestedCommand.name})?`,
+  );
+  searchInput.blur();
+}
+
+function hideTypo(): void {
+  currentTypo = null;
+  typoContainer.classList.add("hidden");
+  searchInput.focus();
+}
+
+async function acceptTypo(): Promise<void> {
+  if (!currentTypo) return;
+  const trigger = currentTypo.originalQuery.split(/\s+/)[0].toLowerCase();
+  // Negative dismissal signal — user confirms the typo was right.
+  await decrementCandidate(trigger);
+  chrome.runtime.sendMessage({
+    type: "addHistory",
+    value: {
+      query: currentTypo.originalQuery,
+      commandId: currentTypo.suggestedCommand.id,
+      timestamp: Date.now(),
+    },
+  });
+  const url = currentTypo.correctedUrl;
+  hideTypo();
+  window.location.href = url;
+}
+
+async function defaultSearch(): Promise<void> {
+  if (!currentTypo || !config) return;
+  const query = currentTypo.originalQuery;
+  chrome.runtime.sendMessage({
+    type: "addHistory",
+    value: { query, commandId: null, timestamp: Date.now() },
+  });
+  const trigger = query.split(/\s+/)[0].toLowerCase();
+  // Positive dismissal signal — bump the counter. Auto-add is handled
+  // implicitly by effectiveIgnoreList (Task 8 wires it at parse time).
+  await incrementCandidate(trigger);
+  candidates = await loadCandidates();
+  const fallback = parseCommand({
+    rawQuery: query,
+    device,
+    config,
+    ignoreList: currentEffectiveIgnoreList(),
+  });
+  const url = fallback.type === "redirect"
+    ? fallback.url
+    : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  window.location.href = url;
+}
+
+async function ignoreTypo(): Promise<void> {
+  if (!currentTypo) return;
+  const trigger = currentTypo.originalQuery.split(/\s+/)[0].toLowerCase();
+  permanentIgnoreList = await chrome.runtime.sendMessage({ type: "addToIgnoreList", value: trigger });
+  await removeCandidate(trigger);
+  candidates = await loadCandidates();
+  hideTypo();
+  handleSearch();
+}
+
+/** Leading icon: magnifier by default, swap to command favicon when the first
+ * token matches a known trigger. Reverts when the trigger no longer matches. */
+function updateLeadingIcon(query: string): void {
+  if (!config) return;
+  const first = query.split(/\s+/)[0]?.toLowerCase() ?? "";
+  if (!first) {
+    resetLeadingIcon();
+    return;
+  }
+  const rc = findResolvedByTrigger(config, first);
+  if (!rc) {
+    resetLeadingIcon();
+    return;
+  }
+  leadingIcon.classList.add("is-command");
+  leadingIcon.replaceChildren();
+  renderFavicon(leadingIcon, {
+    iconUrl: resolveIconUrl(rc.cmd, device),
+    trigger: rc.cmd.triggers[0],
+    groupColor: rc.groupColor,
+    size: 22,
+  });
+}
+
+function resetLeadingIcon(): void {
+  if (!leadingIcon.classList.contains("is-command")) return;
+  leadingIcon.classList.remove("is-command");
+  leadingIcon.removeAttribute("style");
+  leadingIcon.innerHTML = defaultLeadingIcon;
+}
+
+function hideSuggestions(): void {
+  suggestionsDropdown.classList.add("hidden");
+  searchWrapper.classList.remove("dropdown-open");
+  activeSuggestionIndex = -1;
+  updateChipsVisibility();
+}
+
+let suggestionTimer: ReturnType<typeof setTimeout> | null = null;
+let activeSuggestionIndex = -1;
+
+async function showHistory(): Promise<void> {
+  if (!config) return;
+  const history: HistoryEntry[] = await chrome.runtime.sendMessage({ type: "getHistory" });
+  if (!history || history.length === 0) return;
+
+  const seen = new Set<string>();
+  const items: SuggestionItem[] = history
+    .filter((h) => {
+      if (seen.has(h.query)) return false;
+      seen.add(h.query);
+      return true;
+    })
+    .slice(0, 8)
+    .map((h) => {
+      const rc = findResolvedById(config!, h.commandId);
+      return {
+        text: h.query,
+        display: h.query,
+        kind: "history",
+        timestamp: h.timestamp,
+        iconUrl: rc ? resolveIconUrl(rc.cmd, device) : undefined,
+        groupColor: rc?.groupColor,
+        command: rc?.cmd,
+      };
+    });
+
+  renderSuggestions(items, true);
+}
+
+function showSuggestions(query: string): void {
+  updateLeadingIcon(query);
+  if (suggestionTimer) {
+    clearTimeout(suggestionTimer);
+    suggestionTimer = null;
+  }
+  if (!config || !query.trim()) {
+    if (!query.trim() && document.activeElement === searchInput) {
+      showHistory();
+    } else {
+      hideSuggestions();
+    }
+    return;
+  }
+
+  const triggerMap = buildTriggerMap(config);
+  const parts = query.trim().split(/\s+/);
+  const partial = parts[0].toLowerCase();
+  const commandItems: SuggestionItem[] = [];
+
+  if (parts.length === 1) {
+    for (const [trigger, cmd] of triggerMap) {
+      if (cmd.type === "prefix") continue;
+      if (trigger.startsWith(partial) && trigger !== partial) {
+        const groupColor = findCommandColor(config, (c) => c.id === cmd.id);
+        commandItems.push({
+          text: trigger + " ",
+          display: `${trigger} — ${cmd.name}`,
+          kind: "command",
+          command: cmd,
+          matchedTrigger: trigger,
+          iconUrl: resolveIconUrl(cmd, device),
+          groupColor,
+        });
+      }
+      if (commandItems.length >= 3) break;
+    }
+  }
+
+  renderSuggestions(commandItems);
+
+  suggestionTimer = setTimeout(async () => {
+    if (!config) return;
+    try {
+      const apiSuggestions = await fetchSuggestions(query, config);
+      if (searchInput.value !== query) return;
+      const apiItems: SuggestionItem[] = apiSuggestions.slice(0, 5).map((s: Suggestion) => {
+        const groupColor = s.commandTrigger
+          ? findCommandColor(config!, (c) => c.triggers.includes(s.commandTrigger!))
+          : undefined;
+        const cmd = s.commandTrigger ? triggerMap.get(s.commandTrigger.toLowerCase()) : undefined;
+        return {
+          text: s.text,
+          display: s.displayText,
+          kind: "api",
+          command: cmd,
+          matchedTrigger: s.commandTrigger ?? undefined,
+          iconUrl: cmd ? resolveIconUrl(cmd, device) : undefined,
+          groupColor,
+        };
+      });
+      renderSuggestions([...commandItems, ...apiItems]);
+    } catch {
+      // keep command-only list
+    }
+  }, 240);
+}
+
+function formatTimestamp(ts?: number): string {
+  if (!ts) return "";
+  const date = new Date(ts);
+  const diffMin = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return date.toLocaleDateString();
+}
+
+function arrowIcon(): SVGSVGElement {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", "14");
+  svg.setAttribute("height", "14");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "1.75");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("class", "suggestion-trailing-arrow");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = '<path d="M17 7L7 17"/><path d="M7 7h10v10"/>';
+  return svg;
+}
+
+function renderSuggestions(items: SuggestionItem[], showClearHistory = false): void {
+  if (items.length === 0 && !showClearHistory) {
+    hideSuggestions();
+    return;
+  }
+
+  suggestionsDropdown.replaceChildren();
+  searchWrapper.classList.add("dropdown-open");
+  activeSuggestionIndex = -1;
+
+  let lastKind: SuggestionKind | "" = "";
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (lastKind && lastKind !== item.kind) {
+      const sep = document.createElement("div");
+      sep.className = "suggestion-separator";
+      suggestionsDropdown.appendChild(sep);
+    }
+    lastKind = item.kind;
+
+    const el = document.createElement("div");
+    el.className = `suggestion-item suggestion-${item.kind}`;
+    el.dataset.index = String(i);
+    el.setAttribute("role", "option");
+
+    const favicon = document.createElement("div");
+    favicon.className = "suggestion-favicon";
+    renderFavicon(favicon, {
+      iconUrl: item.iconUrl,
+      trigger: item.matchedTrigger ?? item.command?.triggers[0] ?? item.display.charAt(0),
+      groupColor: item.groupColor,
+      size: 20,
+    });
+    el.appendChild(favicon);
+
+    if (item.kind === "history") {
+      const text = document.createElement("span");
+      text.className = "suggestion-history-text";
+      text.textContent = item.display;
+      el.appendChild(text);
+
+      const time = document.createElement("span");
+      time.className = "suggestion-history-time";
+      time.textContent = formatTimestamp(item.timestamp);
+      el.appendChild(time);
+      el.appendChild(arrowIcon());
+    } else if (item.kind === "command") {
+      const tint = resolveGroupTint(item.groupColor);
+      const trigger = document.createElement("span");
+      trigger.className = "suggestion-trigger";
+      trigger.textContent = item.matchedTrigger ?? item.command?.triggers[0] ?? "";
+      trigger.style.color = tint.fg;
+      el.appendChild(trigger);
+
+      const name = document.createElement("span");
+      name.className = "suggestion-cmd-name";
+      name.textContent = item.command?.name ?? "";
+      el.appendChild(name);
+    } else {
+      const text = document.createElement("span");
+      text.className = "suggestion-text";
+      text.textContent = item.display;
+      el.appendChild(text);
+      if (item.command) {
+        const tint = resolveGroupTint(item.groupColor);
+        const tag = document.createElement("span");
+        tag.className = "suggestion-trigger-tag";
+        tag.textContent = item.matchedTrigger ?? item.command.triggers[0];
+        tag.style.background = tint.fill;
+        tag.style.color = tint.fg;
+        el.appendChild(tag);
+      }
+    }
+
+    el.addEventListener("click", () => {
+      searchInput.value = item.text;
+      hideSuggestions();
+      if (item.kind === "command") {
+        searchInput.focus();
+        updateLeadingIcon(item.text);
+      } else {
+        handleSearch();
+      }
+    });
+
+    suggestionsDropdown.appendChild(el);
+  }
+
+  if (showClearHistory && items.length > 0) {
+    const sep = document.createElement("div");
+    sep.className = "suggestion-separator";
+    suggestionsDropdown.appendChild(sep);
+
+    const clearEl = document.createElement("button");
+    clearEl.type = "button";
+    clearEl.className = "suggestion-clear-history";
+    clearEl.textContent = "Clear history";
+    clearEl.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await chrome.runtime.sendMessage({ type: "clearHistory" });
+      hideSuggestions();
+    });
+    suggestionsDropdown.appendChild(clearEl);
+  }
+
+  suggestionsDropdown.classList.remove("hidden");
+  updateChipsVisibility();
+}
+
+// Keyboard navigation
+searchInput.addEventListener("keydown", (e) => {
+  const items = suggestionsDropdown.querySelectorAll<HTMLElement>(".suggestion-item");
+  if (e.key === "ArrowDown" && items.length > 0) {
+    e.preventDefault();
+    activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, items.length - 1);
+    updateActiveSuggestion(items);
+  } else if (e.key === "ArrowUp" && items.length > 0) {
+    e.preventDefault();
+    activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, -1);
+    updateActiveSuggestion(items);
+  } else if (e.key === "Tab" && activeSuggestionIndex >= 0 && items.length > 0) {
+    e.preventDefault();
+    items[activeSuggestionIndex].click();
+  } else if (e.key === "Enter") {
+    if (activeSuggestionIndex >= 0 && items.length > 0) {
+      items[activeSuggestionIndex].click();
+    } else {
+      hideSuggestions();
+      handleSearch();
+    }
+  } else if (e.key === "Escape") {
+    hideSuggestions();
+    if (currentTypo) hideTypo();
+  }
+});
+
+function updateActiveSuggestion(items: NodeListOf<HTMLElement>): void {
+  items.forEach((item, i) => item.classList.toggle("active", i === activeSuggestionIndex));
+}
+
+searchInput.addEventListener("input", () => {
+  if (currentTypo) hideTypo();
+  showSuggestions(searchInput.value);
+  updateChipsVisibility();
+});
+
+searchInput.addEventListener("focus", () => {
+  searchInput.classList.remove("tail-visible");
+  if (!searchInput.value.trim()) showHistory();
+});
+
+searchInput.addEventListener("blur", () => {
+  // Chrome resets scrollLeft to 0 after blur (before rAF), so scrollLeft=scrollWidth
+  // doesn't persist. Instead toggle direction:rtl via CSS class, which right-aligns
+  // LTR text without reversing characters, clipping the left (head) and showing the tail.
+  searchInput.classList.toggle("tail-visible", searchInput.scrollWidth > searchInput.clientWidth);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (!currentTypo) return;
+  if (e.key === "y" || e.key === "Y") {
+    e.preventDefault();
+    void acceptTypo();
+  } else if (e.key === "g" || e.key === "G") {
+    e.preventDefault();
+    void defaultSearch();
+  } else if (e.key === "i" || e.key === "I") {
+    e.preventDefault();
+    void ignoreTypo();
+  } else if (e.key === "Escape") {
+    hideTypo();
+  }
+});
+
+typoAccept.addEventListener("click", () => void acceptTypo());
+typoSearch.addEventListener("click", () => void defaultSearch());
+typoIgnore.addEventListener("click", () => void ignoreTypo());
+
+document.addEventListener("click", (e) => {
+  if (
+    !searchInput.contains(e.target as Node) &&
+    !suggestionsDropdown.contains(e.target as Node)
+  ) {
+    hideSuggestions();
+  }
+});
+
+init();
