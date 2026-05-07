@@ -88,6 +88,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -199,10 +200,12 @@ class SettingsActivity : ComponentActivity() {
 
     private var importLauncherCallback: ((android.net.Uri) -> Unit)? = null
     private var exportLauncherCallback: ((android.net.Uri) -> Unit)? = null
+    private var isLauncherPending = false
 
     private val importFileLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
+        isLauncherPending = false
         uri ?: return@registerForActivityResult
         importLauncherCallback?.invoke(uri)
     }
@@ -210,6 +213,7 @@ class SettingsActivity : ComponentActivity() {
     private val exportFileLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
+        isLauncherPending = false
         uri ?: return@registerForActivityResult
         exportLauncherCallback?.invoke(uri)
     }
@@ -223,7 +227,7 @@ class SettingsActivity : ComponentActivity() {
      */
     override fun onStop() {
         super.onStop()
-        if (!isFinishing && !isChangingConfigurations) {
+        if (!isFinishing && !isChangingConfigurations && !isLauncherPending) {
             finish()
         }
     }
@@ -244,10 +248,12 @@ class SettingsActivity : ComponentActivity() {
                     onAppearanceChanged = { appearance = it },
                     onImportFile = { callback ->
                         importLauncherCallback = callback
+                        isLauncherPending = true
                         importFileLauncher.launch(arrayOf("application/json", "text/plain"))
                     },
                     onExportFile = { filename, callback ->
                         exportLauncherCallback = callback
+                        isLauncherPending = true
                         exportFileLauncher.launch(filename)
                     },
                 )
@@ -330,6 +336,7 @@ fun SettingsNavHost(
                 editableStore = editableStore,
                 onConfigChanged = refreshConfig,
                 snackbarHostState = snackbarHostState,
+                markDirty = { markDirtyAndCancelRefresh(context, themePrefs) },
             )
         }
         composable(SettingsRoute.CommandNew.route) { backStackEntry ->
@@ -342,6 +349,7 @@ fun SettingsNavHost(
                 initialGroupId = groupId,
                 refreshConfig = refreshConfig,
                 snackbarHostState = snackbarHostState,
+                markDirty = { markDirtyAndCancelRefresh(context, themePrefs) },
             )
         }
         composable(SettingsRoute.CommandEdit.route) { backStackEntry ->
@@ -354,6 +362,7 @@ fun SettingsNavHost(
                 initialGroupId = null,
                 refreshConfig = refreshConfig,
                 snackbarHostState = snackbarHostState,
+                markDirty = { markDirtyAndCancelRefresh(context, themePrefs) },
             )
         }
         composable(SettingsRoute.RouteEdit.route) { backStackEntry ->
@@ -946,6 +955,20 @@ fun AppearanceScreen(
         prefs.widgetOpacity = draft.opacity
         prefs.shortcutRows = draft.rows
         SearchWidgetProvider.refreshAll(context)
+    }
+
+    // Flush any pending appearance write when the screen leaves composition
+    // (e.g. activity destroyed within the 150ms debounce window). Writing the
+    // same values a second time if the LaunchedEffect already fired is harmless.
+    DisposableEffect(draft) {
+        onDispose {
+            prefs.mode = draft.mode
+            prefs.variant = draft.variant
+            prefs.shape = draft.shape
+            prefs.widgetOpacity = draft.opacity
+            prefs.shortcutRows = draft.rows
+            SearchWidgetProvider.refreshAll(context)
+        }
     }
 
     Scaffold(
@@ -2078,9 +2101,16 @@ fun GroupsHomeScreen(
                 val reorderableState = rememberReorderableLazyListState(
                     lazyListState = lazyListState,
                 ) { from, to ->
-                    val fromIdx = (from.index - 1).coerceAtLeast(0)
-                    val toIdx = (to.index - 1).coerceAtLeast(0)
+                    val fromFilteredIdx = (from.index - 1).coerceAtLeast(0)
+                    val toFilteredIdx = (to.index - 1).coerceAtLeast(0)
                     val cfg = config ?: return@rememberReorderableLazyListState
+                    val fromGroupId = filteredGroups.getOrNull(fromFilteredIdx)?.id
+                        ?: return@rememberReorderableLazyListState
+                    val toGroupId = filteredGroups.getOrNull(toFilteredIdx)?.id
+                        ?: return@rememberReorderableLazyListState
+                    val fromIdx = cfg.groups.indexOfFirst { it.id == fromGroupId }
+                    val toIdx = cfg.groups.indexOfFirst { it.id == toGroupId }
+                    if (fromIdx < 0 || toIdx < 0) return@rememberReorderableLazyListState
                     editableStore.saveLocalConfig(cfg.withGroupMoved(fromIdx, toIdx))
                     markDirtyAndCancelRefresh(context, themePrefs)
                     onConfigChanged()

@@ -343,6 +343,10 @@ if (navigator.userAgent.includes("Firefox")) {
       );
     });
   });
+
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    handledTabs.delete(tabId);
+  });
 }
 
 // Omnibox: show a persistent hint as the default suggestion. Chrome/Firefox
@@ -440,14 +444,18 @@ chrome.omnibox.onInputEntered.addListener(
       commandId = typo.suggestedCommand?.id ?? null;
     }
 
-    if (navUrl) {
+    if (navUrl && /^(https?|mailto|tel|file):/i.test(navUrl)) {
       // Save to history
       addHistory({ query: text, commandId, timestamp: Date.now() });
 
       switch (disposition) {
-        case "currentTab":
-          chrome.tabs.update({ url: navUrl });
+        case "currentTab": {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (tab?.id != null) {
+            await chrome.tabs.update(tab.id, { url: navUrl });
+          }
           break;
+        }
         case "newForegroundTab":
           chrome.tabs.create({ url: navUrl });
           break;
@@ -539,7 +547,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         [CONFIG_URL_KEY]: message.url,
         [REFRESH_INTERVAL_KEY]: message.interval,
       });
-      const result = await fetchAndStoreConfig(message.interval !== "manual");
+      const result = await fetchAndStoreConfig(true);
       await scheduleRefresh();
       sendResponse(result);
     })();

@@ -1,0 +1,372 @@
+[
+  {
+    "description": "Empty query returns default command's defaultUrl",
+    "input": { "rawQuery": "", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com",
+      "commandId": "google",
+      "matchType": "exact"
+    }
+  },
+  {
+    "description": "Standard command with no args returns defaultUrl",
+    "input": { "rawQuery": "g", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com",
+      "commandId": "google",
+      "matchType": "exact"
+    }
+  },
+  {
+    "description": "Standard command with args uses searchUrl",
+    "input": { "rawQuery": "g kittens", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=kittens",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Standard command with multi-word args",
+    "input": { "rawQuery": "g hello world", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=hello%20world",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "DuckDuckGo search",
+    "input": { "rawQuery": "ddg privacy tools", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://duckduckgo.com/?q=privacy%20tools",
+      "commandId": "duckduckgo",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Case-insensitive trigger matching",
+    "input": { "rawQuery": "G kittens", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=kittens",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Prefix command - stock quote with term only",
+    "input": { "rawQuery": "$AAPL", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://finance.yahoo.com/quote/AAPL",
+      "commandId": "stock-quote",
+      "matchType": "prefix"
+    }
+  },
+  {
+    "description": "Prefix command - Reddit subreddit",
+    "input": { "rawQuery": "r/technology", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.reddit.com/r/technology",
+      "commandId": "reddit-prefix",
+      "matchType": "prefix"
+    }
+  },
+  {
+    "description": "Prefix command - Reddit with extra args uses searchUrl",
+    "input": { "rawQuery": "r/technology best apps", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=site%3Areddit.com%2Fr%2Ftechnology+best%20apps",
+      "commandId": "reddit-prefix",
+      "matchType": "prefix"
+    }
+  },
+  {
+    "description": "Pattern match - Google Maps directions",
+    "input": { "rawQuery": "maps directions/NYC/LA", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://maps.google.com/dir/NYC/LA",
+      "commandId": "google-maps",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Pattern match - GitHub user/repo",
+    "input": { "rawQuery": "gh DoubleGremlin181/fast-travel", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://github.com/DoubleGremlin181/fast-travel",
+      "commandId": "github",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Pattern match - YouTube subscriptions (no placeholders)",
+    "input": { "rawQuery": "yt subs", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.youtube.com/feed/subscriptions",
+      "commandId": "youtube",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Pattern match - Gmail account switch",
+    "input": { "rawQuery": "gm u/2", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://mail.google.com/mail/u/2/#inbox",
+      "commandId": "gmail",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Pattern fallthrough to searchUrl when pattern doesn't match",
+    "input": { "rawQuery": "gh some search term", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://github.com/search?q=some%20search%20term",
+      "commandId": "github",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Device-specific routing - apps on Android",
+    "input": { "rawQuery": "apps spotify", "device": "Android" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://play.google.com/store/search?q=spotify",
+      "commandId": "app-stores",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Device-specific routing - apps on iOS",
+    "input": { "rawQuery": "apps spotify", "device": "iOS" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://apps.apple.com/search?q=spotify",
+      "commandId": "app-stores",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Device-specific routing - apps on Linux (desktop fallback)",
+    "input": { "rawQuery": "apps spotify", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://store.steampowered.com/search/?term=spotify",
+      "commandId": "app-stores",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Device routing - apps on Unknown device falls to desktop routes",
+    "input": { "rawQuery": "apps spotify", "device": "Unknown" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://store.steampowered.com/search/?term=spotify",
+      "commandId": "app-stores",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "No command match falls through to default Google search",
+    "input": { "rawQuery": "what is the meaning of life", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=what%20is%20the%20meaning%20of%20life",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL encoding of special characters",
+    "input": { "rawQuery": "g hello world!", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=hello%20world!",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "URL encoding of ampersand in query",
+    "input": { "rawQuery": "g cats & dogs", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=cats%20%26%20dogs",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Whitespace-only query treated as empty",
+    "input": { "rawQuery": "   ", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com",
+      "commandId": "google",
+      "matchType": "exact"
+    }
+  },
+  {
+    "description": "Extra whitespace between command and args is normalized",
+    "input": { "rawQuery": "g   kittens", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=kittens",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Standard command no args - Wikipedia",
+    "input": { "rawQuery": "w", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://en.wikipedia.org",
+      "commandId": "wikipedia",
+      "matchType": "exact"
+    }
+  },
+  {
+    "description": "Pattern match - FlightAware flight (f/ prefix)",
+    "input": { "rawQuery": "fa f/AA123", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://beta.flightaware.com/live/flight/AA123",
+      "commandId": "flightaware",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Pattern match - FlightAware airport (a/ prefix)",
+    "input": { "rawQuery": "fa a/KSFO", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://beta.flightaware.com/live/airport/KSFO",
+      "commandId": "flightaware",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Length-exact pattern - 3-char IATA airport hits airport pattern",
+    "input": { "rawQuery": "fa SFO", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://beta.flightaware.com/live/airport/SFO",
+      "commandId": "flightaware",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Length-exact miss - 4-char input falls through to flight searchUrl",
+    "input": { "rawQuery": "fa KSFO", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://beta.flightaware.com/live/flight/KSFO",
+      "commandId": "flightaware",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Length-exact miss - 7-char ICAO flight falls through to flight searchUrl",
+    "input": { "rawQuery": "fa UAL1274", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://beta.flightaware.com/live/flight/UAL1274",
+      "commandId": "flightaware",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Normalize stripSpaces - spaced IATA flight is compacted before pattern/search",
+    "input": { "rawQuery": "fa UA 1274", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://beta.flightaware.com/live/flight/UA1274",
+      "commandId": "flightaware",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Normalize stripSpaces - 3-char query with surrounding spaces hits airport pattern after normalization",
+    "input": { "rawQuery": "fa  SFO ", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://beta.flightaware.com/live/airport/SFO",
+      "commandId": "flightaware",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Device-specific pattern - apps developer on Android",
+    "input": { "rawQuery": "apps developer/Google", "device": "Android" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://play.google.com/store/apps/developer?id=Google",
+      "commandId": "app-stores",
+      "matchType": "pattern"
+    }
+  },
+  {
+    "description": "Alias trigger - 'google kittens' resolves identically to 'g kittens'",
+    "input": { "rawQuery": "google kittens", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=kittens",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Trailing whitespace is stripped - 'g kittens   ' equals 'g kittens'",
+    "input": { "rawQuery": "g kittens   ", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=kittens",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Leading whitespace is stripped - '   g kittens' equals 'g kittens'",
+    "input": { "rawQuery": "   g kittens", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=kittens",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Unicode query - emoji is percent-encoded",
+    "input": { "rawQuery": "g 🐱", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=%F0%9F%90%B1",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  },
+  {
+    "description": "Unicode query - non-Latin script (Devanagari)",
+    "input": { "rawQuery": "g नमस्ते", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=%E0%A4%A8%E0%A4%AE%E0%A4%B8%E0%A5%8D%E0%A4%A4%E0%A5%87",
+      "commandId": "google",
+      "matchType": "search"
+    }
+  }
+]

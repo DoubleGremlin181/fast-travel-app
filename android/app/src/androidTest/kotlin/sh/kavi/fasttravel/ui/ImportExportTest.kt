@@ -52,4 +52,11 @@ class ImportExportTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithText("Export config").assertIsDisplayed()
     }
+
+    // TODO: Add an instrumented test that verifies SettingsActivity is NOT finished
+    // when the SAF file-picker is open (isLauncherPending == true guards onStop).
+    // This requires intercepting the ActivityResultLauncher or using a custom
+    // ActivityResultRegistry to simulate the launcher lifecycle without a real device
+    // file picker. Unit tests cannot cover this because it depends on Activity
+    // lifecycle callbacks fired by the Android framework.
 }

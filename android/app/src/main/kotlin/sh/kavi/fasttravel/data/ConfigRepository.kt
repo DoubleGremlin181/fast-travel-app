@@ -66,11 +66,14 @@ class ConfigRepository(private val context: Context) {
             connection.connectTimeout = CONNECT_TIMEOUT_MS
             connection.readTimeout = READ_TIMEOUT_MS
             connection.requestMethod = "GET"
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val json = connection.inputStream.bufferedReader().use { it.readText() }
+            val json = try {
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    connection.inputStream.bufferedReader().use { it.readText() }
+                } else { null }
+            } finally {
                 connection.disconnect()
-                ConfigParser.safeParseConfig(json)
-            } else { connection.disconnect(); null }
+            }
+            if (json != null) ConfigParser.safeParseConfig(json) else null
         } catch (_: Exception) { null }
     }
 
@@ -82,19 +85,19 @@ class ConfigRepository(private val context: Context) {
             connection.readTimeout = READ_TIMEOUT_MS
             connection.requestMethod = "GET"
 
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                val json = reader.readText()
-                reader.close()
+            val json = try {
+                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                    BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
+                } else { null }
+            } finally {
                 connection.disconnect()
+            }
 
+            if (json != null) {
                 val parsed = ConfigParser.safeParseConfig(json) ?: return@withContext null
                 cacheConfig(json)
                 parsed
-            } else {
-                connection.disconnect()
-                null
-            }
+            } else { null }
         } catch (_: Exception) {
             null
         }

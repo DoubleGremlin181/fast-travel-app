@@ -17,19 +17,26 @@ android {
         versionName = "2.0.0"
     }
 
-    signingConfigs {
-        create("release") {
-            storeFile = System.getenv("SIGNING_STORE_FILE")?.let { file(it) }
-            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
-            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
-            storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+    val signingStoreFile = System.getenv("SIGNING_STORE_FILE")
+    if (signingStoreFile != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(signingStoreFile)
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                    ?: error("SIGNING_KEY_ALIAS must be set when SIGNING_STORE_FILE is set")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+                    ?: error("SIGNING_KEY_PASSWORD must be set when SIGNING_STORE_FILE is set")
+                storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                    ?: error("SIGNING_STORE_PASSWORD must be set when SIGNING_STORE_FILE is set")
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning != null) signingConfig = releaseSigning
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -101,7 +108,7 @@ dependencies {
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine:5.11.0")
 
     // Robolectric (Android framework in JVM unit tests)
-    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("androidx.test:core:1.5.0")
 
     // Instrumented tests (Compose UI testing)

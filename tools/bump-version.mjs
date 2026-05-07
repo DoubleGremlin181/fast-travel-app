@@ -2,7 +2,7 @@
 // Called by the GitHub Actions release workflow.
 // Usage: node tools/bump-version.mjs <patch|minor|major|X.Y.Z>
 
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, appendFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -73,4 +73,7 @@ gradleContent = gradleContent
 writeFileSync(gradlePath, gradleContent);
 
 console.log(`Done. New version: ${newVersion}, Android versionCode: ${newVersionCode}`);
-console.log(`::set-output name=version::${newVersion}`);
+const githubOutput = process.env.GITHUB_OUTPUT;
+if (githubOutput) {
+  appendFileSync(githubOutput, `version=${newVersion}\n`);
+}
