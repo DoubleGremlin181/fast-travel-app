@@ -92,12 +92,16 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import android.view.WindowManager
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -1037,6 +1041,38 @@ private fun HistoryRow(
 }
 
 @Composable
+internal fun TailText(
+    text: String,
+    style: TextStyle,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    var overflows by remember(text) { mutableStateOf(false) }
+    if (overflows) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+            Text(
+                text = text,
+                style = style,
+                color = color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = modifier,
+            )
+        }
+    } else {
+        Text(
+            text = text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { result -> if (result.hasVisualOverflow) overflows = true },
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
 private fun SuggestionRow(
     suggestion: Suggestion,
     viewModel: SearchViewModel,
@@ -1067,12 +1103,10 @@ private fun SuggestionRow(
             size = 24.dp,
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text(
+        TailText(
             text = suggestion.displayText,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         IconButton(onClick = onPopulate, modifier = Modifier.size(32.dp)) {
