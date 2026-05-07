@@ -93,10 +93,13 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import android.view.WindowManager
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -1047,28 +1050,44 @@ internal fun TailText(
     color: Color,
     modifier: Modifier = Modifier,
 ) {
-    var overflows by remember(text) { mutableStateOf(false) }
-    if (overflows) {
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-            Text(
-                text = text,
-                style = style,
-                color = color,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = modifier,
-            )
+    // SubcomposeLayout lets us measure the unconstrained text width using the
+    // same renderer that will display it — avoiding TextMeasurer metric
+    // discrepancies that caused hasVisualOverflow to silently return false.
+    SubcomposeLayout(modifier = modifier) { constraints ->
+        val intrinsicWidth = subcompose("measure") {
+            // clearAndSetSemantics prevents this measurement-only node from
+            // appearing in the accessibility/test semantics tree.
+            Text(text = text, style = style, maxLines = 1, softWrap = false,
+                modifier = Modifier.clearAndSetSemantics { })
+        }.first().measure(Constraints()).width
+
+        val overflows = intrinsicWidth > constraints.maxWidth
+
+        val placeable = subcompose("render") {
+            if (overflows) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    Text(
+                        text = text,
+                        style = style,
+                        color = color,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            } else {
+                Text(
+                    text = text,
+                    style = style,
+                    color = color,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }.first().measure(constraints)
+
+        layout(placeable.width, placeable.height) {
+            placeable.place(0, 0)
         }
-    } else {
-        Text(
-            text = text,
-            style = style,
-            color = color,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            onTextLayout = { result -> if (result.hasVisualOverflow) overflows = true },
-            modifier = modifier,
-        )
     }
 }
 
