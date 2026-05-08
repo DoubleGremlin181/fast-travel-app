@@ -18,7 +18,7 @@
 - `chevron-brand-kit/` stays in the repo
 
 ### Fix hardcoded local paths
-- `android/app/src/test/.../CommandParserTest.kt` and `NormalizeTest.kt` — replace `/home/kavish/...` absolute paths with project-relative paths via `System.getProperty("user.dir")` or Gradle test resource loading
+- `android/app/src/test/.../CommandParserTest.kt` and `NormalizeTest.kt` — replace `<home>/...` absolute paths with project-relative paths via `System.getProperty("user.dir")` or Gradle test resource loading
 
 ### Update URLs to new repo
 - Default config fetch URL in `ThemePreferences.kt` → `raw.githubusercontent.com/DoubleGremlin181/fast-travel-app/main/...`

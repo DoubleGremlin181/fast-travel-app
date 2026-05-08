@@ -94,7 +94,7 @@ git commit -m "chore: remove local-path-dependent dev scripts"
 
 ## Task 3: Fix Hardcoded Absolute Paths in Android Tests
 
-Both `CommandParserTest.kt` and `NormalizeTest.kt` have a `resolveSharedFile()` helper that already tries relative paths first, then falls back to the hardcoded `/home/kavish/...` absolute path. Simply remove the absolute fallback — the relative paths (`../shared/...` and `../../shared/...`) already work correctly when Gradle runs from `android/` or `android/app/`.
+Both `CommandParserTest.kt` and `NormalizeTest.kt` have a `resolveSharedFile()` helper that already tries relative paths first, then falls back to the hardcoded `<home>/...` absolute path. Simply remove the absolute fallback — the relative paths (`../shared/...` and `../../shared/...`) already work correctly when Gradle runs from `android/` or `android/app/`.
 
 **Files:**
 - Modify: `android/app/src/test/kotlin/sh/kavi/fasttravel/core/CommandParserTest.kt`
@@ -111,7 +111,7 @@ private fun resolveSharedFile(relativePath: String): File {
         File("../../shared/$relativePath"),
         File("shared/$relativePath"),
         // Absolute fallback
-        File("/home/kavish/Documents/Claude/fast-travel-app/shared/$relativePath"),
+        File("<repo>/shared/$relativePath"),
     )
     return candidates.firstOrNull { it.exists() }
         ?: throw IllegalStateException(
@@ -1552,7 +1552,7 @@ grep -r "DoubleGremlin181/fast-travel[^-]" \
   extension/src/ android/app/src/main/ tools/ \
   --include="*.kt" --include="*.ts" --include="*.mjs" --include="*.json"
 
-grep -r "/home/kavish" \
+grep -rE "/home/[a-z0-9_-]+/" \
   extension/ android/ tools/ shared/ \
   --include="*.kt" --include="*.ts" --include="*.mjs" \
   --exclude-dir=node_modules
