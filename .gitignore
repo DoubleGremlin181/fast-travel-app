@@ -4,6 +4,7 @@ dist/
 
 # Android
 android/.gradle/
+android/.kotlin/
 android/build/
 android/app/build/
 android/local.properties
@@ -50,6 +51,7 @@ extension/screenshot-themes.mjs
 # Extension build outputs
 extension/dist-chrome/
 extension/dist-firefox/
+extension/dev-harness/
 
 # Root-level build output
 build/
