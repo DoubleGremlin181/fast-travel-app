@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:firefox": "node scripts/build.mjs --firefox",
-    "build:all": "node scripts/build.mjs && rm -rf dist-chrome && cp -r dist dist-chrome && node scripts/build.mjs --firefox && rm -rf dist-firefox && cp -r dist dist-firefox",
+    "build:all": "node scripts/build.mjs --firefox && rm -rf dist-firefox && cp -r dist dist-firefox && node scripts/build.mjs && rm -rf dist-chrome && cp -r dist dist-chrome",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -19,6 +19,7 @@
     "esbuild": "^0.25.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0",
+    "web-ext": "^10.0.0",
     "webextension-polyfill": "^0.12.0"
   },
   "dependencies": {

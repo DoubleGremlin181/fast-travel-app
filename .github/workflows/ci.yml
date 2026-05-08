@@ -50,12 +50,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build extension
-        run: npm run build -w extension
+      - name: Build extension (Chrome and Firefox)
+        # build:all produces dist-chrome/ and dist-firefox/ for install.spec.ts,
+        # leaving dist/ as the Chrome build for the other e2e tests' fixtures.
+        run: npm run build:all -w extension
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         working-directory: extension
+
+      - name: Install Firefox
+        # ubuntu-latest (24.04) no longer ships Firefox; install.spec.ts loads
+        # the packaged extension into system Firefox via /usr/bin/firefox.
+        run: |
+          curl -fsSL "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US" -o /tmp/firefox.archive
+          sudo mkdir -p /opt/firefox-install
+          sudo tar -xf /tmp/firefox.archive -C /opt/firefox-install
+          sudo ln -sf /opt/firefox-install/firefox/firefox /usr/bin/firefox
+          /usr/bin/firefox --version
 
       - name: Run e2e tests
         run: xvfb-run --auto-servernum npm run test:e2e -w extension
