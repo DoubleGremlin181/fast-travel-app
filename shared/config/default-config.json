@@ -656,6 +656,24 @@
               ]
             }
           ]
+        },
+        {
+          "id": "lyrics",
+          "triggers": [
+            "ly",
+            "lyrics"
+          ],
+          "name": "Lyrics",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/genius.com.ico",
+          "suggestionsApi": "https://api.lyrics.ovh/suggest/{query}",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://genius.com",
+              "searchUrl": "https://genius.com/search?q={query}"
+            }
+          ]
         }
       ]
     },

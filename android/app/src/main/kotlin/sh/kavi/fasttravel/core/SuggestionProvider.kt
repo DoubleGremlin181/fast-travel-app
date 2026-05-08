@@ -146,8 +146,25 @@ object SuggestionProvider {
         }
     }
 
-    private fun parseResponse(responseText: String): List<String> {
+    internal fun parseResponse(responseText: String): List<String> {
         return try {
+            // Lyrics.ovh / Deezer: {data: [{title, artist: {name}}, ...]}
+            // — the only top-level-object format we currently understand. Tried
+            // first because the others all expect a top-level JSONArray.
+            val trimmed = responseText.trimStart()
+            if (trimmed.startsWith("{")) {
+                val obj = JSONObject(responseText)
+                val arr = obj.optJSONArray("data") ?: return emptyList()
+                val results = mutableListOf<String>()
+                for (i in 0 until minOf(arr.length(), MAX_SUGGESTIONS)) {
+                    val item = arr.optJSONObject(i) ?: continue
+                    val title = item.optString("title").takeIf { it.isNotEmpty() } ?: continue
+                    val artist = item.optJSONObject("artist")?.optString("name")?.takeIf { it.isNotEmpty() }
+                    results.add(if (artist != null) "$title — $artist" else title)
+                }
+                return results
+            }
+
             val data = JSONArray(responseText)
 
             // OpenSearch format: [query, [suggestions, ...]]

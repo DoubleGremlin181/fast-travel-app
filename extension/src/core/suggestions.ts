@@ -99,6 +99,8 @@ function stripPrefixLeadingSpace(s: string): string {
  * Handles common response formats:
  * - OpenSearch/Google: [query, [suggestions]]
  * - DuckDuckGo: [{phrase: "..."}, ...]
+ * - Plain string array: ["a", "b", "c"]
+ * - Lyrics.ovh / Deezer: {data: [{title, artist: {name}}, ...]}
  */
 const SUGGESTION_TIMEOUT_MS = 1500;
 
@@ -115,29 +117,51 @@ async function fetchFromApi(
     if (!response.ok) return [];
 
     const data = await response.json();
-
-    // OpenSearch format: [query, [suggestions, ...]]
-    if (Array.isArray(data) && data.length >= 2 && Array.isArray(data[1])) {
-      return data[1].slice(0, 8).map(String);
-    }
-
-    // DuckDuckGo format: [{phrase: "..."}, ...]
-    if (Array.isArray(data) && data.length > 0 && typeof data[0] === "object") {
-      return data
-        .slice(0, 8)
-        .map((item: { phrase?: string }) => item.phrase)
-        .filter((s): s is string => typeof s === "string");
-    }
-
-    // Plain array of strings
-    if (Array.isArray(data) && data.every((item) => typeof item === "string")) {
-      return data.slice(0, 8);
-    }
-
-    return [];
+    return parseSuggestionResponse(data);
   } catch {
     return [];
   } finally {
     clearTimeout(timer);
   }
+}
+
+export function parseSuggestionResponse(data: unknown): string[] {
+  // OpenSearch format: [query, [suggestions, ...]]
+  if (Array.isArray(data) && data.length >= 2 && Array.isArray(data[1])) {
+    return data[1].slice(0, 8).map(String);
+  }
+
+  // DuckDuckGo format: [{phrase: "..."}, ...]
+  if (Array.isArray(data) && data.length > 0 && typeof data[0] === "object") {
+    return data
+      .slice(0, 8)
+      .map((item: { phrase?: string }) => item.phrase)
+      .filter((s): s is string => typeof s === "string");
+  }
+
+  // Plain array of strings
+  if (Array.isArray(data) && data.every((item) => typeof item === "string")) {
+    return data.slice(0, 8);
+  }
+
+  // Lyrics.ovh / Deezer: {data: [{title, artist: {name}}, ...]}
+  // Used for song-search autocomplete; format each as "Title — Artist".
+  if (
+    data !== null &&
+    typeof data === "object" &&
+    Array.isArray((data as { data?: unknown }).data)
+  ) {
+    type Track = { title?: string; artist?: { name?: string } };
+    const tracks = (data as { data: Track[] }).data;
+    return tracks
+      .slice(0, 8)
+      .map((t) => {
+        if (typeof t.title !== "string") return null;
+        const artist = t.artist?.name;
+        return artist ? `${t.title} — ${artist}` : t.title;
+      })
+      .filter((s): s is string => typeof s === "string");
+  }
+
+  return [];
 }

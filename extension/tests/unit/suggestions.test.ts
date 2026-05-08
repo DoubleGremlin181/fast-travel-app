@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fetchSuggestions } from "../../src/core/suggestions.js";
+import { fetchSuggestions, parseSuggestionResponse } from "../../src/core/suggestions.js";
 import type { FastTravelConfig } from "../../src/core/types.js";
 
 // Minimal config for testing
@@ -271,5 +271,46 @@ describe("fetchSuggestions", () => {
       expect(result[0].commandTrigger).toBe("$");
       expect(result[0].commandName).toBe("Stock ticker");
     });
+  });
+});
+
+describe("parseSuggestionResponse", () => {
+  it("OpenSearch — extracts the suggestions array", () => {
+    expect(parseSuggestionResponse(["q", ["a", "b", "c"]])).toEqual(["a", "b", "c"]);
+  });
+
+  it("DuckDuckGo — maps each {phrase} to its phrase", () => {
+    expect(parseSuggestionResponse([{ phrase: "x" }, { phrase: "y" }])).toEqual(["x", "y"]);
+  });
+
+  it("plain string array — passes strings through", () => {
+    expect(parseSuggestionResponse(["alpha", "beta"])).toEqual(["alpha", "beta"]);
+  });
+
+  it("Lyrics.ovh — formats each track as 'Title — Artist'", () => {
+    const data = {
+      data: [
+        { title: "Hey Jude", artist: { name: "The Beatles" } },
+        { title: "Hello", artist: { name: "Adele" } },
+      ],
+    };
+    expect(parseSuggestionResponse(data)).toEqual([
+      "Hey Jude — The Beatles",
+      "Hello — Adele",
+    ]);
+  });
+
+  it("Lyrics.ovh — falls back to title-only when artist is missing", () => {
+    expect(parseSuggestionResponse({ data: [{ title: "Solo Title" }] })).toEqual(["Solo Title"]);
+  });
+
+  it("Lyrics.ovh — empty data array yields empty list", () => {
+    expect(parseSuggestionResponse({ data: [] })).toEqual([]);
+  });
+
+  it("unknown shape — returns empty list", () => {
+    expect(parseSuggestionResponse({ unexpected: true })).toEqual([]);
+    expect(parseSuggestionResponse(null)).toEqual([]);
+    expect(parseSuggestionResponse("not json")).toEqual([]);
   });
 });
