@@ -58,7 +58,7 @@ jobs:
         working-directory: extension
 
       - name: Run e2e tests
-        run: npm run test:e2e -w extension
+        run: xvfb-run --auto-servernum npm run test:e2e -w extension
 
   android-unit:
     name: Android — unit tests
@@ -91,6 +91,12 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
+
+      - name: Enable KVM group permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Run instrumented tests
         uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2
