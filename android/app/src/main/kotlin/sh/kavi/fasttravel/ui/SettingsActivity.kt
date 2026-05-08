@@ -694,8 +694,8 @@ fun ImportExportScreen(
     var intervalDropdownExpanded by remember { mutableStateOf(false) }
     var statusText by remember {
         mutableStateOf(
-            if (themePrefs.configSourceDirty) "Local config · auto-refresh paused"
-            else if (themePrefs.configUrl.isNotEmpty()) "Synced from ${themePrefs.configUrl}"
+            if (themePrefs.configSourceDirty) "Local config"
+            else if (themePrefs.configUrl.isNotEmpty()) "Synced"
             else "No remote source"
         )
     }
@@ -743,7 +743,7 @@ fun ImportExportScreen(
                                     editableStore.saveLocalConfig(parsed)
                                     markDirtyAndCancelRefresh(context, themePrefs)
                                     onConfigChanged()
-                                    statusText = "Local config · auto-refresh paused"
+                                    statusText = "Local config"
                                     snackbarHostState.showSnackbar("Config imported from file")
                                 }
                             }
@@ -808,10 +808,10 @@ fun ImportExportScreen(
                                 if (selectedInterval != ConfigRefreshInterval.MANUAL) {
                                     themePrefs.configSourceDirty = false
                                     ConfigRefreshScheduler.schedule(context, selectedInterval)
-                                    statusText = "Synced from $url"
+                                    statusText = "Synced"
                                 } else {
                                     markDirtyAndCancelRefresh(context, themePrefs)
-                                    statusText = "Local config · auto-refresh paused"
+                                    statusText = "Local config"
                                 }
                                 onConfigChanged()
                                 snackbarHostState.showSnackbar("Config imported from URL")
@@ -865,13 +865,6 @@ fun ImportExportScreen(
                         headlineContent = {
                             Text("Reset to remote", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
                         },
-                        supportingContent = {
-                            Text(
-                                "Re-fetch from ${themePrefs.configUrl} and re-enable auto-refresh",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         modifier = Modifier.clickable { showResetDialog = true },
                     )
@@ -897,7 +890,7 @@ fun ImportExportScreen(
                             themePrefs.configSourceDirty = false
                             ConfigRefreshScheduler.schedule(context, themePrefs.configRefreshInterval)
                             onConfigChanged()
-                            statusText = "Synced from ${themePrefs.configUrl}"
+                            statusText = "Synced"
                             snackbarHostState.showSnackbar("Reset to remote config")
                         } else {
                             snackbarHostState.showSnackbar("Failed to fetch remote config")

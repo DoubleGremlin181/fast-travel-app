@@ -180,7 +180,6 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
   const cacheCard = el("section", { class: "card" });
   cacheCard.appendChild(el("div", { class: "card-header" }, "Icon cache"));
   const cacheBody = el("div", { class: "card-body" });
-  cacheBody.appendChild(el("div", { class: "form-hint" }, "Force re-fetch of all command favicons."));
   const cacheBtn = el("button", { class: "primary" }, "Clear icon cache");
   cacheBtn.addEventListener("click", async () => {
     await clearIconCache();
@@ -195,9 +194,6 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
     const resetCard = el("section", { class: "card" });
     resetCard.appendChild(el("div", { class: "card-header" }, "Reset"));
     const resetBody = el("div", { class: "card-body" });
-    resetBody.appendChild(
-      el("div", { class: "form-hint" }, "Re-fetch from the last URL and re-enable auto-refresh."),
-    );
     const resetBtn = el("button", { class: "danger" }, "Reset to remote");
     resetBtn.addEventListener("click", async () => {
       if (!confirm("Re-fetch from remote and discard any local changes?")) return;
@@ -218,15 +214,11 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
 }
 
 function buildStatusText(state: ConfigSourceState): string {
-  if (!state.dirty && state.url && state.lastSynced) {
-    try {
-      return `Auto-refresh active · Synced from ${new URL(state.url).hostname} · ${formatTimestamp(state.lastSynced)}`;
-    } catch {
-      return `Auto-refresh active · Synced · ${formatTimestamp(state.lastSynced)}`;
-    }
+  if (!state.dirty && state.lastSynced) {
+    return `Synced ${formatTimestamp(state.lastSynced)}`;
   }
-  if (state.dirty) return "Local config · auto-refresh paused";
-  return "No remote source configured";
+  if (state.dirty) return "Local config";
+  return "No remote source";
 }
 
 function updateStatusLine(el: HTMLElement, state: ConfigSourceState): void {
