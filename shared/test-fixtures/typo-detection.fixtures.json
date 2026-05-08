@@ -1,0 +1,74 @@
+[
+  {
+    "description": "Typo detection - 'ggle' suggests 'g' (distance 3, but g is only 1 char so threshold is 1 - no match)",
+    "input": { "rawQuery": "ggle kittens", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "redirect",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "Typo detection - 'gg' suggests 'g' (distance 1, threshold 1 for <=5 chars)",
+    "input": { "rawQuery": "gg kittens", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "typo",
+      "suggestedTrigger": "g"
+    }
+  },
+  {
+    "description": "Typo detection - 'dddg' suggests 'ddg' (distance 1)",
+    "input": { "rawQuery": "dddg privacy", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "typo",
+      "suggestedTrigger": "ddg"
+    }
+  },
+  {
+    "description": "Typo detection - 'weathr' suggests 'weather' (distance 1, >5 chars threshold 2)",
+    "input": { "rawQuery": "weathr forecast", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "typo",
+      "suggestedTrigger": "weather"
+    }
+  },
+  {
+    "description": "Typo in ignore list - no suggestion shown",
+    "input": { "rawQuery": "gg kittens", "device": "Linux", "ignoreList": ["gg"] },
+    "expected": {
+      "type": "redirect",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "Typo ignore list is case-insensitive",
+    "input": { "rawQuery": "GG kittens", "device": "Linux", "ignoreList": ["gg"] },
+    "expected": {
+      "type": "redirect",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "No close match - distance too large",
+    "input": { "rawQuery": "xyzabc test", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "redirect",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "Typo detection - 'mps' suggests 'maps' (distance 1 for 3-char input)",
+    "input": { "rawQuery": "mps directions/A/B", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "typo",
+      "suggestedTrigger": "maps"
+    }
+  },
+  {
+    "description": "Exact trigger never triggers typo (distance 0 must not match)",
+    "input": { "rawQuery": "g kittens", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "redirect",
+      "matchType": "search"
+    }
+  }
+]

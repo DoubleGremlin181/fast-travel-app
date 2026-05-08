@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Two-layer widget background:
+   - widget_container's own background carries the shape drawable for solid
+     variants (Light/Dark/Auto/MaterialYou/Neumorphism/Transparent). Tint is
+     applied via RemoteViews.setColorStateList, so the corner radius is rendered
+     by the framework at the View's actual size (no fitXY stretching).
+   - widget_bg ImageView is the fallback for variants that can't be expressed as
+     a single tinted shape (gradients, bordered styles). It is hidden by default.
+
+  Both views are on RemoteViews' remotable-view whitelist; a plain <View> is not.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:minHeight="56dp">
+
+    <ImageView
+        android:id="@+id/widget_bg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:adjustViewBounds="false"
+        android:visibility="gone"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <ImageView
+            android:id="@+id/widget_icon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:contentDescription="@string/search_icon_desc"
+            android:src="@drawable/ic_chevron_widget" />
+
+        <TextView
+            android:id="@+id/widget_hint"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/widget_hint"
+            android:textColor="@color/widget_hint_text"
+            android:textSize="16sp"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+</FrameLayout>

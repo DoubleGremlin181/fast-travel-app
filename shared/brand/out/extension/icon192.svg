@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="35" ry="35" fill="#0E1020"/>
+  <g transform="translate(40.32,40.32) scale(0.5568)">
+    <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
+      <polyline stroke="#F5F2EC" points="52,60 97,100 52,140"/>
+      <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
+    </g>
+  </g>
+</svg>

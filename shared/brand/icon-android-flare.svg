@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fast Travel — alt adaptive icon: Denim field + Paper chevron.
+     Used for the "flare" Android adaptive variant (brand kit sheet 05). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Fast Travel">
+  <rect width="512" height="512" rx="92" ry="92" fill="#3E6098"/>
+  <g transform="translate(107.5,107.5) scale(1.485)">
+    <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
+      <polyline stroke="#F5F2EC" points="52,60 97,100 52,140"/>
+      <polyline stroke="#F5F2EC" points="103,60 148,100 103,140"/>
+    </g>
+  </g>
+</svg>

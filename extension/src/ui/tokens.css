@@ -1,0 +1,127 @@
+/* Fast Travel — design tokens.
+ *
+ * Palette is the Chevron Brand Kit (shared/brand/README.md):
+ *   Night #0E1020 · Ink #1A1D2E · Paper #F5F2EC · Bone #ECE7DC ·
+ *   Flare/Denim #3E6098 · Fog #C8C3BA · Slate #4A4E63.
+ *
+ * Theming: JS (ui/appearance.ts → applyAppearance) always sets
+ * `data-mode="light"` or `data-mode="dark"` on <html> before first paint
+ * (via apply-theme.ts). There is no reliance on `prefers-color-scheme` from
+ * CSS — the effective mode is resolved in JS and written out explicitly. If
+ * JS is disabled, the :root fallback renders light.
+ */
+
+:root,
+[data-mode="light"] {
+  --bg: #f5f2ec;
+  --surface: #ece7dc;
+  --surface-2: #f0ebe3;
+  --surface-hover: #e3dcce;
+  --text: #1a1d2e;
+  --text-secondary: #4a4e63;
+  --text-placeholder: #8a8477;
+  --border: #d9d3c6;
+  --border-strong: #c8c3ba;
+  --primary: #3e6098;
+  --primary-hover: #2f4a7a;
+  --primary-contrast: #f5f2ec;
+  --danger: #c4432e;
+  --success: #3d7a4a;
+  --warning: #b07328;
+  --shadow-1: 0 1px 3px rgba(14, 16, 32, 0.08);
+  --shadow-2: 0 2px 8px rgba(14, 16, 32, 0.12);
+  --shadow-3: 0 8px 24px rgba(14, 16, 32, 0.16);
+  --radius-pill: 999px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 4px;
+  --font: "Helvetica Neue", Helvetica, Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --mono: "SF Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+  --duration-short: 150ms;
+  --duration-med: 220ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Group tint pairs (fill / foreground). Pastel fills for light mode. */
+  --tint-blue-fill: #dce4f1;
+  --tint-blue-fg: #3e6098;
+  --tint-red-fill: #fdecea;
+  --tint-red-fg: #c5221f;
+  --tint-green-fill: #e8f5e9;
+  --tint-green-fg: #137333;
+  --tint-orange-fill: #fff3e0;
+  --tint-orange-fg: #b15e00;
+  --tint-amber-fill: #fff8e1;
+  --tint-amber-fg: #8f6000;
+  --tint-purple-fill: #f3e8fd;
+  --tint-purple-fg: #7627bb;
+  --tint-cyan-fill: #e0f7fa;
+  --tint-cyan-fg: #0891b2;
+  --tint-pink-fill: #fce4ec;
+  --tint-pink-fg: #be185d;
+  --tint-neutral-fill: #ece7dc;
+  --tint-neutral-fg: #4a4e63;
+
+  /* ---- Unified-appearance search-bar tokens (overridden per-variant in variants.css).
+   * Fallbacks are pinned to existing tokens where semantically equivalent:
+   *   --search-bar-bg  falls back to --surface (no --surface-container-high token exists yet).
+   *   --search-bar-fg  falls back to --text (no --on-surface token exists yet).
+   *   --search-shape-radius  falls back to --radius-pill (exists).
+   * These defaults reproduce the pre-Phase-G Material look. */
+  --search-bar-bg: var(--surface);
+  --search-bar-fg: var(--text);
+  --search-bar-border: 1px solid transparent;
+  --search-shape-radius: var(--radius-pill);
+  /* Default to a zero shadow so variants that don't set this can still be
+   * composed with the focus-ring in :focus rules (`none` can't be in a list). */
+  --search-bar-shadow: 0 0 0 0 transparent;
+  --search-bar-backdrop-filter: none;
+}
+
+[data-mode="dark"] {
+  --bg: #0e1020;
+  --surface: #1a1d2e;
+  --surface-2: #14162a;
+  --surface-hover: #242738;
+  --text: #f5f2ec;
+  --text-secondary: #b8b1a3;
+  --text-placeholder: #8a8477;
+  --border: #2a2d3e;
+  --border-strong: #3a3d4e;
+  --primary: #7a8fb5;
+  --primary-hover: #9bb0d0;
+  --primary-contrast: #0e1020;
+  --danger: #e58671;
+  --success: #81c995;
+  --warning: #fcad70;
+  --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.32);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.48);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.6);
+
+  /* Group tints: desaturated for dark backgrounds; foreground stays readable. */
+  --tint-blue-fill: #1f2a44;
+  --tint-blue-fg: #9bb0d0;
+  --tint-red-fill: #3a1d1c;
+  --tint-red-fg: #f28b82;
+  --tint-green-fill: #1a3024;
+  --tint-green-fg: #81c995;
+  --tint-orange-fill: #3b2a16;
+  --tint-orange-fg: #fcad70;
+  --tint-amber-fill: #3b3115;
+  --tint-amber-fg: #fdd663;
+  --tint-purple-fill: #2b1d3d;
+  --tint-purple-fg: #c8a2f5;
+  --tint-cyan-fill: #103238;
+  --tint-cyan-fg: #78d9e8;
+  --tint-pink-fill: #3a1c29;
+  --tint-pink-fg: #f48fb1;
+  --tint-neutral-fill: #1f222f;
+  --tint-neutral-fg: #b8b1a3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-short: 0ms;
+    --duration-med: 0ms;
+  }
+}

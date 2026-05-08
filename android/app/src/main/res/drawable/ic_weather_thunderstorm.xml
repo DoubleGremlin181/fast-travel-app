@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cloud -->
+    <path
+        android:fillColor="#5F6368"
+        android:pathData="M17.92,8.77C17.42,5.55 14.63,3 11.24,3C8.58,3 6.28,4.52 5.15,6.77C2.39,7.07 0.24,9.41 0.24,12.23c0,3.04 2.47,5.5 5.5,5.5h11.93c2.54,0 4.59,-2.06 4.59,-4.59c0,-2.42 -1.88,-4.39 -4.34,-4.37z" />
+    <!-- Lightning bolt -->
+    <path
+        android:fillColor="#5F6368"
+        android:pathData="M13,15l-2,0l1,-4l-3,0l4,-5l-1,4l3,0z" />
+    <!-- Rain drops -->
+    <path
+        android:strokeWidth="1.2"
+        android:strokeColor="#5F6368"
+        android:strokeLineCap="round"
+        android:pathData="M7,18l-1,2.5M15,18l-1,2.5" />
+</vector>

@@ -1,0 +1,79 @@
+{
+  "cases": [
+    {
+      "name": "no overrides — returns command default",
+      "command": {
+        "iconUrl": "https://example.com/default.png",
+        "iconOverrides": []
+      },
+      "device": "Linux",
+      "expected": "https://example.com/default.png"
+    },
+    {
+      "name": "override matches device",
+      "command": {
+        "iconUrl": "https://example.com/default.png",
+        "iconOverrides": [
+          { "devices": ["iOS"], "iconUrl": "https://example.com/ios.png" }
+        ]
+      },
+      "device": "iOS",
+      "expected": "https://example.com/ios.png"
+    },
+    {
+      "name": "override covers multiple devices — one matches",
+      "command": {
+        "iconUrl": "https://example.com/default.png",
+        "iconOverrides": [
+          {
+            "devices": ["Windows", "MacOS", "Linux", "Unknown"],
+            "iconUrl": "https://example.com/steam.png"
+          }
+        ]
+      },
+      "device": "MacOS",
+      "expected": "https://example.com/steam.png"
+    },
+    {
+      "name": "override does not match — falls back to default",
+      "command": {
+        "iconUrl": "https://example.com/default.png",
+        "iconOverrides": [
+          { "devices": ["iOS"], "iconUrl": "https://example.com/ios.png" }
+        ]
+      },
+      "device": "Android",
+      "expected": "https://example.com/default.png"
+    },
+    {
+      "name": "no default, no matching override — returns null",
+      "command": {
+        "iconOverrides": [
+          { "devices": ["iOS"], "iconUrl": "https://example.com/ios.png" }
+        ]
+      },
+      "device": "Linux",
+      "expected": null
+    },
+    {
+      "name": "no default, no overrides — returns null",
+      "command": {
+        "iconOverrides": []
+      },
+      "device": "Linux",
+      "expected": null
+    },
+    {
+      "name": "first matching override wins",
+      "command": {
+        "iconUrl": "https://example.com/default.png",
+        "iconOverrides": [
+          { "devices": ["Linux"], "iconUrl": "https://example.com/first.png" },
+          { "devices": ["Linux"], "iconUrl": "https://example.com/second.png" }
+        ]
+      },
+      "device": "Linux",
+      "expected": "https://example.com/first.png"
+    }
+  ]
+}

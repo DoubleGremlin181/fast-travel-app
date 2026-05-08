@@ -1,0 +1,65 @@
+[
+  {
+    "description": "Add command to existing group",
+    "overrides": {
+      "addCommands": [
+        {
+          "group": "search-engines",
+          "commands": [
+            {
+              "id": "perplexity",
+              "triggers": ["pp"],
+              "name": "Perplexity",
+              "type": "standard",
+              "routes": [
+                {
+                  "devices": "*",
+                  "defaultUrl": "https://www.perplexity.ai",
+                  "searchUrl": "https://www.perplexity.ai/search?q={query}",
+                  "patterns": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "commandExists": "perplexity",
+      "inGroup": "search-engines"
+    }
+  },
+  {
+    "description": "Override command triggers (aliasing)",
+    "overrides": {
+      "overrideCommands": [
+        {
+          "id": "google",
+          "triggers": ["g", "google", "gg"]
+        }
+      ]
+    },
+    "expected": {
+      "commandId": "google",
+      "triggers": ["g", "google", "gg"]
+    }
+  },
+  {
+    "description": "Remove command by id",
+    "overrides": {
+      "removeCommands": ["fog"]
+    },
+    "expected": {
+      "commandMissing": "fog"
+    }
+  },
+  {
+    "description": "Add to ignore list without duplicates",
+    "overrides": {
+      "addIgnoreList": ["map", "new", "custom"]
+    },
+    "expected": {
+      "ignoreListContains": ["map", "new", "custom"]
+    }
+  }
+]

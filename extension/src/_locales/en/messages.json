@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "Fast Travel",
+    "description": "Extension name shown in the browser UI."
+  },
+  "extensionDescription": {
+    "message": "Supercharge your search bar. Type commands to navigate the web faster.",
+    "description": "Extension description shown in the Chrome Web Store / Add-ons listing."
+  }
+}

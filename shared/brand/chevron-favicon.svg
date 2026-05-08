@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fast Travel chevron mark — thickened for small sizes (≤32 px).
+     stroke 28, pad 42. Use this for 16/32 favicon scale. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Fast Travel">
+  <g fill="none" stroke-width="28" stroke-linecap="square" stroke-linejoin="miter">
+    <polyline stroke="#0E1020" points="42,60 97,100 42,140"/>
+    <polyline stroke="#3E6098" points="103,60 158,100 103,140"/>
+  </g>
+</svg>

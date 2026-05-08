@@ -1,0 +1,115 @@
+/* Fast Travel — variant skins for the unified-appearance feature (Phase G).
+ *
+ * applyAppearance() in ui/appearance.ts writes [data-variant], [data-mode],
+ * [data-shape], and --custom-accent onto <html>. All selectors in this file
+ * therefore key off the <html> element. The page-background rules for
+ * gradient / AMOLED variants use `html[data-variant="..."] body` (option a
+ * from the Phase G spec) — `body[data-variant="..."]` would not match since
+ * the dataset lives on <html>, and going with the combined selector keeps
+ * applyAppearance untouched so its synchronous callers aren't affected.
+ *
+ * Defaults for --search-bar-bg / --search-bar-fg / --search-bar-border /
+ * --search-shape-radius / --search-bar-shadow / --search-bar-backdrop-filter
+ * live in tokens.css at :root; each variant block below only overrides the
+ * tokens it needs to change. */
+
+/* MATERIAL — default, no overrides needed. The :root values in tokens.css
+ * already reproduce the pre-Phase-G Material look. */
+
+/* MATERIAL YOU — palette-driven at runtime via material-color-utilities. See
+ * ui/material-you.ts. applyTheme() from MCU writes --md-sys-color-* tokens on
+ * <html>; we pipe the relevant ones into our search-bar variables here so the
+ * bar picks up the generated palette without rewriting every downstream rule. */
+[data-variant="material-you"] {
+    --search-bar-bg: var(--md-sys-color-primary-container, var(--surface));
+    --search-bar-fg: var(--md-sys-color-on-primary-container, var(--text));
+}
+html[data-variant="material-you"] body {
+    background: var(--md-sys-color-background, var(--bg));
+    color: var(--md-sys-color-on-background, var(--text));
+}
+
+/* MATERIAL YOU TINT */
+[data-variant="material-you-tint"][data-mode="light"] {
+    --search-bar-bg: color-mix(in srgb, var(--custom-accent, #3E6098) 20%, white);
+    --search-bar-fg: var(--custom-accent, #3E6098);
+}
+[data-variant="material-you-tint"][data-mode="dark"] {
+    --search-bar-bg: color-mix(in srgb, var(--custom-accent, #7A8FB5) 30%, black);
+    --search-bar-fg: #F5F2EC;
+}
+
+/* GLASS */
+[data-variant="glass"] {
+    --search-bar-backdrop-filter: blur(20px) saturate(1.2);
+}
+[data-variant="glass"][data-mode="light"] {
+    --search-bar-bg: rgba(255, 255, 255, 0.80);
+    --search-bar-border: 1px solid rgba(0, 0, 0, 0.18);
+    --search-bar-shadow: 0 2px 12px rgba(0, 0, 0, 0.10);
+}
+[data-variant="glass"][data-mode="dark"] {
+    --search-bar-bg: rgba(0, 0, 0, 0.60);
+    --search-bar-border: 1px solid rgba(255, 255, 255, 0.80);
+}
+
+/* GRADIENT BLUE */
+[data-variant="gradient-blue"] {
+    --search-bar-bg: linear-gradient(135deg, #7A8FB5, #3E6098);
+    --search-bar-fg: #F5F2EC;
+    --search-bar-border: 1px solid rgba(255, 255, 255, 0.30);
+    --search-bar-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
+}
+/* Page-bg applied to <html> so short popup bodies (which don't stretch to the
+ * viewport) still show the full gradient instead of Chrome's default canvas. */
+html[data-variant="gradient-blue"],
+html[data-variant="gradient-blue"] body {
+    background: linear-gradient(135deg, #7A8FB5, #3E6098);
+}
+
+/* GRADIENT PURPLE */
+[data-variant="gradient-purple"] {
+    --search-bar-bg: linear-gradient(135deg, #E74FC9, #9333EA);
+    --search-bar-fg: #FFFFFF;
+    --search-bar-border: 1px solid rgba(255, 255, 255, 0.30);
+    --search-bar-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
+}
+html[data-variant="gradient-purple"],
+html[data-variant="gradient-purple"] body {
+    background: linear-gradient(135deg, #E74FC9, #9333EA);
+}
+
+/* NEUMORPHISM — classic soft-UI "raised" effect. Neutral gray fills match
+ * Android (NeumorphFillLight #E0E0E0 / NeumorphFillDark #2A2A2A); the double
+ * outer shadow (dark bottom-right + light top-left) creates the extruded look. */
+[data-variant="neumorphism"][data-mode="light"] {
+    --search-bar-bg: #E0E0E0;
+    --search-bar-fg: #5F6368;
+    --search-bar-shadow: 14px 14px 28px rgba(174, 174, 192, 0.75), -14px -14px 28px #FFFFFF;
+}
+[data-variant="neumorphism"][data-mode="dark"] {
+    --search-bar-bg: #2A2A2A;
+    --search-bar-fg: #E0E0E0;
+    --search-bar-shadow: 14px 14px 28px rgba(0, 0, 0, 0.85), -14px -14px 28px rgba(255, 255, 255, 0.08);
+}
+
+/* AMOLED — overrides mode */
+[data-variant="amoled"] {
+    --search-bar-bg: #000000;
+    --search-bar-fg: #FFFFFF;
+    --search-bar-border: 1px solid #4A4A4A;
+}
+html[data-variant="amoled"] body { background: #000000; }
+
+/* TRANSPARENT */
+[data-variant="transparent"] {
+    --search-bar-bg: transparent;
+    --search-bar-border: 1.5px solid var(--primary);
+    --search-bar-fg: var(--primary);
+}
+
+/* Shape overrides */
+[data-shape="pill"]    { --search-shape-radius: var(--radius-pill); }
+[data-shape="soft"]    { --search-shape-radius: var(--radius-lg); }
+[data-shape="rounded"] { --search-shape-radius: var(--radius-md); }
+[data-shape="square"]  { --search-shape-radius: var(--radius-xs); }

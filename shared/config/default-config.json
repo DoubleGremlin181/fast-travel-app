@@ -1,0 +1,1125 @@
+{
+  "$schema": "./config.schema.json",
+  "version": 2,
+  "defaultCommand": "g",
+  "defaultSuggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&q={query}",
+  "groups": [
+    {
+      "id": "search-engines",
+      "name": "Search Engines",
+      "color": "#4285F4",
+      "commands": [
+        {
+          "id": "google",
+          "triggers": [
+            "g",
+            "google"
+          ],
+          "name": "Google",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=google.com&sz=128",
+          "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&q={query}",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.google.com",
+              "searchUrl": "https://www.google.com/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "duckduckgo",
+          "triggers": [
+            "ddg"
+          ],
+          "name": "DuckDuckGo",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=duckduckgo.com&sz=128",
+          "suggestionsApi": "https://duckduckgo.com/ac/?q={query}&type=list",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://duckduckgo.com",
+              "searchUrl": "https://duckduckgo.com/?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "bing",
+          "triggers": [
+            "bing"
+          ],
+          "name": "Bing",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/bing.com.ico",
+          "suggestionsApi": "https://www.bing.com/osjson.aspx?query={query}",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.bing.com",
+              "searchUrl": "https://www.bing.com/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "gi",
+          "triggers": [
+            "gi"
+          ],
+          "name": "Google Images",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=google.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.google.com/imghp",
+              "searchUrl": "https://www.google.com/search?tbm=isch&q={query}"
+            }
+          ]
+        },
+        {
+          "id": "og",
+          "triggers": [
+            "og"
+          ],
+          "name": "Google - Pre AI",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=google.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.google.com",
+              "searchUrl": "https://www.google.com/search?q={query}&udm=14&tbs=cdr:1,cd_min:1/1/1900,cd_max:12/31/2022"
+            }
+          ]
+        },
+        {
+          "id": "qq",
+          "triggers": [
+            "qq"
+          ],
+          "name": "ChatGPT",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=chat.openai.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://chat.openai.com",
+              "searchUrl": "https://chat.openai.com/?q={query}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reference",
+      "name": "Reference",
+      "color": "#EA4335",
+      "commands": [
+        {
+          "id": "dict",
+          "triggers": [
+            "dict"
+          ],
+          "name": "Dictionary.com",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/dictionary.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.dictionary.com",
+              "searchUrl": "https://www.dictionary.com/browse/{query}"
+            }
+          ]
+        },
+        {
+          "id": "wut",
+          "triggers": [
+            "wut"
+          ],
+          "name": "Urban Dictionary",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/urbandictionary.com.ico",
+          "suggestionsApi": "https://api.urbandictionary.com/v0/autocomplete?term={query}",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.urbandictionary.com",
+              "searchUrl": "https://www.urbandictionary.com/define.php?term={query}"
+            }
+          ]
+        },
+        {
+          "id": "wikipedia",
+          "triggers": [
+            "w"
+          ],
+          "name": "Wikipedia",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=en.wikipedia.org&sz=128",
+          "suggestionsApi": "https://en.wikipedia.org/w/api.php?action=opensearch&search={query}&format=json",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://en.wikipedia.org",
+              "searchUrl": "https://en.wikipedia.org/w/index.php?search={query}"
+            }
+          ]
+        },
+        {
+          "id": "scholar",
+          "triggers": [
+            "scholar"
+          ],
+          "name": "Google Scholar",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=scholar.google.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://scholar.google.com",
+              "searchUrl": "https://scholar.google.com/scholar?q={query}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "color": "#34A853",
+      "commands": [
+        {
+          "id": "calc",
+          "triggers": [
+            "calc"
+          ],
+          "name": "Desmos Scientific Calculator",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=desmos.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.desmos.com/scientific",
+              "searchUrl": "https://www.desmos.com/scientific"
+            }
+          ]
+        },
+        {
+          "id": "cal",
+          "triggers": [
+            "cal"
+          ],
+          "name": "Google Calendar",
+          "type": "standard",
+          "iconUrl": "https://fonts.gstatic.com/s/i/productlogos/calendar_2020q4/v10/web-96dp/logo_calendar_2020q4_color_2x_web_96dp.png",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://calendar.google.com",
+              "searchUrl": "https://calendar.google.com",
+              "patterns": [
+                {
+                  "match": "event/{title}/{date}/{time}",
+                  "url": "https://calendar.google.com/calendar/r/eventedit?text={title}&dates={date}T{time}Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "google-maps",
+          "triggers": [
+            "maps"
+          ],
+          "name": "Google Maps",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/maps.google.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://maps.google.com",
+              "searchUrl": "https://maps.google.com/?q={query}",
+              "patterns": [
+                {
+                  "match": "directions/{from}/{to}",
+                  "url": "https://maps.google.com/dir/{from}/{to}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gd",
+          "triggers": [
+            "gd"
+          ],
+          "name": "Google Drive",
+          "type": "standard",
+          "iconUrl": "https://fonts.gstatic.com/s/i/productlogos/drive_2020q4/v10/web-96dp/logo_drive_2020q4_color_2x_web_96dp.png",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://drive.google.com",
+              "searchUrl": "https://drive.google.com/drive/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "file",
+          "triggers": [
+            "file"
+          ],
+          "name": "File Browser",
+          "type": "standard",
+          "routes": [
+            {
+              "devices": ["Windows", "MacOS", "Linux", "Unknown"],
+              "defaultUrl": "file:///",
+              "patterns": [
+                {
+                  "match": "{path}",
+                  "url": "file:///{path}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gmail",
+          "triggers": [
+            "gm"
+          ],
+          "name": "Gmail",
+          "type": "standard",
+          "iconUrl": "https://fonts.gstatic.com/s/i/productlogos/gmail_2020q4/v10/web-96dp/logo_gmail_2020q4_color_2x_web_96dp.png",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://mail.google.com/mail/u/0/#inbox",
+              "searchUrl": "https://mail.google.com/mail/u/0/#search/{query}",
+              "patterns": [
+                {
+                  "match": "u/{account_number}",
+                  "url": "https://mail.google.com/mail/u/{account_number}/#inbox"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "mailto",
+          "triggers": [
+            "mailto"
+          ],
+          "name": "Email",
+          "type": "standard",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "mailto:",
+              "patterns": [
+                {
+                  "match": "{email}",
+                  "url": "mailto:{email}"
+                },
+                {
+                  "match": "{email}?subject={subject}&body={body}",
+                  "url": "mailto:{email}?subject={subject}&body={body}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "app-stores",
+          "triggers": [
+            "apps"
+          ],
+          "name": "App Stores",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=play.google.com&sz=128",
+          "iconOverrides": [
+            {
+              "devices": [
+                "iOS"
+              ],
+              "iconUrl": "https://www.google.com/s2/favicons?domain=apps.apple.com&sz=128"
+            },
+            {
+              "devices": [
+                "Windows",
+                "MacOS",
+                "Linux",
+                "Unknown"
+              ],
+              "iconUrl": "https://www.google.com/s2/favicons?domain=store.steampowered.com&sz=128"
+            }
+          ],
+          "routes": [
+            {
+              "devices": [
+                "Android"
+              ],
+              "defaultUrl": "https://play.google.com/store",
+              "searchUrl": "https://play.google.com/store/search?q={query}",
+              "patterns": [
+                {
+                  "match": "developer/{dev_name}",
+                  "url": "https://play.google.com/store/apps/developer?id={dev_name}"
+                }
+              ]
+            },
+            {
+              "devices": [
+                "iOS"
+              ],
+              "defaultUrl": "https://apps.apple.com",
+              "searchUrl": "https://apps.apple.com/search?q={query}",
+              "patterns": [
+                {
+                  "match": "developer/{dev_name}",
+                  "url": "https://apps.apple.com/developer/{dev_name}"
+                }
+              ]
+            },
+            {
+              "devices": [
+                "MacOS",
+                "Windows",
+                "Linux",
+                "Unknown"
+              ],
+              "defaultUrl": "https://store.steampowered.com",
+              "searchUrl": "https://store.steampowered.com/search/?term={query}",
+              "patterns": [
+                {
+                  "match": "category/{category_name}",
+                  "url": "https://store.steampowered.com/category/{category_name}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "ub",
+          "triggers": [
+            "ub"
+          ],
+          "name": "Unblock via archive.today",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=archive.today&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://archive.today",
+              "searchUrl": "https://archive.today/submit/?url={query}"
+            }
+          ]
+        },
+        {
+          "id": "flightaware",
+          "triggers": [
+            "fa"
+          ],
+          "name": "FlightAware",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=flightaware.com&sz=128",
+          "normalize": ["stripSpaces"],
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://beta.flightaware.com/",
+              "searchUrl": "https://beta.flightaware.com/live/flight/{query}",
+              "patterns": [
+                {
+                  "match": "f/{flight_number}",
+                  "url": "https://beta.flightaware.com/live/flight/{flight_number}"
+                },
+                {
+                  "match": "a/{airport_code}",
+                  "url": "https://beta.flightaware.com/live/airport/{airport_code}"
+                },
+                {
+                  "match": "{code:3}",
+                  "url": "https://beta.flightaware.com/live/airport/{code}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "news",
+      "name": "News",
+      "color": "#FBBC04",
+      "commands": [
+        {
+          "id": "hn",
+          "triggers": [
+            "hn"
+          ],
+          "name": "Hacker News",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=news.ycombinator.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://news.ycombinator.com",
+              "searchUrl": "https://hn.algolia.com/?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "reddit",
+          "triggers": [
+            "r",
+            "reddit"
+          ],
+          "name": "Reddit",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/reddit.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.reddit.com",
+              "searchUrl": "https://www.google.com/search?q=site:reddit.com+{query}",
+              "patterns": [
+                {
+                  "match": "r/{subreddit}",
+                  "url": "https://www.reddit.com/r/{subreddit}"
+                },
+                {
+                  "match": "u/{username}",
+                  "url": "https://www.reddit.com/user/{username}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "reddit-prefix",
+          "triggers": [
+            "r/"
+          ],
+          "name": "Reddit - Prefix",
+          "type": "prefix",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/reddit.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.reddit.com/r/{term}",
+              "searchUrl": "https://www.google.com/search?q=site%3Areddit.com%2Fr%2F{term}+{query}"
+            }
+          ]
+        },
+        {
+          "id": "news",
+          "triggers": [
+            "news"
+          ],
+          "name": "Google News",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/news.google.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://news.google.com",
+              "searchUrl": "https://news.google.com/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "nyt",
+          "triggers": [
+            "nyt"
+          ],
+          "name": "New York Times",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/nytimes.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.nytimes.com",
+              "searchUrl": "https://www.nytimes.com/search?query={query}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "media-entertainment",
+      "name": "Media & Entertainment",
+      "color": "#9C27B0",
+      "commands": [
+        {
+          "id": "youtube",
+          "triggers": [
+            "yt",
+            "youtube"
+          ],
+          "name": "YouTube",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/youtube.com.ico",
+          "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q={query}",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.youtube.com",
+              "searchUrl": "https://www.youtube.com/results?search_query={query}",
+              "patterns": [
+                {
+                  "match": "subs",
+                  "url": "https://www.youtube.com/feed/subscriptions"
+                },
+                {
+                  "match": "c/{channel_name}",
+                  "url": "https://www.youtube.com/c/{channel_name}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "sp",
+          "triggers": [
+            "sp"
+          ],
+          "name": "Spotify",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/open.spotify.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://open.spotify.com",
+              "searchUrl": "https://open.spotify.com/search/{query}",
+              "patterns": [
+                {
+                  "match": "track/{track_id}",
+                  "url": "https://open.spotify.com/track/{track_id}"
+                },
+                {
+                  "match": "album/{album_id}",
+                  "url": "https://open.spotify.com/album/{album_id}"
+                },
+                {
+                  "match": "artist/{artist_id}",
+                  "url": "https://open.spotify.com/artist/{artist_id}"
+                },
+                {
+                  "match": "playlist/{playlist_id}",
+                  "url": "https://open.spotify.com/playlist/{playlist_id}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cr",
+          "triggers": [
+            "cr"
+          ],
+          "name": "Crunchyroll",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/crunchyroll.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.crunchyroll.com",
+              "searchUrl": "https://www.google.com/search?q=site:crunchyroll.com+{query}"
+            }
+          ]
+        },
+        {
+          "id": "ttv",
+          "triggers": [
+            "ttv"
+          ],
+          "name": "Twitch TV",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/twitch.tv.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.twitch.tv",
+              "searchUrl": "https://www.twitch.tv/search?term={query}",
+              "patterns": [
+                {
+                  "match": "u/{username}",
+                  "url": "https://www.twitch.tv/{username}"
+                },
+                {
+                  "match": "c/{category}",
+                  "url": "https://www.twitch.tv/directory/category/{category}"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "social-media",
+      "name": "Social Media",
+      "color": "#FF9800",
+      "commands": [
+        {
+          "id": "fb",
+          "triggers": [
+            "fb"
+          ],
+          "name": "Facebook",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=facebook.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.facebook.com",
+              "searchUrl": "https://www.facebook.com/search/top/?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "wa",
+          "triggers": [
+            "wa"
+          ],
+          "name": "WhatsApp",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=whatsapp.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://web.whatsapp.com",
+              "searchUrl": "https://api.whatsapp.com/send?text={query}"
+            }
+          ]
+        },
+        {
+          "id": "ig",
+          "triggers": [
+            "ig"
+          ],
+          "name": "Instagram",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/instagram.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.instagram.com",
+              "searchUrl": "https://www.instagram.com/explore/tags/{query}"
+            }
+          ]
+        },
+        {
+          "id": "discord",
+          "triggers": [
+            "discord"
+          ],
+          "name": "Discord",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/discord.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://discord.com"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "weather",
+      "name": "Weather",
+      "color": "#00897B",
+      "commands": [
+        {
+          "id": "weather",
+          "triggers": [
+            "weather"
+          ],
+          "name": "Weather",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=google.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.google.com/search?q=weather",
+              "searchUrl": "https://www.google.com/search?q=weather+{query}"
+            }
+          ]
+        },
+        {
+          "id": "fog",
+          "triggers": [
+            "fog"
+          ],
+          "name": "Fog",
+          "type": "redirect",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/fog.today.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://fog.today/"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "developer-cloud",
+      "name": "Developer & Cloud",
+      "color": "#C2185B",
+      "commands": [
+        {
+          "id": "st",
+          "triggers": [
+            "st"
+          ],
+          "name": "Speed Test",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/fast.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://fast.com",
+              "searchUrl": "https://fast.com"
+            }
+          ]
+        },
+        {
+          "id": "whois",
+          "triggers": [
+            "whois"
+          ],
+          "name": "Whois",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=whois.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.whois.com/whois/",
+              "searchUrl": "https://www.whois.com/whois/{query}"
+            }
+          ]
+        },
+        {
+          "id": "time",
+          "triggers": [
+            "time"
+          ],
+          "name": "Time",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=time.is&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://time.is",
+              "searchUrl": "https://time.is/{query}"
+            }
+          ]
+        },
+        {
+          "id": "ip",
+          "triggers": [
+            "ip"
+          ],
+          "name": "My IP",
+          "type": "redirect",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/whatismyip.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.whatismyip.com"
+            }
+          ]
+        },
+        {
+          "id": "aws",
+          "triggers": [
+            "aws"
+          ],
+          "name": "AWS Console",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=aws.amazon.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://aws.amazon.com/console/",
+              "searchUrl": "https://aws.amazon.com/console/"
+            }
+          ]
+        },
+        {
+          "id": "gcp",
+          "triggers": [
+            "gcp"
+          ],
+          "name": "Google Cloud Console",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=console.cloud.google.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://console.cloud.google.com",
+              "searchUrl": "https://console.cloud.google.com"
+            }
+          ]
+        },
+        {
+          "id": "py",
+          "triggers": [
+            "py"
+          ],
+          "name": "Python Docs",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=docs.python.org&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://docs.python.org/3",
+              "searchUrl": "https://docs.python.org/3/search.html?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "js",
+          "triggers": [
+            "js"
+          ],
+          "name": "JavaScript MDN",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/developer.mozilla.org.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+              "searchUrl": "https://developer.mozilla.org/en-US/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "man",
+          "triggers": [
+            "man"
+          ],
+          "name": "Linux Man Pages",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/man7.org.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://man7.org/linux/man-pages/",
+              "searchUrl": "https://man7.org/linux/man-pages/?query={query}"
+            }
+          ]
+        },
+        {
+          "id": "bash",
+          "triggers": [
+            "bash"
+          ],
+          "name": "Explain Shell",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=explainshell.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://explainshell.com",
+              "searchUrl": "https://explainshell.com/explain?cmd={query}"
+            }
+          ]
+        },
+        {
+          "id": "github",
+          "triggers": [
+            "gh",
+            "github"
+          ],
+          "name": "GitHub",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=github.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://github.com",
+              "searchUrl": "https://github.com/search?q={query}",
+              "patterns": [
+                {
+                  "match": "u/{username}",
+                  "url": "https://github.com/search?q={username}&type=users"
+                },
+                {
+                  "match": "r/{repo}",
+                  "url": "https://github.com/search?q={repo}&type=repositories"
+                },
+                {
+                  "match": "{username}/{repo}",
+                  "url": "https://github.com/{username}/{repo}"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "gist",
+          "triggers": [
+            "gist"
+          ],
+          "name": "GitHub Gist",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=gist.github.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://gist.github.com",
+              "searchUrl": "https://gist.github.com/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "paste",
+          "triggers": [
+            "paste"
+          ],
+          "name": "Pastebin",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=pastebin.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://pastebin.com",
+              "searchUrl": "https://pastebin.com/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "me",
+          "triggers": [
+            "me"
+          ],
+          "name": "Creators Blog",
+          "type": "redirect",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/kavi.sh.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://kavi.sh"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "finance-investing",
+      "name": "Finance & Investing",
+      "color": "#5E35B1",
+      "commands": [
+        {
+          "id": "fid",
+          "triggers": [
+            "fid"
+          ],
+          "name": "Fidelity",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=fidelity.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.fidelity.com",
+              "searchUrl": "https://www.google.com/search?q=site%3Afidelity.com+{query}"
+            }
+          ]
+        },
+        {
+          "id": "stocks",
+          "triggers": [
+            "stocks"
+          ],
+          "name": "Yahoo Finance",
+          "type": "standard",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/finance.yahoo.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://finance.yahoo.com",
+              "searchUrl": "https://finance.yahoo.com/lookup?s={query}"
+            }
+          ]
+        },
+        {
+          "id": "stock-quote",
+          "triggers": [
+            "$"
+          ],
+          "name": "Stock Quote - Prefix",
+          "type": "prefix",
+          "iconUrl": "https://icons.duckduckgo.com/ip3/finance.yahoo.com.ico",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://finance.yahoo.com/quote/{term}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "productivity-suite",
+      "name": "Productivity Suite",
+      "color": "#455A64",
+      "commands": [
+        {
+          "id": "docs",
+          "triggers": [
+            "docs"
+          ],
+          "name": "Google Docs",
+          "type": "standard",
+          "iconUrl": "https://fonts.gstatic.com/s/i/productlogos/docs_2020q4/v10/web-96dp/logo_docs_2020q4_color_2x_web_96dp.png",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://docs.google.com/document/u/0/",
+              "searchUrl": "https://docs.google.com/document/u/0/?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "slides",
+          "triggers": [
+            "slides"
+          ],
+          "name": "Google Slides",
+          "type": "standard",
+          "iconUrl": "https://fonts.gstatic.com/s/i/productlogos/slides_2020q4/v10/web-96dp/logo_slides_2020q4_color_2x_web_96dp.png",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://docs.google.com/presentation/u/0/",
+              "searchUrl": "https://docs.google.com/presentation/u/0/?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "sheets",
+          "triggers": [
+            "sheets"
+          ],
+          "name": "Google Sheets",
+          "type": "standard",
+          "iconUrl": "https://fonts.gstatic.com/s/i/productlogos/sheets_2020q4/v10/web-96dp/logo_sheets_2020q4_color_2x_web_96dp.png",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://docs.google.com/spreadsheets/u/0/",
+              "searchUrl": "https://docs.google.com/spreadsheets/u/0/?q={query}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ignoreList": []
+}

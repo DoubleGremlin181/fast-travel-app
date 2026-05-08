@@ -1,0 +1,92 @@
+[
+  {
+    "description": "Empty steps list - input unchanged",
+    "input": "  Hello   World  ",
+    "steps": [],
+    "expected": "  Hello   World  "
+  },
+  {
+    "description": "trim - removes leading/trailing whitespace",
+    "input": "   hello   ",
+    "steps": ["trim"],
+    "expected": "hello"
+  },
+  {
+    "description": "collapseSpaces - runs of whitespace become single space",
+    "input": "a   b\t\tc",
+    "steps": ["collapseSpaces"],
+    "expected": "a b c"
+  },
+  {
+    "description": "stripSpaces - all whitespace removed",
+    "input": "UA 12 74",
+    "steps": ["stripSpaces"],
+    "expected": "UA1274"
+  },
+  {
+    "description": "lower - lowercases ASCII",
+    "input": "Hello World",
+    "steps": ["lower"],
+    "expected": "hello world"
+  },
+  {
+    "description": "upper - uppercases ASCII",
+    "input": "Hello World",
+    "steps": ["upper"],
+    "expected": "HELLO WORLD"
+  },
+  {
+    "description": "snake - whitespace runs become single _ and lowercased",
+    "input": "My Flight  Number",
+    "steps": ["snake"],
+    "expected": "my_flight_number"
+  },
+  {
+    "description": "camel - whitespace removed, next char uppercased, first char lowercased",
+    "input": "Hello World Foo",
+    "steps": ["camel"],
+    "expected": "helloWorldFoo"
+  },
+  {
+    "description": "camel on single word lowercases first char",
+    "input": "Hello",
+    "steps": ["camel"],
+    "expected": "hello"
+  },
+  {
+    "description": "camel on only whitespace returns empty string",
+    "input": "   ",
+    "steps": ["camel"],
+    "expected": ""
+  },
+  {
+    "description": "camel - all-caps first word is fully lowercased",
+    "input": "HELLO World",
+    "steps": ["camel"],
+    "expected": "helloWorld"
+  },
+  {
+    "description": "camel - all-caps middle word is title-cased",
+    "input": "foo BAR baz",
+    "steps": ["camel"],
+    "expected": "fooBarBaz"
+  },
+  {
+    "description": "camel - already camelCase input normalizes correctly",
+    "input": "already camel",
+    "steps": ["camel"],
+    "expected": "alreadyCamel"
+  },
+  {
+    "description": "Composition trim+collapseSpaces",
+    "input": "   a    b  c  ",
+    "steps": ["trim", "collapseSpaces"],
+    "expected": "a b c"
+  },
+  {
+    "description": "Composition trim+snake",
+    "input": "   Hello World   ",
+    "steps": ["trim", "snake"],
+    "expected": "hello_world"
+  }
+]

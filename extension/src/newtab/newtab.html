@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fast Travel</title>
+    <script type="module" src="../ui/apply-theme.js"></script>
+    <link rel="stylesheet" href="../ui/tokens.css" />
+    <link rel="stylesheet" href="newtab.css" />
+  </head>
+  <body>
+    <header id="top-bar">
+      <div id="wordmark">
+        <svg class="wordmark-chevron" viewBox="0 0 200 200" fill="none" aria-hidden="true"><g stroke-width="22" stroke-linecap="square" stroke-linejoin="miter"><polyline points="52,60 97,100 52,140" stroke="currentColor"/><polyline points="103,60 148,100 103,140" style="stroke: var(--primary)"/></g></svg>
+        <span>Fast Travel</span>
+      </div>
+      <a id="settings-link" href="../options/options.html" target="_blank" rel="noopener" title="Settings" aria-label="Open settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </a>
+    </header>
+    <main id="app">
+      <section id="search-container">
+        <div id="search-wrapper">
+          <div id="leading-icon" aria-hidden="true">
+            <svg id="search-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
+          <input
+            type="text"
+            id="search-input"
+            autofocus
+            placeholder="Search or type a command…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Search"
+          />
+          <div id="suggestions-dropdown" class="hidden" role="listbox"></div>
+        </div>
+        <div id="search-hint">Press <kbd>Enter</kbd> to search · Try <kbd>g</kbd>, <kbd>yt</kbd>, <kbd>gh</kbd>, <kbd>$AAPL</kbd></div>
+      </section>
+
+      <div id="typo-container" class="hidden" role="alert">
+        <p id="typo-message"></p>
+        <div id="typo-actions">
+          <button id="typo-accept" type="button" class="typo-btn">
+            <kbd>Y</kbd> Use suggestion
+          </button>
+          <button id="typo-search" type="button" class="typo-btn">
+            <kbd>G</kbd> Default search
+          </button>
+          <button id="typo-ignore" type="button" class="typo-btn">
+            <kbd>I</kbd> Ignore permanently
+          </button>
+        </div>
+      </div>
+
+      <section id="chips-section" aria-label="Quick commands">
+        <div id="chips-content"></div>
+      </section>
+
+      <aside id="onboarding-hint" class="hidden" aria-label="Fast Travel tips">
+        <div id="onboarding-hint-body">
+          <p>
+            Type <kbd>ft</kbd> <kbd>Space</kbd> in the address bar for command-aware suggestions.
+          </p>
+          <p>
+            Want Fast Travel everywhere? <a id="onboarding-hint-setup" href="../options/options.html#/search-engine">Make it your default search engine →</a>
+          </p>
+        </div>
+        <button id="onboarding-hint-dismiss" type="button" aria-label="Dismiss tip">×</button>
+      </aside>
+    </main>
+    <div id="snackbar-root" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="newtab.js"></script>
+  </body>
+</html>

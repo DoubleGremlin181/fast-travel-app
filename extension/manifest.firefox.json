@@ -1,0 +1,20 @@
+{
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "fast-travel@kavi.sh",
+      "strict_min_version": "128.0"
+    }
+  },
+  "background": {
+    "scripts": ["background/service-worker.js"],
+    "type": "module"
+  },
+  "chrome_settings_overrides": {
+    "search_provider": {
+      "name": "Fast Travel",
+      "search_url": "https://fast-travel-omnibox.invalid/search?q={searchTerms}",
+      "keyword": "ft2",
+      "is_default": true
+    }
+  }
+}

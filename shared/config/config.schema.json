@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fast-travel.kavi.sh/config.schema.json",
+  "title": "Fast Travel Config",
+  "description": "Configuration schema for Fast Travel v2 — defines commands, groups, routes, and patterns. Both clients (browser extension and Android app) validate against this schema on every config load.",
+  "type": "object",
+  "required": ["version", "defaultCommand", "groups"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 2,
+      "description": "Major schema version. Bump for breaking changes; clients refuse versions they don't recognise."
+    },
+    "defaultCommand": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Trigger of the command to use when no command matches the input. Must match a trigger of some command in `groups`."
+    },
+    "defaultSuggestionsApi": {
+      "type": "string",
+      "pattern": "^https?://.*\\{query\\}.*$",
+      "description": "URL template for default autocomplete suggestions. Must be https? and contain {query}."
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    },
+    "ignoreList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Default list of strings to ignore in typo detection (in addition to the bundled common-words list)."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "group": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+          "description": "Stable kebab-case identifier; must start and end with [a-z0-9]."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
+          "description": "Optional hex color used to tint chips/badges for commands in this group"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional human-readable description shown in the settings UI."
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "command": {
+      "type": "object",
+      "required": ["id", "triggers", "name", "type", "routes"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+          "description": "Stable kebab-case identifier; must start and end with [a-z0-9]. Used by fixtures and analytics — do not rename casually."
+        },
+        "triggers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S+$"
+          },
+          "description": "Command triggers (first is primary, rest are aliases). Must not contain whitespace."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": ["standard", "prefix", "redirect"],
+          "description": "standard: exact or search; prefix: startsWith match using {term}; redirect: exact match only, no search or suggestions (falls through to default command when args follow)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional one-line description shown in the settings UI."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$",
+          "description": "Optional per-command color override (defaults to the group color)."
+        },
+        "iconUrl": {
+          "type": "string",
+          "pattern": "^https?://",
+          "description": "URL for the command's icon image (e.g. favicon). Must be https? to avoid mixed-content."
+        },
+        "iconOverrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["devices", "iconUrl"],
+            "properties": {
+              "devices": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "enum": ["Windows", "MacOS", "Linux", "Android", "iOS", "Unknown"]
+                }
+              },
+              "iconUrl": {
+                "type": "string",
+                "pattern": "^https?://"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Optional per-device icon overrides. Each device may appear in at most one entry (semantic check, not enforced by JSON Schema)."
+        },
+        "suggestionsApi": {
+          "type": "string",
+          "pattern": "^https?://.*\\{query\\}.*$",
+          "description": "URL template for command-specific autocomplete. Must be https? and contain {query}."
+        },
+        "normalize": {
+          "type": "array",
+          "items": {
+            "enum": ["trim", "collapseSpaces", "stripSpaces", "lower", "upper", "snake", "camel"]
+          },
+          "description": "Optional ordered pipeline of transforms applied to the args string before pattern matching and {query} substitution. Steps: trim, collapseSpaces, stripSpaces, lower, upper, snake (whitespace→_ and lowercase), camel (whitespace removed and next char uppercased; first char lowercased)."
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/route"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "route": {
+      "type": "object",
+      "required": ["devices", "defaultUrl"],
+      "properties": {
+        "devices": {
+          "oneOf": [
+            {
+              "const": "*"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "enum": ["Windows", "MacOS", "Linux", "Android", "iOS", "Unknown"]
+              }
+            }
+          ]
+        },
+        "browsers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": ["Chrome", "Firefox", "Safari", "Edge", "Other"]
+          },
+          "description": "Optional browser restriction; route matches only when the current browser is in this list."
+        },
+        "defaultUrl": {
+          "type": "string",
+          "pattern": "^(https?|mailto|tel|file):",
+          "description": "URL to navigate to when command is used without arguments. Allowed schemes: http, https, mailto, tel, file. (Android resolver further restricts to http/https/mailto/tel.)"
+        },
+        "searchUrl": {
+          "type": "string",
+          "pattern": "^(https?|mailto|tel|file):",
+          "description": "Optional URL template for search queries. Allowed schemes as for defaultUrl. Use {query} for standard or {term}/{query} for prefix; if no placeholder is present, the URL is opened verbatim ignoring args."
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pattern"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "pattern": {
+      "type": "object",
+      "required": ["match", "url"],
+      "properties": {
+        "match": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^([^{}]|\\{\\w+(?::\\d+(?:-\\d+)?)?\\})+$",
+          "description": "Pattern string with optional {placeholder} markers (e.g. 'r/{subreddit}'). Placeholder names must be unique within a single match. Length-constrained forms: {name:N} for exactly N non-whitespace/non-slash chars; {name:N-M} for a range."
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "URL template with the same {placeholder} markers as match. Each URL placeholder must appear in the match string."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
