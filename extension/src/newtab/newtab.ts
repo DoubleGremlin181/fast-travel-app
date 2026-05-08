@@ -118,6 +118,27 @@ const defaultLeadingIcon = leadingIcon.innerHTML;
 const ONBOARDING_HINT_DISMISSED_KEY = "fast-travel-onboarding-hint-dismissed";
 const SEARCH_ENGINE_ACTIVE_KEY = "fast-travel-search-engine-active";
 
+// Toggle `.tail-visible` based on whether the element's content overflows.
+// The class flips overflow to the start of the line so the tail (with a
+// leading ellipsis) stays visible. Used by the search input on blur and by
+// API suggestion rows on render / resize.
+function applyTailVisible(el: HTMLElement): void {
+  el.classList.toggle("tail-visible", el.scrollWidth > el.clientWidth);
+}
+
+function refreshTailVisibleAll(): void {
+  applyTailVisible(searchInput);
+  suggestionsDropdown
+    .querySelectorAll<HTMLElement>(".suggestion-api .suggestion-text")
+    .forEach(applyTailVisible);
+}
+
+// Re-evaluate overflow when the bar or dropdown is resized (e.g. window
+// resize, dropdown open/close changing inner width).
+const tailResizeObserver = new ResizeObserver(refreshTailVisibleAll);
+tailResizeObserver.observe(searchInput);
+tailResizeObserver.observe(suggestionsDropdown);
+
 async function setupOnboardingHint(): Promise<void> {
   const hint = document.getElementById("onboarding-hint");
   const dismissBtn = document.getElementById("onboarding-hint-dismiss");
@@ -457,7 +478,16 @@ function showSuggestions(query: string): void {
     }
   }
 
-  renderSuggestions(commandItems);
+  // Only render synchronously when we have new content to show. If the
+  // dropdown is already populated and the new query produces no immediate
+  // command matches (e.g. multi-word query, or after clicking the populate
+  // arrow), keep the existing items in place until the API response lands
+  // a few hundred ms later. Avoids a hide/show flicker on bursty typing
+  // and on populate-button clicks.
+  const dropdownVisible = !suggestionsDropdown.classList.contains("hidden");
+  if (commandItems.length > 0 || !dropdownVisible) {
+    renderSuggestions(commandItems);
+  }
 
   suggestionTimer = setTimeout(async () => {
     if (!config) return;
@@ -511,8 +541,32 @@ function arrowIcon(): SVGSVGElement {
   svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("class", "suggestion-trailing-arrow");
   svg.setAttribute("aria-hidden", "true");
-  svg.innerHTML = '<path d="M17 7L7 17"/><path d="M7 7h10v10"/>';
+  // NW-pointing arrow (matches Android, where ArrowOutward is rotated -90°).
+  // Shaft: bottom-right → top-left. Head corner at (7,7) extends along the
+  // top and left edges of the bounding box.
+  svg.innerHTML = '<path d="M17 17L7 7"/><path d="M17 7H7V17"/>';
   return svg;
+}
+
+// Trailing populate-only button: fills the search input with the suggestion's
+// text without submitting, mirroring the IconButton on Android. The row's
+// own click handler still searches; this button stops propagation so a click
+// on the arrow doesn't also fire the row click.
+function populateButton(text: string): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "suggestion-populate-btn";
+  btn.setAttribute("aria-label", "Populate search bar");
+  btn.appendChild(arrowIcon());
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    searchInput.value = text;
+    searchInput.focus();
+    showSuggestions(text);
+    updateLeadingIcon(text);
+    updateChipsVisibility();
+  });
+  return btn;
 }
 
 function renderSuggestions(items: SuggestionItem[], showClearHistory = false): void {
@@ -560,7 +614,7 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
       time.className = "suggestion-history-time";
       time.textContent = formatTimestamp(item.timestamp);
       el.appendChild(time);
-      el.appendChild(arrowIcon());
+      el.appendChild(populateButton(item.text));
     } else if (item.kind === "command") {
       const tint = resolveGroupTint(item.groupColor);
       const trigger = document.createElement("span");
@@ -578,15 +632,7 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
       text.className = "suggestion-text";
       text.textContent = item.display;
       el.appendChild(text);
-      if (item.command) {
-        const tint = resolveGroupTint(item.groupColor);
-        const tag = document.createElement("span");
-        tag.className = "suggestion-trigger-tag";
-        tag.textContent = item.matchedTrigger ?? item.command.triggers[0];
-        tag.style.background = tint.fill;
-        tag.style.color = tint.fg;
-        el.appendChild(tag);
-      }
+      el.appendChild(populateButton(item.text));
     }
 
     el.addEventListener("click", () => {
@@ -622,6 +668,16 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
 
   suggestionsDropdown.classList.remove("hidden");
   updateChipsVisibility();
+
+  // Mark API suggestion rows that overflow so they show the tail with a
+  // leading ellipsis. History rows intentionally keep head-first ellipsis,
+  // and command rows show head-first (the cmd-name CSS handles that).
+  // rAF lets layout settle before measuring scrollWidth.
+  requestAnimationFrame(() => {
+    suggestionsDropdown
+      .querySelectorAll<HTMLElement>(".suggestion-api .suggestion-text")
+      .forEach(applyTailVisible);
+  });
 }
 
 // Keyboard navigation
@@ -667,10 +723,9 @@ searchInput.addEventListener("focus", () => {
 });
 
 searchInput.addEventListener("blur", () => {
-  // Chrome resets scrollLeft to 0 after blur (before rAF), so scrollLeft=scrollWidth
-  // doesn't persist. Instead toggle direction:rtl via CSS class, which right-aligns
-  // LTR text without reversing characters, clipping the left (head) and showing the tail.
-  searchInput.classList.toggle("tail-visible", searchInput.scrollWidth > searchInput.clientWidth);
+  // Chrome resets scrollLeft to 0 after blur (before rAF) so scrollLeft=scrollWidth
+  // doesn't persist; the .tail-visible class is the durable equivalent.
+  applyTailVisible(searchInput);
 });
 
 document.addEventListener("keydown", (e) => {

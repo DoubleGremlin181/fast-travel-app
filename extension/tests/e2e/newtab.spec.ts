@@ -87,3 +87,26 @@ test("search input does not get tail-visible class when text fits", async ({
   const classes = (await input.getAttribute("class")) ?? "";
   expect(classes).not.toContain("tail-visible");
 });
+
+test("search input tail-visible class updates when window is resized", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
+  const input = page.locator("#search-input");
+  await expect(input).toBeVisible();
+
+  // 60 chars: fits at 1280px wide, but should overflow at 320px.
+  await input.fill("medium-length-query-".repeat(3));
+  await page.locator("#wordmark").click();
+
+  // Initial state: no tail-visible (fits in wide viewport).
+  let classes = (await input.getAttribute("class")) ?? "";
+  expect(classes).not.toContain("tail-visible");
+
+  // Shrink the viewport — ResizeObserver should re-evaluate.
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect(input).toHaveClass(/tail-visible/);
+});
