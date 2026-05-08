@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -37,7 +38,7 @@ class TailTextTest {
     }
 
     @Test
-    fun tailText_longText_isDisplayedAfterOverflowFlip() {
+    fun tailText_longText_displaysLeadingEllipsis() {
         val longText = "a".repeat(80)
         composeRule.setContent {
             MaterialTheme {
@@ -50,10 +51,31 @@ class TailTextTest {
                 )
             }
         }
-        // TailText needs two composition passes: first measures overflow,
-        // second recomposes with RTL wrapper. Advance clock to ensure both complete.
-        composeRule.mainClock.advanceTimeBy(200)
         composeRule.waitForIdle()
-        composeRule.onNodeWithText(longText).assertIsDisplayed()
+        // Visually the displayed string is "…aaaa…" (truncated tail with leading ellipsis).
+        composeRule.onNodeWithText("…", substring = true).assertIsDisplayed()
+        // Full original text is preserved for screen readers / tests via contentDescription.
+        composeRule.onNodeWithContentDescription(longText).assertIsDisplayed()
+    }
+
+    @Test
+    fun tailText_oneCharBeyondFit_truncatesWithLeadingEllipsis() {
+        // Boundary case: a string just barely wider than the container should
+        // still trigger truncation. Guards against off-by-one in the
+        // intrinsic-width vs. constraints.maxWidth comparison.
+        val text = "abcdefghijklmnopqrstuvwxyz" // 26 chars
+        composeRule.setContent {
+            MaterialTheme {
+                TailText(
+                    text = text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Black,
+                    modifier = Modifier.width(60.dp),
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("…", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithContentDescription(text).assertIsDisplayed()
     }
 }

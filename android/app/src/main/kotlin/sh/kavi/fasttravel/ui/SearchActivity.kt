@@ -92,14 +92,11 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import android.view.WindowManager
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.layout.SubcomposeLayout
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -1050,44 +1047,60 @@ internal fun TailText(
     color: Color,
     modifier: Modifier = Modifier,
 ) {
-    // SubcomposeLayout lets us measure the unconstrained text width using the
-    // same renderer that will display it — avoiding TextMeasurer metric
-    // discrepancies that caused hasVisualOverflow to silently return false.
-    SubcomposeLayout(modifier = modifier) { constraints ->
-        val intrinsicWidth = subcompose("measure") {
-            // clearAndSetSemantics prevents this measurement-only node from
-            // appearing in the accessibility/test semantics tree.
-            Text(text = text, style = style, maxLines = 1, softWrap = false,
-                modifier = Modifier.clearAndSetSemantics { })
-        }.first().measure(Constraints()).width
-
-        val overflows = intrinsicWidth > constraints.maxWidth
-
-        val placeable = subcompose("render") {
-            if (overflows) {
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                    Text(
-                        text = text,
-                        style = style,
-                        color = color,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+    // Render the tail-with-leading-ellipsis explicitly. Compose's
+    // LayoutDirection.Rtl + TextOverflow.Ellipsis trick that browsers do for
+    // CSS direction:rtl doesn't work the same way here — Material3 Text
+    // keeps the LTR-content ellipsis on the right regardless of paragraph
+    // direction. So we measure with the same renderer that will display the
+    // text, and if it doesn't fit we binary-search for the longest suffix
+    // that fits with a leading "…".
+    //
+    // Accessibility: the displayed string is the truncated "…tail" form, but
+    // SuggestionRow already sets a contentDescription on the parent Row with
+    // the full text, so screen readers announce the original. We also expose
+    // the original text via semantics so onNodeWithText() in tests still
+    // matches.
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier = modifier) {
+        val maxWidth = constraints.maxWidth
+        val displayed = remember(text, style, maxWidth) {
+            val full = measurer.measure(
+                text = AnnotatedString(text),
+                style = style,
+                softWrap = false,
+                maxLines = 1,
+            ).size.width
+            if (full <= maxWidth) {
+                text
             } else {
-                Text(
-                    text = text,
-                    style = style,
-                    color = color,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                val ellipsis = "…"
+                // Binary search: smallest `cut` such that "…" + text.substring(cut)
+                // fits within maxWidth. text.substring(text.length) = "" always fits.
+                var lo = 0
+                var hi = text.length
+                while (lo < hi) {
+                    val mid = (lo + hi) / 2
+                    val candidate = ellipsis + text.substring(mid)
+                    val w = measurer.measure(
+                        text = AnnotatedString(candidate),
+                        style = style,
+                        softWrap = false,
+                        maxLines = 1,
+                    ).size.width
+                    if (w <= maxWidth) hi = mid else lo = mid + 1
+                }
+                ellipsis + text.substring(lo)
             }
-        }.first().measure(constraints)
-
-        layout(placeable.width, placeable.height) {
-            placeable.place(0, 0)
         }
+        Text(
+            text = displayed,
+            style = style,
+            color = color,
+            maxLines = 1,
+            modifier = Modifier.semantics {
+                contentDescription = text
+            },
+        )
     }
 }
 
