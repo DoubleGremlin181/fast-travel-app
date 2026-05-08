@@ -666,7 +666,6 @@
           "name": "Lyrics",
           "type": "standard",
           "iconUrl": "https://icons.duckduckgo.com/ip3/genius.com.ico",
-          "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&q={query}%20lyrics",
           "routes": [
             {
               "devices": "*",
