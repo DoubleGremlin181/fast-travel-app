@@ -55,19 +55,22 @@ test("search bar suggestions deduplicate repeated queries", async ({ context, ex
   expect(texts[2]).toBe("youtube");
 });
 
-test("whitespace-only queries are not stored", async ({ context }) => {
-  let worker = context.serviceWorkers()[0];
-  if (!worker) worker = await context.waitForEvent("serviceworker");
-
-  // Route through the real addHistory message handler so the production guard is exercised.
-  // Removing the `if (!trimmed) return` from service-worker.ts would make this test fail.
-  await worker.evaluate(async () => {
+test("whitespace-only queries are not stored", async ({ context, extensionId }) => {
+  // Route through the real addHistory message handler so the production guard
+  // is exercised. chrome.runtime.sendMessage from inside the service worker
+  // doesn't loop back to the SW's own onMessage listener ("Receiving end does
+  // not exist"), so the call has to originate from a regular extension page.
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
+  await page.evaluate(async () => {
     await chrome.runtime.sendMessage({
       type: "addHistory",
       value: { query: "   ", commandId: null, timestamp: Date.now() },
     });
   });
 
+  let worker = context.serviceWorkers()[0];
+  if (!worker) worker = await context.waitForEvent("serviceworker");
   const historyResult: HistoryEntry[] = await worker.evaluate(
     ([key]: [string]) =>
       chrome.storage.local.get(key).then((r: Record<string, HistoryEntry[]>) => r[key] ?? []),
