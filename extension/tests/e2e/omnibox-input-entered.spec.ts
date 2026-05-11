@@ -85,12 +85,6 @@ test("omnibox currentTab: navigates the active tab to the resolved URL", async (
   const url = new URL(finalUrl);
   expect(url.hostname).toMatch(/google\.com/);
   expect(url.searchParams.get("q")).toBe("kittens");
-
-  // Take a screenshot showing the tab navigated to Google search.
-  await page.screenshot({
-    path: "tests/e2e/screenshots/omnibox-currentTab-navigated.png",
-    fullPage: false,
-  });
 });
 
 // ---------------------------------------------------------------------------
