@@ -50,12 +50,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build extension
-        run: npm run build -w extension
+      - name: Build extension (Chrome and Firefox)
+        # build:all produces dist-chrome/ and dist-firefox/ for install.spec.ts,
+        # leaving dist/ as the Chrome build for the other e2e tests' fixtures.
+        run: npm run build:all -w extension
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         working-directory: extension
+
+      - name: Install Firefox
+        # ubuntu-latest (24.04) no longer ships Firefox; install.spec.ts loads
+        # the packaged extension into system Firefox via /usr/bin/firefox.
+        # Use Mozilla's apt repo so the install pulls in shared libs (libdbus-glib,
+        # libgtk-3, libxt6 etc.) that web-ext run needs to launch Firefox under xvfb.
+        run: |
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://packages.mozilla.org/apt/repo-signing-key.gpg \
+            | sudo tee /etc/apt/keyrings/packages.mozilla.org.asc > /dev/null
+          echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+            | sudo tee /etc/apt/sources.list.d/mozilla.list > /dev/null
+          printf 'Package: *\nPin: origin packages.mozilla.org\nPin-Priority: 1000\n' \
+            | sudo tee /etc/apt/preferences.d/mozilla > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y firefox
+          firefox --version
 
       - name: Run e2e tests
         run: xvfb-run --auto-servernum npm run test:e2e -w extension
@@ -80,7 +99,10 @@ jobs:
 
   android-instrumented:
     name: Android — instrumented tests
-    runs-on: ubuntu-latest
+    # ubuntu-latest (24.04) GitHub-hosted runners don't expose /dev/kvm, so the
+    # emulator falls back to no-accel and times out. ubuntu-22.04 still has
+    # nested virtualization, which the emulator-runner needs.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 

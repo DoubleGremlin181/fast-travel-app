@@ -2,6 +2,7 @@ package sh.kavi.fasttravel.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
@@ -34,7 +35,6 @@ class ConfigEditingTest {
     fun importExportStatus_showsPausedWhenDirty() {
         themePrefs.configSourceDirty = true
         composeTestRule.onNodeWithText("Configuration").performClick()
-        composeTestRule.onNodeWithText("Import / Export").performClick()
         composeTestRule.onNodeWithText("auto-refresh paused", substring = true).assertIsDisplayed()
     }
 
@@ -43,7 +43,6 @@ class ConfigEditingTest {
         themePrefs.configSourceDirty = false
         themePrefs.configUrl = "https://example.com/config.json"
         composeTestRule.onNodeWithText("Configuration").performClick()
-        composeTestRule.onNodeWithText("Import / Export").performClick()
         composeTestRule.onNodeWithText("Synced from", substring = true).assertIsDisplayed()
     }
 
@@ -58,7 +57,7 @@ class ConfigEditingTest {
     fun addIgnoreWord_setsDirtyFlag() {
         composeTestRule.onNodeWithText("Ignore list").performClick()
         composeTestRule.onNodeWithText("Add a term…").performTextInput("testword")
-        composeTestRule.onNodeWithText("Add a term…").performClick()
+        composeTestRule.onNodeWithContentDescription("Add").performClick()
         composeTestRule.waitForIdle()
         assert(themePrefs.configSourceDirty) { "Expected dirty flag to be true after adding ignore word" }
     }

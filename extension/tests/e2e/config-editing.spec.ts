@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import fs from "node:fs";
 
 async function getStoredConfig(context: import("@playwright/test").BrowserContext, extensionId: string) {
   const sw = context.serviceWorkers()[0];
@@ -14,16 +15,23 @@ async function getDirtyFlag(context: import("@playwright/test").BrowserContext) 
   );
 }
 
+/**
+ * Locate the input inside the form-row whose <label> text matches `label`
+ * exactly. The form-row markup is `<div class="form-row"><label>X</label>
+ * <input/></div>` with no `for=` attribute, so getByLabel doesn't bind.
+ */
+function inputByLabel(page: import("@playwright/test").Page, label: string) {
+  return page.locator(`.form-row:has(> label:text-is("${label}")) > input`);
+}
+
 test("config: adding a command sets dirty flag", async ({ context, extensionId }) => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options/options.html#/commands/new`);
 
-  await page.fill('[placeholder="unique-id"]', "test-cmd");
-  await page.fill('[placeholder*="name"]', "Test Command");
-  const triggerInput = page.locator('input[placeholder*="trigger"]').first();
-  await triggerInput.fill("tc");
-  await triggerInput.press("Enter");
-  await page.fill('[placeholder*="defaultUrl"]', "https://test.com");
+  await inputByLabel(page, "ID").fill("test-cmd");
+  await inputByLabel(page, "Name").fill("Test Command");
+  await inputByLabel(page, "Triggers (comma-separated)").fill("tc");
+  await inputByLabel(page, "Default URL").first().fill("https://test.com");
   await page.locator("button.primary", { hasText: "Save command" }).click();
 
   await page.waitForURL(/.*#\/commands$/);
@@ -51,13 +59,6 @@ test("config: editing default command sets dirty flag", async ({ context, extens
 
 test("config: export produces valid JSON matching stored config", async ({ context, extensionId }) => {
   const page = await context.newPage();
-  const client = await context.newCDPSession(page);
-
-  await client.send("Page.setDownloadBehavior", {
-    behavior: "allow",
-    downloadPath: "/tmp",
-  });
-
   await page.goto(`chrome-extension://${extensionId}/options/options.html#/import-export`);
 
   const [download] = await Promise.all([
@@ -65,11 +66,11 @@ test("config: export produces valid JSON matching stored config", async ({ conte
     page.locator("button", { hasText: "Export config" }).click(),
   ]);
 
-  const stream = await download.createReadStream();
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-  const json = Buffer.concat(chunks).toString("utf-8");
-  const exported = JSON.parse(json);
+  // Use Playwright's own download dir + path() instead of CDP setDownloadBehavior:
+  // the latter routes the file outside Playwright's bookkeeping, which makes
+  // download.createReadStream() resolve to an empty stream.
+  const path = await download.path();
+  const exported = JSON.parse(fs.readFileSync(path, "utf-8"));
 
   const stored = await getStoredConfig(context, extensionId);
   expect(exported).toEqual(stored);
@@ -83,7 +84,11 @@ test("config: importing a valid file replaces config", async ({ context, extensi
   const original = await sw.evaluate(() =>
     chrome.storage.local.get("fast-travel-config").then(v => v["fast-travel-config"])
   );
-  const modified = { ...original, defaultCommand: original.defaultCommand + "-modified-test" };
+  // Append a sentinel to ignoreList rather than mutating defaultCommand, which
+  // would dangle (lintConfig rejects a defaultCommand that no command matches)
+  // and the import would be refused before reaching storage.
+  const sentinel = "test-import-marker.example";
+  const modified = { ...original, ignoreList: [...(original.ignoreList ?? []), sentinel] };
 
   await page.evaluate((cfg) => {
     const blob = new Blob([JSON.stringify(cfg)], { type: "application/json" });
@@ -94,8 +99,11 @@ test("config: importing a valid file replaces config", async ({ context, extensi
     (document.getElementById("file-import-input") as HTMLInputElement).dispatchEvent(new Event("change"));
   }, modified);
 
-  await page.waitForTimeout(500);
-
-  const newCfg = await getStoredConfig(context, extensionId);
-  expect(newCfg.defaultCommand).toBe(modified.defaultCommand);
+  // The change handler is async (file.text → lintConfig → setConfig over the
+  // message bus); a fixed sleep races on slower runners. Poll the stored
+  // config until the import lands.
+  await expect.poll(
+    async () => (await getStoredConfig(context, extensionId)).ignoreList ?? [],
+    { timeout: 5000 },
+  ).toContain(sentinel);
 });
