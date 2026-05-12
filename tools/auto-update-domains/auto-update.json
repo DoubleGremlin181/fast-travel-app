@@ -1,0 +1,15 @@
+{
+  "$schema": "./auto-update.schema.json",
+  "commands": {
+    "annas-archive": { "source": "wikipedia", "wikipediaTitle": "Anna's Archive" },
+    "libgen":        { "source": "fmhy", "fmhyPath": "reading",     "matchName": "Library Genesis" },
+    "scihub":        { "source": "wikipedia", "wikipediaTitle": "Sci-Hub" },
+    "mangadex":      { "source": "wikipedia", "wikipediaTitle": "MangaDex" },
+    "nyaa":          { "source": "fmhy", "fmhyPath": "video",       "matchName": "Nyaa" },
+    "miruro":        { "source": "fmhy", "fmhyPath": "video",       "matchName": "Miruro" },
+    "wayback":       { "source": "wikipedia", "wikipediaTitle": "Wayback Machine" },
+    "fmhy":          { "source": "wikipedia", "wikipediaTitle": "r/FREEMEDIAHECKYEAH" },
+    "1337x":         { "source": "fmhy", "fmhyPath": "torrenting",  "matchName": "1337x" },
+    "btdig":         { "source": "fmhy", "fmhyPath": "torrenting",  "matchName": "BTDigg" }
+  }
+}

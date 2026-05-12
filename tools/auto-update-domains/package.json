@@ -1,0 +1,10 @@
+{
+  "name": "fast-travel-auto-update-domains",
+  "version": "1.0.0",
+  "description": "Domain health checker that auto-updates mirror-prone command URLs via Wikipedia or FMHY when services go down.",
+  "type": "module",
+  "scripts": {
+    "check": "node check-domains.mjs",
+    "test": "node --test sources/*.test.mjs check-domains.test.mjs"
+  }
+}

@@ -24,7 +24,9 @@ fast-travel-app/
     ├── validate-config.mjs        # Validates shared/config/default-config.json
     ├── bump-version.mjs           # Called by GitHub Actions release workflow
     ├── test-version-consistency.mjs # Verifies version is in sync across all files
-    └── dns-over-wikipedia/        # Automated domain health checker
+    └── auto-update-domains/       # Weekly domain health checker with pluggable
+                                   # sources (Wikipedia, FMHY) that auto-commits
+                                   # mirror updates to main
 ```
 
 ## Building

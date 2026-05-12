@@ -24,6 +24,12 @@ jobs:
       - name: Validate config
         run: node tools/validate-config.mjs
 
+      - name: Validate auto-update mapping
+        run: node tools/auto-update-domains/validate-auto-update.mjs
+
+      - name: Auto-update tools — unit tests
+        run: npm test -w fast-travel-auto-update-domains
+
       - name: Check version consistency
         run: node tools/test-version-consistency.mjs
 
