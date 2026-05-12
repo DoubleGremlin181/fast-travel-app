@@ -1,9 +1,0 @@
-{
-  "name": "fast-travel-dns-over-wikipedia",
-  "version": "1.0.0",
-  "description": "Daily domain health checker that suggests alternatives via Wikipedia when services go down",
-  "type": "module",
-  "scripts": {
-    "check": "node check-domains.mjs"
-  }
-}

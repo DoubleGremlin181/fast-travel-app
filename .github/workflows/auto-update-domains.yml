@@ -1,0 +1,63 @@
+name: Auto-update domains
+
+# Weekly health check on the default-config domains. For each unreachable
+# domain whose command-id is listed in tools/auto-update-domains/auto-update.json,
+# the script picks a replacement via the configured source (Wikipedia or FMHY),
+# verifies the candidate is itself reachable, and commits the patched config
+# straight to main. Three safety gates run before push:
+#   1. Resolver unit tests must pass.
+#   2. The orchestrator only writes candidates that pass a HEAD check.
+#   3. The patched config and auto-update mapping must validate.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # weekly Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-domains:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        # actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Setup Node.js
+        # actions/setup-node@v4.4.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Run resolver and orchestrator tests
+        run: cd tools/auto-update-domains && npm test
+
+      - name: Validate auto-update mapping
+        run: node tools/auto-update-domains/validate-auto-update.mjs
+
+      - name: Check domains and apply updates
+        run: node tools/auto-update-domains/check-domains.mjs --update-config
+
+      - name: Validate patched config
+        run: node tools/validate-config.mjs
+
+      - name: Commit and push if config changed
+        run: |
+          if git diff --quiet shared/config/default-config.json; then
+            echo "No config changes — nothing to commit."
+            exit 0
+          fi
+          git config user.name  'fast-travel-bot'
+          git config user.email 'fast-travel-bot@users.noreply.github.com'
+          git add shared/config/default-config.json
+          git commit -m "chore(config): auto-update mirror domains"
+          for attempt in 1 2 3 4; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep $((2 ** attempt))
+          done
+          echo "git push failed after retries" >&2
+          exit 1

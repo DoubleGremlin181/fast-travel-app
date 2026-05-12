@@ -181,6 +181,73 @@
               "searchUrl": "https://scholar.google.com/scholar?q={query}"
             }
           ]
+        },
+        {
+          "id": "annas-archive",
+          "triggers": [
+            "aa",
+            "annas"
+          ],
+          "name": "Anna's Archive",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=annas-archive.org&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://annas-archive.org",
+              "searchUrl": "https://annas-archive.org/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "libgen",
+          "triggers": [
+            "libgen",
+            "lg"
+          ],
+          "name": "Library Genesis",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=libgen.li&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://libgen.li",
+              "searchUrl": "https://libgen.li/index.php?req={query}"
+            }
+          ]
+        },
+        {
+          "id": "scihub",
+          "triggers": [
+            "scihub",
+            "sci"
+          ],
+          "name": "Sci-Hub",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=sci-hub.ru&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://sci-hub.ru",
+              "searchUrl": "https://sci-hub.ru/{query}"
+            }
+          ]
+        },
+        {
+          "id": "arxiv",
+          "triggers": [
+            "arxiv"
+          ],
+          "name": "arXiv",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=arxiv.org&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://arxiv.org",
+              "searchUrl": "https://arxiv.org/search/?query={query}&searchtype=all"
+            }
+          ]
         }
       ]
     },
@@ -414,6 +481,71 @@
               "devices": "*",
               "defaultUrl": "https://archive.today",
               "searchUrl": "https://archive.today/submit/?url={query}"
+            }
+          ]
+        },
+        {
+          "id": "wayback",
+          "triggers": [
+            "wb",
+            "wayback"
+          ],
+          "name": "Wayback Machine",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=web.archive.org&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://web.archive.org",
+              "searchUrl": "https://web.archive.org/web/*/{query}"
+            }
+          ]
+        },
+        {
+          "id": "fmhy",
+          "triggers": [
+            "fmhy"
+          ],
+          "name": "FMHY",
+          "type": "redirect",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=fmhy.net&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://fmhy.net"
+            }
+          ]
+        },
+        {
+          "id": "1337x",
+          "triggers": [
+            "1337x",
+            "torrent"
+          ],
+          "name": "1337x",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=1337x.to&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://1337x.to",
+              "searchUrl": "https://1337x.to/search/{query}/1/"
+            }
+          ]
+        },
+        {
+          "id": "btdig",
+          "triggers": [
+            "btdig"
+          ],
+          "name": "BTDigg",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=btdig.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://btdig.com",
+              "searchUrl": "https://btdig.com/search?q={query}"
             }
           ]
         },
@@ -671,6 +803,56 @@
               "devices": "*",
               "defaultUrl": "https://genius.com",
               "searchUrl": "https://genius.com/search?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "mangadex",
+          "triggers": [
+            "mdex",
+            "manga"
+          ],
+          "name": "MangaDex",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=mangadex.org&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://mangadex.org",
+              "searchUrl": "https://mangadex.org/titles?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "nyaa",
+          "triggers": [
+            "nyaa"
+          ],
+          "name": "Nyaa",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=nyaa.si&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://nyaa.si",
+              "searchUrl": "https://nyaa.si/?q={query}"
+            }
+          ]
+        },
+        {
+          "id": "miruro",
+          "triggers": [
+            "miruro",
+            "anime"
+          ],
+          "name": "Miruro",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=miruro.com&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://www.miruro.com",
+              "searchUrl": "https://www.miruro.com/search?query={query}"
             }
           ]
         }

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fast-travel.kavi.sh/auto-update.schema.json",
+  "title": "Fast Travel Auto-Update Mapping",
+  "description": "Maintenance-tool-only mapping: command-id -> auto-update source. Separate from the user-facing default-config.json so consumers who host their own config (e.g. Android-only) don't carry maintenance metadata.",
+  "type": "object",
+  "required": ["commands"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "commands": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"
+      },
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["source", "wikipediaTitle"],
+            "additionalProperties": false,
+            "properties": {
+              "source": { "const": "wikipedia" },
+              "wikipediaTitle": { "type": "string", "minLength": 1 }
+            }
+          },
+          {
+            "type": "object",
+            "required": ["source", "fmhyPath", "matchName"],
+            "additionalProperties": false,
+            "properties": {
+              "source": { "const": "fmhy" },
+              "fmhyPath": {
+                "type": "string",
+                "pattern": "^[a-z0-9-]+$",
+                "description": "Slug under fmhy/edit's docs/ folder, e.g. 'reading' for docs/reading.md."
+              },
+              "matchName": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Case-insensitive substring of a [...] link text on the target FMHY page. The first matching link wins."
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
