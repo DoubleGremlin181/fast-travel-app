@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  pull_request:
   workflow_dispatch:
     inputs:
       bump:
@@ -12,9 +13,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   release:
-    name: Bump, build, sign, and publish
+    name: Build (publish on workflow_dispatch)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -35,6 +40,7 @@ jobs:
         uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
 
       - name: Configure git
+        if: github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -42,15 +48,17 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      # ── Version bump ───────────────────────────────────────────────────────
+      # ── Version bump (workflow_dispatch only) ─────────────────────────────
       - name: Bump version
         id: bump
+        if: github.event_name == 'workflow_dispatch'
         run: |
           node tools/bump-version.mjs ${{ inputs.bump }}
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Commit and tag version bump
+        if: github.event_name == 'workflow_dispatch'
         run: |
           git add package.json extension/package.json extension/manifest.json \
             extension/src/options/screens/about.ts android/app/build.gradle.kts
@@ -73,12 +81,15 @@ jobs:
 
       # ── Android build ──────────────────────────────────────────────────────
       - name: Decode Android keystore
+        if: github.event_name == 'workflow_dispatch'
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/release.keystore
 
       - name: Write Play Store credentials
+        if: github.event_name == 'workflow_dispatch'
         run: echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > /tmp/play-credentials.json
 
-      - name: Build Android AAB
+      - name: Build Android AAB (signed)
+        if: github.event_name == 'workflow_dispatch'
         run: ./gradlew bundleRelease
         working-directory: android
         env:
@@ -87,8 +98,27 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
 
-      # ── Publish ────────────────────────────────────────────────────────────
+      - name: Build Android debug APK
+        if: github.event_name == 'pull_request'
+        run: ./gradlew assembleDebug
+        working-directory: android
+
+      # ── PR test-build artifacts ────────────────────────────────────────────
+      - name: Upload test-build artifacts
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-build-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: |
+            chrome-extension.zip
+            firefox-extension.zip
+            android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      # ── Publish (workflow_dispatch only) ───────────────────────────────────
       - name: Publish to Chrome Web Store
+        if: github.event_name == 'workflow_dispatch'
         run: |
           npx chrome-webstore-upload-cli upload \
             --source chrome-extension.zip \
@@ -99,6 +129,7 @@ jobs:
             --auto-publish
 
       - name: Publish to Firefox AMO
+        if: github.event_name == 'workflow_dispatch'
         run: |
           npx web-ext sign \
             --source-dir extension/dist \
@@ -107,6 +138,7 @@ jobs:
             --channel listed
 
       - name: Publish to Google Play
+        if: github.event_name == 'workflow_dispatch'
         run: ./gradlew publishBundle
         working-directory: android
         env:
@@ -116,8 +148,9 @@ jobs:
           SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: /tmp/play-credentials.json
 
-      # ── GitHub Release ─────────────────────────────────────────────────────
+      # ── GitHub Release (workflow_dispatch only) ────────────────────────────
       - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ steps.bump.outputs.version }}
