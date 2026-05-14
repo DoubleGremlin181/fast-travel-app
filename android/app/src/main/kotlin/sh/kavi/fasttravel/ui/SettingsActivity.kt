@@ -2290,10 +2290,22 @@ fun GroupEditScreen(
                         GROUP_COLOR_PRESETS.forEach { hex ->
                             val parsed = parseGroupColor(hex) ?: return@forEach
                             val selected = colorField.equals(hex, ignoreCase = true)
+                            // Fixed 40dp slot with a constant 32dp swatch
+                            // centered in it. Selection draws a 2dp ring on the
+                            // slot edge — inside the 4dp gap around the swatch —
+                            // so the swatch footprint never changes between
+                            // states and rows don't shift on selection.
                             Box(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(RoundedCornerShape(20.dp))
+                                    .then(
+                                        if (selected) Modifier.border(
+                                            width = 2.dp,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            shape = RoundedCornerShape(20.dp),
+                                        ) else Modifier
+                                    )
                                     .clickable {
                                         colorField = hex
                                         colorError = null
@@ -2302,16 +2314,9 @@ fun GroupEditScreen(
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(if (selected) 32.dp else 40.dp)
+                                        .size(32.dp)
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(parsed)
-                                        .then(
-                                            if (selected) Modifier.border(
-                                                width = 2.dp,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                shape = RoundedCornerShape(20.dp),
-                                            ) else Modifier
-                                        ),
+                                        .background(parsed),
                                 )
                             }
                         }
