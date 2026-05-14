@@ -8,7 +8,7 @@
     "tools/*"
   ],
   "scripts": {
-    "test": "node tools/validate-config.mjs && node tools/test-version-consistency.mjs && npm run test --workspaces --if-present",
+    "test": "node tools/validate-config.mjs && node tools/test-version-consistency.mjs && node --test tools/bump-version.test.mjs && npm run test --workspaces --if-present",
     "validate-config": "node tools/validate-config.mjs",
     "lint": "npm run lint --workspaces --if-present",
     "build": "npm run build --workspaces --if-present"

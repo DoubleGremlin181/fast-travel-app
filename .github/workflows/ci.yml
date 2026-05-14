@@ -33,6 +33,9 @@ jobs:
       - name: Check version consistency
         run: node tools/test-version-consistency.mjs
 
+      - name: Version tooling — unit tests
+        run: node --test tools/bump-version.test.mjs
+
       - name: Build extension (Chrome)
         run: npm run build -w extension
 
