@@ -104,15 +104,32 @@ jobs:
         working-directory: android
 
       # ── PR test-build artifacts ────────────────────────────────────────────
-      - name: Upload test-build artifacts
+      # One upload-artifact step per file so each is listed and downloadable
+      # individually in the run's Artifacts section.
+      - name: Upload Chrome extension artifact
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: test-build-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
-          path: |
-            chrome-extension.zip
-            firefox-extension.zip
-            android/app/build/outputs/apk/debug/app-debug.apk
+          name: chrome-extension-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: chrome-extension.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload Firefox extension artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-extension-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: firefox-extension.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload Android APK artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
 
