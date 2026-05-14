@@ -1,7 +1,6 @@
 # Fast Travel — brand assets
 
-Source of truth for the Chevron mark, lockups, and derived icons. Mirrors the
-spec in `chevron-brand-kit/fast-travel/project/chevron-assets.jsx`.
+Source of truth for the Chevron mark, lockups, and derived icons.
 
 ## Palette
 
