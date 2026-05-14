@@ -53,9 +53,13 @@ jobs:
         id: bump
         if: github.event_name == 'workflow_dispatch'
         run: |
-          node tools/bump-version.mjs ${{ inputs.bump }}
+          node tools/bump-version.mjs bump ${{ inputs.bump }}
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Apply beta version (PR builds)
+        if: github.event_name == 'pull_request'
+        run: node tools/bump-version.mjs beta ${{ github.event.pull_request.number }}
 
       - name: Commit and tag version bump
         if: github.event_name == 'workflow_dispatch'
