@@ -61,9 +61,14 @@ fun WidgetPreview(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Mirror the live widget's two-color chevron: back uses the
+            // surface-paired fg (widgetIconColor), front uses the variant's
+            // accent (widgetAccentColor). Passing searchBarContentColor for
+            // both flattened it to one color, so the preview disagreed with
+            // the real widget and the main-screen search bar.
             WidgetChevron(
-                backColor = appearance.searchBarContentColor,
-                accentColor = appearance.searchBarContentColor,
+                backColor = androidx.compose.ui.graphics.Color(appearance.widgetIconColor),
+                accentColor = androidx.compose.ui.graphics.Color(appearance.widgetAccentColor),
                 modifier = Modifier.size(28.dp),
             )
             Spacer(Modifier.width(8.dp))
