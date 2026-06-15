@@ -55,7 +55,7 @@ Fast Travel has no servers and no accounts. It collects nothing, tracks nothing,
 shows no ads. Your settings and commands stay on your device. The list of installed
 apps is read on-device only and is never transmitted. Network requests only happen
 when you ask for them — fetching your config file or search suggestions.
-Full policy: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
+Full policy: https://kavi.sh/fast-travel-app/privacy-policy/
 
 Open source: https://github.com/DoubleGremlin181/fast-travel-app
 ```
@@ -80,7 +80,7 @@ no user-generated content, no data collection, no sensitive content.
 
 ## Privacy policy
 
-URL: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
+URL: https://kavi.sh/fast-travel-app/privacy-policy/
 
 ## Assets
 

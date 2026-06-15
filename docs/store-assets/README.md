@@ -39,7 +39,7 @@ Android screenshots are captured from the `fast_travel_dev` AVD and cropped to 2
 ## Privacy policy
 
 All three stores require a privacy-policy URL. Source: `docs/privacy-policy.md`,
-served at `https://doublegremlin181.github.io/fast-travel-app/privacy-policy`.
+served at `https://kavi.sh/fast-travel-app/privacy-policy/`.
 
 ## Icons
 

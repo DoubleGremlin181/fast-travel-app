@@ -57,7 +57,7 @@ PRIVATE BY DESIGN
 Fast Travel has no servers and no accounts. It collects nothing, tracks nothing, and
 shows no ads. Your settings and commands stay on your device. Network requests only
 happen when you ask for them — fetching your config file or search suggestions.
-Full policy: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
+Full policy: https://kavi.sh/fast-travel-app/privacy-policy/
 
 Open source: https://github.com/DoubleGremlin181/fast-travel-app
 ```
@@ -68,7 +68,7 @@ MIT (matches the repository `LICENSE`).
 
 ## Privacy policy
 
-URL: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
+URL: https://kavi.sh/fast-travel-app/privacy-policy/
 
 ## Notes for reviewers
 
