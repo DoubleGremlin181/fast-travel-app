@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fast Travel — Chrome Web Store small promo tile. 440×280. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280" width="440" height="280">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E1020"/>
+      <stop offset="1" stop-color="#1A1D2E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="440" height="280" fill="url(#bg)"/>
+
+  <!-- Centered icon tile -->
+  <g transform="translate(160,40)">
+    <rect width="120" height="120" rx="27" ry="27" fill="#F5F2EC"/>
+    <g transform="translate(25,25) scale(0.35)">
+      <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
+        <polyline stroke="#0E1020" points="52,60 97,100 52,140"/>
+        <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
+      </g>
+    </g>
+  </g>
+
+  <text x="220" y="218" text-anchor="middle" font-family="Lato, 'DejaVu Sans', sans-serif"
+        font-weight="900" font-size="46" fill="#F5F2EC" letter-spacing="-1">Fast Travel</text>
+  <text x="220" y="250" text-anchor="middle" font-family="Lato, 'DejaVu Sans', sans-serif"
+        font-weight="400" font-size="18" fill="#C8C3BA">Commands for the web</text>
+</svg>

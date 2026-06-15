@@ -38,6 +38,10 @@ android/replay_pid*.log
 docs/screenshots/
 android/screenshots/
 extension/theme-screenshots/
+extension/scripts/screenshots/
+
+# Firefox test profile (generated)
+extension/.ff-test-profile/
 
 # Playwright test results
 extension/test-results/

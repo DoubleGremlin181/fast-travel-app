@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fast Travel — Google Play feature graphic. 1024×500. Edit text/colors freely;
+     re-render with: node docs/store-assets/sources/render.mjs -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500" width="1024" height="500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E1020"/>
+      <stop offset="1" stop-color="#1A1D2E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="500" fill="url(#bg)"/>
+
+  <!-- Oversized chevron watermark, Denim, low opacity -->
+  <g transform="translate(560,-40) scale(3.0)" opacity="0.08">
+    <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
+      <polyline stroke="#F5F2EC" points="52,60 97,100 52,140"/>
+      <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
+    </g>
+  </g>
+
+  <!-- App icon tile (Paper squircle so it pops on the dark field) -->
+  <g transform="translate(96,140)">
+    <rect width="220" height="220" rx="49" ry="49" fill="#F5F2EC"/>
+    <g transform="translate(46,46) scale(0.64)">
+      <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
+        <polyline stroke="#0E1020" points="52,60 97,100 52,140"/>
+        <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Wordmark + tagline -->
+  <text x="372" y="262" font-family="Lato, 'DejaVu Sans', sans-serif" font-weight="900"
+        font-size="104" fill="#F5F2EC" letter-spacing="-2">Fast Travel</text>
+  <text x="376" y="322" font-family="Lato, 'DejaVu Sans', sans-serif" font-weight="400"
+        font-size="34" fill="#C8C3BA">Type a command. Go straight there.</text>
+</svg>

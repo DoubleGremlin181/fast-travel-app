@@ -1,8 +1,8 @@
 # Store Listing Assets
 
 Everything needed to create the Chrome Web Store, Firefox AMO, and Google Play
-listings. Listing copy is drafted and ready for review; **screenshots and promo
-graphics still need to be captured** (see "Screenshots" below).
+listings. Listing copy is drafted; screenshots and promo graphics are captured and
+ready for review/iteration (sources noted below).
 
 ## Status
 
@@ -11,11 +11,17 @@ graphics still need to be captured** (see "Screenshots" below).
 | Short description | ✅ drafted | ✅ drafted | ✅ drafted |
 | Long description | ✅ drafted | ✅ drafted | ✅ drafted |
 | Privacy policy URL | ⏳ needs GitHub Pages live | ⏳ | ⏳ |
-| Screenshots | ❌ to capture | ❌ to capture | ❌ to capture |
-| Promo / feature graphic | ❌ to create | n/a | ❌ to create |
-| Icon | ✅ in repo | ✅ in repo | ✅ in repo |
+| Screenshots | ✅ 4 @ 1280×800 | ✅ 4 @ 1280×800 | ✅ 5 @ 1080×2160 |
+| Promo / feature graphic | ✅ promo-tile 440×280 | n/a | ✅ feature-graphic 1024×500 |
+| Icon | ✅ in repo | ✅ in repo | ✅ icon-512.png |
 
 Drafted copy lives in `chrome-web-store.md`, `firefox-amo.md`, `google-play.md`.
+
+Screenshots are in `<store>/screenshots/`. Promo graphics are in `chrome/` and
+`google-play/`; their editable SVG sources + render script are in `sources/`
+(`node docs/store-assets/sources/render.mjs` re-renders after edits). Extension
+screenshots are produced by `extension/scripts/screenshot-store.mjs`; Android
+screenshots were captured from the `fast_travel_dev` AVD and cropped to Play's 2:1 max.
 
 ## Privacy policy URL
 

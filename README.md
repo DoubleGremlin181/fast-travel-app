@@ -12,6 +12,24 @@
 | Firefox | *(coming soon — Firefox Add-ons)* |
 | Android | *(coming soon — Google Play)* |
 
+<!-- Once store listings are live, replace the table above with the badge block in
+     docs/store-assets/post-launch-steps.md (§1). -->
+
+### Direct download (GitHub Releases)
+
+Prefer the stores above when they're live, but every release also ships installable
+artifacts on the [Releases page](https://github.com/DoubleGremlin181/fast-travel-app/releases):
+
+- **Android** — download `app-release.apk` and install it (you'll need to allow
+  installs from your browser/file manager in Android settings). This is a signed,
+  ready-to-run build.
+- **Chrome** — `chrome-extension.zip` is for loading **unpacked** via
+  `chrome://extensions` → *Developer mode* → *Load unpacked*. For a normal install,
+  use the Chrome Web Store.
+- **Firefox** — `firefox-extension.zip` is **unsigned**; release Firefox only installs
+  signed add-ons, so use the Firefox Add-ons listing. (Developer/Nightly builds can
+  load it as a temporary add-on.)
+
 ## v1 vs v2
 
 | | v1 (`fast-travel`) | v2 (`fast-travel-app`) |

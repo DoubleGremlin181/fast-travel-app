@@ -1,3 +1,8 @@
+---
+title: Privacy Policy — Fast Travel
+permalink: /privacy-policy/
+---
+
 # Privacy Policy — Fast Travel
 
 _Last updated: 14 May 2026_
