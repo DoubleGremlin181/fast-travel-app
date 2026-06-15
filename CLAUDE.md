@@ -104,8 +104,6 @@ All secrets live in **GitHub → Settings → Secrets and variables → Actions*
 | `FIREFOX_API_SECRET` | Firefox AMO API | addons.mozilla.org |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Play Store publish | [Google Play Console](https://play.google.com/console) |
 
-For first-time setup instructions (new store listings), see `docs/release-setup.md`.
-
 ## Key Architecture Decisions
 
 - **Native Android over web wrapper:** The app uses device-specific APIs (installed app detection, home screen widget, WorkManager for background refresh) that aren't available in a WebView wrapper.
