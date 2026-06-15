@@ -1,76 +1,47 @@
 # Store Listing Assets
 
-Everything needed to create the Chrome Web Store, Firefox AMO, and Google Play
-listings. Listing copy is drafted; screenshots and promo graphics are captured and
-ready for review/iteration (sources noted below).
+Listing copy and graphics for the Chrome Web Store, Firefox AMO, and Google Play.
 
-## Status
+## Copy
 
-| Asset | Chrome | Firefox | Google Play |
-|---|---|---|---|
-| Short description | ✅ drafted | ✅ drafted | ✅ drafted |
-| Long description | ✅ drafted | ✅ drafted | ✅ drafted |
-| Privacy policy URL | ⏳ needs GitHub Pages live | ⏳ | ⏳ |
-| Screenshots | ✅ 4 @ 1280×800 | ✅ 4 @ 1280×800 | ✅ 5 @ 1080×2160 |
-| Promo / feature graphic | ✅ promo-tile 440×280 | n/a | ✅ feature-graphic 1024×500 |
-| Icon | ✅ in repo | ✅ in repo | ✅ icon-512.png |
+- `chrome-web-store.md` — Chrome Web Store listing.
+- `firefox-amo.md` — Firefox AMO listing.
+- `google-play.md` — Google Play listing.
 
-Drafted copy lives in `chrome-web-store.md`, `firefox-amo.md`, `google-play.md`.
+The byline (**Supercharge your search bar**), short summary, and detailed
+description (command examples + feature list) are kept consistent across all three.
 
-Screenshots are in `<store>/screenshots/`. Promo graphics are in `chrome/` and
-`google-play/`; their editable SVG sources + render script are in `sources/`
-(`node docs/store-assets/sources/render.mjs` re-renders after edits). Extension
-screenshots are produced by `extension/scripts/screenshot-store.mjs`; Android
-screenshots were captured from the `fast_travel_dev` AVD and cropped to Play's 2:1 max.
+## Graphics
 
-## Privacy policy URL
+Editable SVG sources and the render script live in `sources/`. Re-render after edits:
 
-All three stores require one. Source: `docs/privacy-policy.md`. Once GitHub Pages is
-enabled (Settings → Pages → deploy from `main` / `/docs`), the URL will be:
-
-```
-https://doublegremlin181.github.io/fast-travel-app/privacy-policy
+```bash
+node docs/store-assets/sources/render.mjs
 ```
 
-Confirm the exact path after Pages builds, then paste it into each listing.
+| File | Size | Used by |
+|---|---|---|
+| `google-play/feature-graphic.png` | 1024×500 | Google Play feature graphic |
+| `google-play/icon-512.png` | 512×512 | Google Play listing icon |
+| `chrome/promo-tile.png` | 440×280 | Chrome Web Store small promo tile |
 
-## Screenshots — to capture
+## Screenshots
 
-Automated capture could not be run in the current dev environment (Playwright's
-bundled browser is unsupported on this OS, and no Android device was attached).
-Capture these when joining, using the existing scripts:
+| Folder | Size | Count |
+|---|---|---|
+| `chrome/screenshots/` | 1280×800 | 4 |
+| `firefox/screenshots/` | 1280×800 | 4 |
+| `google-play/screenshots/` | 1080×2160 (Play's 2:1 max) | 5 |
 
-- **Extension options screens** — `node extension/scripts/screenshot-options.mjs`
-  (outputs to `extension/scripts/screenshots/`). Requires `cd extension && npm install`
-  and `npm run build` first.
-- **Extension new-tab + address bar** — `node extension/scripts/screenshot-newtab.mjs`
-  (needs ImageMagick `magick` and an X display).
-- **Android themes** — `bash android/screenshot-themes.sh` (needs a connected device
-  or emulator via `adb`).
+Regenerate extension screenshots with `extension/scripts/screenshot-store.mjs`;
+Android screenshots are captured from the `fast_travel_dev` AVD and cropped to 2:1.
 
-Then crop/resize into the per-store folders below.
+## Privacy policy
 
-### Per-store size requirements
-
-| Store | Screenshot size | Min count | Other graphics |
-|---|---|---|---|
-| Chrome Web Store | 1280×800 or 640×400 PNG | 1 (5 recommended) | Small promo tile 440×280; optional marquee 1400×560 |
-| Firefox AMO | up to 2400×1800, 1280×800 recommended | 1 | none required |
-| Google Play | phone: 16:9 or 9:16, 320–3840 px | 2 | Feature graphic 1024×500 (required); 512×512 icon |
-
-Drop final files into:
-
-```
-docs/store-assets/chrome/screenshots/
-docs/store-assets/firefox/screenshots/
-docs/store-assets/google-play/screenshots/
-docs/store-assets/google-play/feature-graphic.png
-docs/store-assets/chrome/promo-tile.png
-```
+All three stores require a privacy-policy URL. Source: `docs/privacy-policy.md`,
+served at `https://doublegremlin181.github.io/fast-travel-app/privacy-policy`.
 
 ## Icons
 
-Brand sources are in `shared/brand/` (`icon-*.svg`, `generate-icons.mjs`). Extension
-icons (16/48/128) ship in `extension/src/icons/`. Android launcher icons are in
-`android/app/src/main/res/mipmap-*`. A 512×512 PNG for the Play listing can be
-generated from the brand SVGs.
+Brand sources: `shared/brand/`. Extension icons (16/48/128) ship in
+`extension/src/icons/`; Android launcher icons in `android/app/src/main/res/mipmap-*`.

@@ -1,8 +1,5 @@
 # Chrome Web Store — Listing Copy
 
-**Draft for review.** Paste into the Chrome Web Store developer console when creating
-the listing. Edit freely.
-
 ## Name
 
 ```
@@ -16,36 +13,52 @@ Productivity
 ## Short description (max 132 chars)
 
 ```
-Type short commands in your address bar to jump straight to the sites and searches you use most.
+Turn your search bar into a command line for the web. Define short triggers and jump straight to the sites and searches you use.
 ```
 
 ## Detailed description
 
 ```
-Fast Travel turns your address bar into a command line for the web.
+Supercharge your search bar.
 
-Instead of bookmarks, history, and half-remembered URLs, type a short command and go
-straight where you mean to: a search on a specific site, a subreddit, a stock ticker,
-your team's dashboard — whatever you set up.
+Fast Travel turns your search bar into a command line for the web. Instead of
+bookmarks, history, and half-remembered URLs, type a short command and go straight
+where you mean to.
+
+WHAT YOU CAN DO
+• g kittens — a Google search for "kittens"
+• ddg privacy — the same search on DuckDuckGo
+• r/technology — jump straight to the r/technology subreddit
+• $AAPL — pull up an Apple stock quote
+• yt lofi beats — search YouTube
+• gh fast-travel — search GitHub
+• w black holes — search Wikipedia
+• apps balatro — find an app on the right store for your device
+• maps coffee — find nearby coffee on Google Maps
+• hn — open Hacker News
+Every command is yours to configure — change the triggers, point them anywhere, or
+add your own.
 
 FEATURES
-• Command-based navigation — define triggers like "yt", "gh", or "r/" and route them
-  anywhere you want.
-• Inline suggestions — get autocomplete as you type, per command, from the search
-  engines you choose.
+• Command-based navigation — short triggers route to any site or search you set up.
+• Inline suggestions — autocomplete as you type, per command, from the search engines
+  you choose.
 • New tab page — a fast, focused start page built around your commands.
-• Bring your own config — keep your commands in a JSON file you host yourself, and
-  sync the same setup across every device and browser. Or just use the built-in
-  defaults and edit them in-app.
-• Groups, icon packs, and themes — organize and personalize your command set.
+• Address-bar integration — type a command in the address bar and go straight there.
+• Bring your own config — keep your commands in a JSON file you host yourself and sync
+  the same setup across every device and browser, or use the built-in defaults and
+  edit them in-app.
+• Device-aware routing — one command can resolve to the right destination per device.
+• Groups & themes — organize and personalize your command set, with light and dark
+  modes and multiple styles.
 
-PRIVACY
+PRIVATE BY DESIGN
 Fast Travel has no servers and no accounts. It collects nothing, tracks nothing, and
 shows no ads. Your settings and commands stay on your device. Network requests only
 happen when you ask for them — fetching your config file or search suggestions.
 Full policy: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
 
-Fast Travel is open source: https://github.com/DoubleGremlin181/fast-travel-app
+Open source: https://github.com/DoubleGremlin181/fast-travel-app
 ```
 
 ## Privacy practices (console questionnaire)
@@ -61,9 +74,8 @@ Fast Travel is open source: https://github.com/DoubleGremlin181/fast-travel-app
   - `declarativeNetRequestWithHostAccess` + host access — redirect the internal search
     sentinel URL to the resolved destination. No page content is read.
 
-## Assets needed
+## Assets
 
-- Screenshots: 1280×800 PNG (see `README.md`). Suggested set: new tab page, a command
-  in the address bar with suggestions, the options/commands screen, a theme showcase.
-- Small promo tile: 440×280 PNG.
-- Icon: 128×128 (already in `extension/src/icons/icon128.png`).
+- Screenshots: `chrome/screenshots/` (4 @ 1280×800).
+- Small promo tile: `chrome/promo-tile.png` (440×280).
+- Icon: 128×128 (`extension/src/icons/icon128.png`).

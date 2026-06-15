@@ -15,7 +15,7 @@ const root = resolve(here, '../../..');
 const jobs = [
   ['docs/store-assets/sources/feature-graphic.svg', 'docs/store-assets/google-play/feature-graphic.png', 1024, 500],
   ['docs/store-assets/sources/promo-tile.svg',      'docs/store-assets/chrome/promo-tile.png',           440,  280],
-  ['shared/brand/icon-on-night.svg',                'docs/store-assets/google-play/icon-512.png',        512,  512],
+  ['docs/store-assets/sources/icon.svg',            'docs/store-assets/google-play/icon-512.png',        512,  512],
 ];
 
 const browser = await chromium.launch();

@@ -1,7 +1,5 @@
 # Firefox AMO — Listing Copy
 
-**Draft for review.** Paste into addons.mozilla.org when creating the listing.
-
 ## Name
 
 ```
@@ -10,44 +8,58 @@ Fast Travel
 
 ## Add-on type
 
-Extension. Extension ID: `khukmani+fast.travel@gmail.com`
+Extension. Extension ID: `fast-travel@kavi.sh`
 (set in `extension/manifest.firefox.json`).
 
 ## Summary (max 250 chars)
 
 ```
-Turn your address bar into a command line for the web. Define short triggers and jump
-straight to the sites and searches you use most, with inline suggestions and a focused
-new tab page. No servers, no tracking, no ads.
+Turn your search bar into a command line for the web. Define short triggers and jump straight to the sites and searches you use.
 ```
 
 ## Detailed description
 
 ```
-Fast Travel turns your address bar into a command line for the web.
+Supercharge your search bar.
 
-Instead of bookmarks, history, and half-remembered URLs, type a short command and go
-straight where you mean to: a search on a specific site, a subreddit, a stock ticker,
-your team's dashboard — whatever you set up.
+Fast Travel turns your search bar into a command line for the web. Instead of
+bookmarks, history, and half-remembered URLs, type a short command and go straight
+where you mean to.
+
+WHAT YOU CAN DO
+• g kittens — a Google search for "kittens"
+• ddg privacy — the same search on DuckDuckGo
+• r/technology — jump straight to the r/technology subreddit
+• $AAPL — pull up an Apple stock quote
+• yt lofi beats — search YouTube
+• gh fast-travel — search GitHub
+• w black holes — search Wikipedia
+• apps balatro — find an app on the right store for your device
+• maps coffee — find nearby coffee on Google Maps
+• hn — open Hacker News
+Every command is yours to configure — change the triggers, point them anywhere, or
+add your own.
 
 FEATURES
-• Command-based navigation — define triggers like "yt", "gh", or "r/" and route them
-  anywhere you want.
-• Inline suggestions — get autocomplete as you type, per command, from the search
-  engines you choose.
+• Command-based navigation — short triggers route to any site or search you set up.
+• Inline suggestions — autocomplete as you type, per command, from the search engines
+  you choose.
 • New tab page — a fast, focused start page built around your commands.
-• Bring your own config — keep your commands in a JSON file you host yourself, and
-  sync the same setup across every device and browser. Or just use the built-in
-  defaults and edit them in-app.
-• Groups, icon packs, and themes — organize and personalize your command set.
+• Address-bar integration — type a command in the address bar and go straight there.
+• Bring your own config — keep your commands in a JSON file you host yourself and sync
+  the same setup across every device and browser, or use the built-in defaults and
+  edit them in-app.
+• Device-aware routing — one command can resolve to the right destination per device.
+• Groups & themes — organize and personalize your command set, with light and dark
+  modes and multiple styles.
 
-PRIVACY
+PRIVATE BY DESIGN
 Fast Travel has no servers and no accounts. It collects nothing, tracks nothing, and
 shows no ads. Your settings and commands stay on your device. Network requests only
 happen when you ask for them — fetching your config file or search suggestions.
 Full policy: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
 
-Fast Travel is open source: https://github.com/DoubleGremlin181/fast-travel-app
+Open source: https://github.com/DoubleGremlin181/fast-travel-app
 ```
 
 ## License
@@ -56,7 +68,7 @@ MIT (matches the repository `LICENSE`).
 
 ## Privacy policy
 
-Required by AMO. URL: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
+URL: https://doublegremlin181.github.io/fast-travel-app/privacy-policy
 
 ## Notes for reviewers
 
@@ -66,9 +78,9 @@ Required by AMO. URL: https://doublegremlin181.github.io/fast-travel-app/privacy
   actually requested over the network — it is the mechanism used to capture the
   address-bar query and route it to the matching command.
 - Source build: `cd extension && npm install && npm run build:firefox` produces the
-  reviewed artifact in `extension/dist-firefox/`.
+  reviewed artifact in `extension/dist/`.
 
-## Assets needed
+## Assets
 
-- Screenshots: 1280×800 recommended (see `README.md`).
-- Icon: 128×128 (already in `extension/src/icons/icon128.png`).
+- Screenshots: `firefox/screenshots/` (4 @ 1280×800).
+- Icon: 128×128 (`extension/src/icons/icon128.png`).
