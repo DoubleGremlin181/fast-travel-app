@@ -92,9 +92,9 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: echo '${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}' > /tmp/play-credentials.json
 
-      - name: Build Android AAB (signed)
+      - name: Build Android AAB + universal APK (signed)
         if: github.event_name == 'workflow_dispatch'
-        run: ./gradlew bundleRelease
+        run: ./gradlew bundleRelease assembleRelease
         working-directory: android
         env:
           SIGNING_STORE_FILE: /tmp/release.keystore
@@ -181,4 +181,5 @@ jobs:
           files: |
             chrome-extension.zip
             firefox-extension.zip
+            android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab

@@ -1,8 +1,38 @@
 # Fast Travel App
 
-**Supercharge your search bar.** Type commands to navigate the web faster — available as a browser extension for Chrome and Firefox, and as a native Android app.
+**Supercharge your search bar.** Turn your search bar into a command line for the web. Define short triggers and jump straight to the sites and searches you use most — available as a browser extension for Chrome and Firefox, and as a native Android app.
 
 > **This is the v2 successor to [fast-travel](https://github.com/DoubleGremlin181/fast-travel).** The original self-hosted static page (v1) remains fully functional and available.
+
+## What you can do
+
+Instead of bookmarks, history, and half-remembered URLs, type a short command and go straight there:
+
+| Type… | …and go to |
+|---|---|
+| `g kittens` | a Google search for "kittens" |
+| `ddg privacy` | the same search on DuckDuckGo |
+| `r/technology` | the r/technology subreddit |
+| `$AAPL` | an Apple stock quote |
+| `yt lofi beats` | a YouTube search |
+| `gh fast-travel` | a GitHub search |
+| `w black holes` | a Wikipedia article search |
+| `apps balatro` | the app on the right store for your device |
+| `maps coffee` | nearby coffee on Google Maps |
+| `hn` | Hacker News |
+
+Every command is yours to configure — change the triggers, point them anywhere, or add your own.
+
+## Features
+
+- **Command-based navigation** — short triggers route to any site or search you set up.
+- **Inline suggestions** — autocomplete as you type, per command, from the search engines you choose.
+- **Bring your own config** — keep your commands in a JSON file you host yourself and sync the same setup across every device and browser, or use the built-in defaults and edit them in-app.
+- **Device-aware routing** — one command can resolve to the right destination per device (e.g. `apps` opens Steam on desktop, the Play Store on Android).
+- **Groups & themes** — organize and personalize your command set, with light/dark modes and multiple styles.
+- **Browser extension** — a fast, focused new tab page plus address-bar integration.
+- **Android app** — a home-screen widget and the ability to launch installed apps straight from search.
+- **Private by design** — no servers, no accounts, no ads, no tracking. Your settings stay on your device.
 
 ## Install
 
@@ -11,6 +41,21 @@
 | Chrome | *(coming soon — Chrome Web Store)* |
 | Firefox | *(coming soon — Firefox Add-ons)* |
 | Android | *(coming soon — Google Play)* |
+
+### Direct download (GitHub Releases)
+
+Prefer the stores above when they're live, but every release also ships installable
+artifacts on the [Releases page](https://github.com/DoubleGremlin181/fast-travel-app/releases):
+
+- **Android** — download `app-release.apk` and install it (you'll need to allow
+  installs from your browser/file manager in Android settings). This is a signed,
+  ready-to-run build.
+- **Chrome** — `chrome-extension.zip` is for loading **unpacked** via
+  `chrome://extensions` → *Developer mode* → *Load unpacked*. For a normal install,
+  use the Chrome Web Store.
+- **Firefox** — `firefox-extension.zip` is **unsigned**; release Firefox only installs
+  signed add-ons, so use the Firefox Add-ons listing. (Developer/Nightly builds can
+  load it as a temporary add-on.)
 
 ## v1 vs v2
 
