@@ -20,6 +20,7 @@ const jobs = [
   ['docs/store-assets/sources/marquee.svg',         'docs/store-assets/chrome/marquee-promo-tile.png',  1400,  560],
   ['docs/store-assets/sources/icon.svg',            'docs/store-assets/google-play/icon-512.png',        512,  512],
   ['docs/store-assets/sources/store-icon.svg',      'docs/store-assets/chrome/store-icon-128.png',       128,  128, true],
+  ['docs/store-assets/sources/store-icon.svg',      'docs/store-assets/firefox/icon-128.png',            128,  128, true],
 ];
 
 const browser = await chromium.launch();
