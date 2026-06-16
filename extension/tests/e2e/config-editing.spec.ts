@@ -45,6 +45,8 @@ test("config: editing default command sets dirty flag", async ({ context, extens
   await page.goto(`chrome-extension://${extensionId}/options/options.html#/configuration`);
 
   const select = page.locator('select#default-cmd');
+  // Wait for the async config load to populate the dropdown before asserting.
+  await expect.poll(() => select.locator("option").count()).toBeGreaterThan(1);
   const options = await select.locator("option").allTextContents();
   expect(options.length).toBeGreaterThan(1);
 

@@ -189,18 +189,16 @@ test("newtab handleSearch: https: URLs still navigate (guards do not over-block)
   const input = page.locator("#search-input");
   await input.fill("g playwright testing");
 
-  const navPromise = new Promise<string>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("no navigation")), 8000);
-    page.on("framenavigated", (f) => {
-      if (f === page.mainFrame() && /google\.com/.test(f.url())) {
-        clearTimeout(timer);
-        resolve(f.url());
-      }
-    });
-  });
-
-  await page.keyboard.press("Enter");
-  const url = await navPromise;
+  // Race-free + network-independent: waitForRequest resolves when the navigation
+  // request is issued, without waiting for the external site to load.
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (r) => r.isNavigationRequest() && r.frame() === page.mainFrame() && /google\.com/.test(r.url()),
+      { timeout: 10000 },
+    ),
+    page.keyboard.press("Enter"),
+  ]);
+  const url = request.url();
   // The URL may use + or %20 for spaces depending on encodeURIComponent vs URLSearchParams
   expect(url).toMatch(/google\.com\/search\?q=playwright/);
 });

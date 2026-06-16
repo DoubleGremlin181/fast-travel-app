@@ -9,23 +9,19 @@ test("newtab loads with search input focused", async ({ context, extensionId }) 
   await expect(input).toBeFocused();
 });
 
-// Capture the resolved navigation URL by intercepting the main-frame navigation
-// request and aborting it — so the test asserts on the destination without
-// actually loading the external site (no network dependence, deterministic).
-async function captureFirstNav(page: import("@playwright/test").Page, pattern: RegExp) {
-  return new Promise<string>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("no matching nav")), 10000);
-    void page.route("**/*", async (route) => {
-      const req = route.request();
-      if (req.isNavigationRequest() && req.frame() === page.mainFrame() && pattern.test(req.url())) {
-        clearTimeout(timer);
-        resolve(req.url());
-        await route.abort();
-        return;
-      }
-      await route.continue();
-    });
-  });
+// Press Enter and return the resolved main-frame navigation URL.
+// waitForRequest attaches its listener synchronously and resolves the moment the
+// navigation request is issued — so this is race-free (no async route-registration
+// gap) and doesn't depend on the external site actually loading.
+async function pressEnterAndGetNavUrl(page: import("@playwright/test").Page, pattern: RegExp) {
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (r) => r.isNavigationRequest() && r.frame() === page.mainFrame() && pattern.test(r.url()),
+      { timeout: 10000 },
+    ),
+    page.keyboard.press("Enter"),
+  ]);
+  return request.url();
 }
 
 test("typing a command with query navigates to the command's search URL", async ({
@@ -36,9 +32,7 @@ test("typing a command with query navigates to the command's search URL", async 
   await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
   await page.locator("#search-input").fill("g playwright extension testing");
 
-  const nav = captureFirstNav(page, /google\.com\/search\?q=/);
-  await page.keyboard.press("Enter");
-  const matchedUrl = await nav;
+  const matchedUrl = await pressEnterAndGetNavUrl(page, /google\.com\/search\?q=/);
   const q = new URL(matchedUrl).searchParams.get("q");
   expect(q).toBe("playwright extension testing");
 });
@@ -47,9 +41,7 @@ test("bare query uses the default command (google)", async ({ context, extension
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
   await page.locator("#search-input").fill("hello world");
-  const nav = captureFirstNav(page, /google\.com\/search\?q=/);
-  await page.keyboard.press("Enter");
-  const matchedUrl = await nav;
+  const matchedUrl = await pressEnterAndGetNavUrl(page, /google\.com\/search\?q=/);
   expect(new URL(matchedUrl).searchParams.get("q")).toBe("hello world");
 });
 
@@ -57,9 +49,7 @@ test("gh command routes to GitHub search", async ({ context, extensionId }) => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
   await page.locator("#search-input").fill("gh facebook/react");
-  const nav = captureFirstNav(page, /github\.com/);
-  await page.keyboard.press("Enter");
-  const matchedUrl = await nav;
+  const matchedUrl = await pressEnterAndGetNavUrl(page, /github\.com/);
   expect(matchedUrl).toMatch(/github\.com/);
 });
 
