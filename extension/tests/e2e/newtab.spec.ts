@@ -9,14 +9,21 @@ test("newtab loads with search input focused", async ({ context, extensionId }) 
   await expect(input).toBeFocused();
 });
 
+// Capture the resolved navigation URL by intercepting the main-frame navigation
+// request and aborting it — so the test asserts on the destination without
+// actually loading the external site (no network dependence, deterministic).
 async function captureFirstNav(page: import("@playwright/test").Page, pattern: RegExp) {
   return new Promise<string>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("no matching nav")), 5000);
-    page.on("framenavigated", (f) => {
-      if (f === page.mainFrame() && pattern.test(f.url())) {
+    const timer = setTimeout(() => reject(new Error("no matching nav")), 10000);
+    void page.route("**/*", async (route) => {
+      const req = route.request();
+      if (req.isNavigationRequest() && req.frame() === page.mainFrame() && pattern.test(req.url())) {
         clearTimeout(timer);
-        resolve(f.url());
+        resolve(req.url());
+        await route.abort();
+        return;
       }
+      await route.continue();
     });
   });
 }

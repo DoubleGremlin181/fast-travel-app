@@ -1,4 +1,4 @@
-# Chrome Web Store — Listing Copy
+# Firefox AMO — Listing Copy
 
 ## Name
 
@@ -6,11 +6,12 @@
 Fast Travel
 ```
 
-## Category
+## Add-on type
 
-Productivity
+Extension. Extension ID: `fast-travel@kavi.sh`
+(set in `extension/manifest.firefox.json`).
 
-## Short description (max 132 chars)
+## Summary (max 250 chars)
 
 ```
 Turn your search bar into a command line for the web. Define short triggers and jump straight to the sites and searches you use.
@@ -61,21 +62,31 @@ Full policy: https://kavi.sh/fast-travel-app/privacy-policy/
 Open source: https://github.com/DoubleGremlin181/fast-travel-app
 ```
 
-## Privacy practices (console questionnaire)
+## Homepage
 
-- Does the item collect user data? **No.**
-- Single purpose: "Provide command-based navigation and search from the browser
-  address bar and new tab page."
-- Permission justifications:
-  - `storage` — save the user's settings and command configuration locally.
-  - `alarms` — periodically refresh the user's remote config in the background.
-  - `tabs` / `webNavigation` — detect address-bar searches and route them to the
-    matching command.
-  - `declarativeNetRequestWithHostAccess` + host access — redirect the internal search
-    sentinel URL to the resolved destination. No page content is read.
+```
+https://kavi.sh/fast-travel-app/
+```
+
+## License
+
+MIT (matches the repository `LICENSE`).
+
+## Privacy policy
+
+URL: https://kavi.sh/fast-travel-app/privacy-policy/
+
+## Notes for reviewers
+
+- Minimum Firefox version: 128.0 (`strict_min_version` in the Firefox manifest).
+- The extension registers a search provider that points at the sentinel host
+  `fast-travel-omnibox.invalid`; this URL is intercepted internally and is never
+  actually requested over the network — it is the mechanism used to capture the
+  address-bar query and route it to the matching command.
+- Source build: `cd extension && npm install && npm run build:firefox` produces the
+  reviewed artifact in `extension/dist/`.
 
 ## Assets
 
-- Screenshots: `chrome/screenshots/` (4 @ 1280×800).
-- Small promo tile: `chrome/promo-tile.png` (440×280).
+- Screenshots: `screenshots/` (4 @ 1280×800).
 - Icon: 128×128 (`extension/src/icons/icon128.png`).

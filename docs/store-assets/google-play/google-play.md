@@ -82,9 +82,15 @@ no user-generated content, no data collection, no sensitive content.
 
 URL: https://kavi.sh/fast-travel-app/privacy-policy/
 
+## Website
+
+```
+https://kavi.sh/fast-travel-app/
+```
+
 ## Assets
 
-- Phone screenshots: `google-play/screenshots/` (5 @ 1080×2160, within Play's 2:1 max).
-- Feature graphic: `google-play/feature-graphic.png` (1024×500).
-- App icon: `google-play/icon-512.png` (512×512).
+- Phone screenshots: `screenshots/` (5 @ 1080×2160, within Play's 2:1 max).
+- Feature graphic: `feature-graphic.png` (1024×500).
+- App icon: `icon-512.png` (512×512).
 - Package name: `sh.kavi.fasttravel` (fixed — cannot change after first upload).
