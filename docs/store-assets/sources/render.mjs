@@ -17,6 +17,7 @@ const root = resolve(here, '../../..');
 const jobs = [
   ['docs/store-assets/sources/feature-graphic.svg', 'docs/store-assets/google-play/feature-graphic.png', 1024, 500],
   ['docs/store-assets/sources/promo-tile.svg',      'docs/store-assets/chrome/promo-tile.png',           440,  280],
+  ['docs/store-assets/sources/marquee.svg',         'docs/store-assets/chrome/marquee-promo-tile.png',  1400,  560],
   ['docs/store-assets/sources/icon.svg',            'docs/store-assets/google-play/icon-512.png',        512,  512],
   ['docs/store-assets/sources/store-icon.svg',      'docs/store-assets/chrome/store-icon-128.png',       128,  128, true],
 ];
