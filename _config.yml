@@ -1,0 +1,27 @@
+# GitHub Pages configuration.
+#
+# The Pages "Source" is the repo root so that README.md is served as the site
+# homepage automatically (via GitHub Pages' built-in jekyll-readme-index plugin).
+# This keeps the landing page in sync with the README with no duplication.
+#
+# Only README.md and the pages under docs/ (e.g. the privacy policy) are published;
+# everything below is excluded from the Jekyll build so source/code files are not
+# rendered and can't break the build.
+title: Fast Travel
+description: Supercharge your search bar.
+
+exclude:
+  - android/
+  - extension/
+  - shared/
+  - tools/
+  - docs/store-assets/
+  - docs/screenshots/
+  - CLAUDE.md
+  - CONTRIBUTING.md
+  - LICENSE
+  - package.json
+  - package-lock.json
+  - tsconfig.base.json
+  - node_modules/
+  - vendor/
