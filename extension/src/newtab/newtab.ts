@@ -188,6 +188,7 @@ async function init(): Promise<void> {
         updateLeadingIcon(trimmed);
         if (config) renderQuickChips();
         showTypoSuggestion(result);
+        markReady();
         return;
       }
     }
@@ -196,6 +197,14 @@ async function init(): Promise<void> {
 
   if (config) renderQuickChips();
   void setupOnboardingHint();
+  markReady();
+}
+
+// Signal that init() has finished loading config and the page is interactive.
+// Pressing Enter before this resolves makes handleSearch() a no-op (config is
+// null), so e2e tests must wait for [data-ft-ready] before submitting a query.
+function markReady(): void {
+  document.documentElement.dataset.ftReady = "1";
 }
 
 function focusSearchInput(): void {

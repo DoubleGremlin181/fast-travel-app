@@ -114,6 +114,10 @@ test("newtab handleSearch: scheme guard blocks javascript: URL navigation", asyn
   // Reload the newtab so it picks up the malicious config from storage.
   await page.reload();
 
+  // Wait for init() to load the (malicious) config — otherwise handleSearch()
+  // no-ops and this guard test would pass vacuously without exercising the guard.
+  await page.locator("html[data-ft-ready]").waitFor();
+
   // Type the trigger for the malicious command and submit.
   const input = page.locator("#search-input");
   await input.fill("xss");
@@ -188,6 +192,9 @@ test("newtab handleSearch: https: URLs still navigate (guards do not over-block)
   // Use the bundled default config (Google search), no storage injection needed.
   const input = page.locator("#search-input");
   await input.fill("g playwright testing");
+
+  // Wait for init() to finish loading config — handleSearch() no-ops until then.
+  await page.locator("html[data-ft-ready]").waitFor();
 
   // Race-free + network-independent: waitForRequest resolves when the navigation
   // request is issued, without waiting for the external site to load.
