@@ -82,6 +82,8 @@ https://kavi.sh/fast-travel-app/
 
 ## Assets
 
+- Store icon: `store-icon-128.png` (128×128 PNG, transparent padding — artwork ~77% width per CWS guidelines).
 - Screenshots: `screenshots/` (4 @ 1280×800).
 - Small promo tile: `promo-tile.png` (440×280).
-- Icon: 128×128 (`extension/src/icons/icon128.png`).
+- Marquee promo tile (optional): `marquee-promo-tile.png` (1400×560).
+- Packaged icon: 128×128 (`extension/src/icons/icon128.png`).

@@ -88,5 +88,6 @@ URL: https://kavi.sh/fast-travel-app/privacy-policy/
 
 ## Assets
 
-- Screenshots: `screenshots/` (4 @ 1280×800).
-- Icon: 128×128 (`extension/src/icons/icon128.png`).
+- Listing icon: `icon-128.png` (128×128, transparent padding).
+- Screenshots: `screenshots/` (4 @ 1280×800); captions in `screenshots/captions.md`.
+- Packaged icon (auto-used from the XPI): `extension/src/icons/icon128.png`.
