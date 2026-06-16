@@ -61,6 +61,12 @@ Full policy: https://kavi.sh/fast-travel-app/privacy-policy/
 Open source: https://github.com/DoubleGremlin181/fast-travel-app
 ```
 
+## Website
+
+```
+https://kavi.sh/fast-travel-app/
+```
+
 ## Privacy practices (console questionnaire)
 
 - Does the item collect user data? **No.**
@@ -76,6 +82,6 @@ Open source: https://github.com/DoubleGremlin181/fast-travel-app
 
 ## Assets
 
-- Screenshots: `chrome/screenshots/` (4 @ 1280×800).
-- Small promo tile: `chrome/promo-tile.png` (440×280).
+- Screenshots: `screenshots/` (4 @ 1280×800).
+- Small promo tile: `promo-tile.png` (440×280).
 - Icon: 128×128 (`extension/src/icons/icon128.png`).
