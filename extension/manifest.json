@@ -3,7 +3,7 @@
   "name": "Fast Travel",
   "version": "2.0.0",
   "default_locale": "en",
-  "description": "Command-based search engine replacement. Type commands to navigate the web faster.",
+  "description": "Turn your search bar into a command line for the web. Define short triggers and jump straight to the sites and searches you use.",
   "permissions": [
     "storage",
     "alarms",
