@@ -13,7 +13,12 @@ test("newtab loads with search input focused", async ({ context, extensionId }) 
 // waitForRequest attaches its listener synchronously and resolves the moment the
 // navigation request is issued — so this is race-free (no async route-registration
 // gap) and doesn't depend on the external site actually loading.
+//
+// Gating on [data-ft-ready] first is essential: handleSearch() silently no-ops
+// until init() has loaded config (an async getConfig round-trip to the service
+// worker), so pressing Enter too early issues no navigation and times out.
 async function pressEnterAndGetNavUrl(page: import("@playwright/test").Page, pattern: RegExp) {
+  await page.locator("html[data-ft-ready]").waitFor();
   const [request] = await Promise.all([
     page.waitForRequest(
       (r) => r.isNavigationRequest() && r.frame() === page.mainFrame() && pattern.test(r.url()),
