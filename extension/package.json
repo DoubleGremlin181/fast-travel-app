@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:install": "playwright test tests/e2e/install.spec.ts",
+    "record:demos": "npm run build && node scripts/record-demos.mjs",
     "lint": "web-ext lint --source-dir dist/"
   },
   "devDependencies": {

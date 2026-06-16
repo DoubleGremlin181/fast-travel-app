@@ -77,6 +77,25 @@ artifacts on the [Releases page](https://github.com/DoubleGremlin181/fast-travel
 2. Open Settings → Configuration → set a remote config URL (or use the built-in default)
 3. Type a command in your browser's address bar or the Android search widget
 
+## Demo
+
+Type a command, get redirected — straight from the new-tab search bar, with live suggestions as you go.
+
+**`g best espresso machines`** — a Google search
+![Typing "g best espresso machines" and landing on Google results](docs/demo/01-google.gif)
+
+**`r/mechanicalkeyboards`** — jump straight to a subreddit
+![Typing "r/mechanicalkeyboards" and landing on the subreddit](docs/demo/02-reddit-subreddit.gif)
+
+**`fa SFO`** — pull up an airport on FlightAware
+![Typing "fa SFO" and landing on the FlightAware airport page](docs/demo/03-flightaware.gif)
+
+**`qq explain the Roman aqueducts`** — send a prompt to ChatGPT
+![Typing "qq explain the Roman aqueducts" and landing on ChatGPT](docs/demo/04-chatgpt.gif)
+
+**`w machine learning`** — search Wikipedia
+![Typing "w machine learning" and landing on the Wikipedia article](docs/demo/05-wikipedia.gif)
+
 ## Development
 
 ### Prerequisites
