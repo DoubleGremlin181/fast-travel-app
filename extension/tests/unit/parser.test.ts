@@ -170,7 +170,7 @@ describe("buildTriggerMap", () => {
     expect(map.has("ddg")).toBe(true);
     expect(map.has("$")).toBe(true);
     expect(map.has("r/")).toBe(true);
-    expect(map.has("maps")).toBe(true);
+    expect(map.has("mp")).toBe(true);
     expect(map.has("gh")).toBe(true);
   });
 
@@ -178,7 +178,8 @@ describe("buildTriggerMap", () => {
     const map = buildTriggerMap(config);
     // Triggers are stored lowercase; callers must lower before lookup.
     expect(map.get("G")).toBeUndefined();
-    expect(map.get("g")).toBe(map.get("GOOGLE".toLowerCase()));
+    // Aliases resolve to the same command, and lookups are lowercased.
+    expect(map.get("miruro")).toBe(map.get("ANI".toLowerCase()));
   });
 });
 
