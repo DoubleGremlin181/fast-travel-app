@@ -39,6 +39,8 @@ docs/screenshots/
 android/screenshots/
 extension/theme-screenshots/
 extension/scripts/screenshots/
+# e2e debug screenshots — written via page.screenshot() on each run, not asserted against
+extension/tests/e2e/screenshots/
 
 # Firefox test profile (generated)
 extension/.ff-test-profile/

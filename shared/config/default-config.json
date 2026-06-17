@@ -12,8 +12,7 @@
         {
           "id": "google",
           "triggers": [
-            "g",
-            "google"
+            "g"
           ],
           "name": "Google",
           "type": "standard",
@@ -185,8 +184,7 @@
         {
           "id": "annas-archive",
           "triggers": [
-            "aa",
-            "annas"
+            "aa"
           ],
           "name": "Anna's Archive",
           "type": "standard",
@@ -202,7 +200,6 @@
         {
           "id": "libgen",
           "triggers": [
-            "libgen",
             "lg"
           ],
           "name": "Library Genesis",
@@ -219,7 +216,6 @@
         {
           "id": "scihub",
           "triggers": [
-            "scihub",
             "sci"
           ],
           "name": "Sci-Hub",
@@ -297,7 +293,7 @@
         {
           "id": "google-maps",
           "triggers": [
-            "maps"
+            "mp"
           ],
           "name": "Google Maps",
           "type": "standard",
@@ -335,7 +331,7 @@
         {
           "id": "file",
           "triggers": [
-            "file"
+            "fl"
           ],
           "name": "File Browser",
           "type": "standard",
@@ -401,7 +397,7 @@
         {
           "id": "app-stores",
           "triggers": [
-            "apps"
+            "ap"
           ],
           "name": "App Stores",
           "type": "standard",
@@ -487,8 +483,7 @@
         {
           "id": "wayback",
           "triggers": [
-            "wb",
-            "wayback"
+            "wb"
           ],
           "name": "Wayback Machine",
           "type": "standard",
@@ -520,7 +515,7 @@
           "id": "1337x",
           "triggers": [
             "1337x",
-            "torrent"
+            "tr"
           ],
           "name": "1337x",
           "type": "standard",
@@ -606,8 +601,7 @@
         {
           "id": "reddit",
           "triggers": [
-            "r",
-            "reddit"
+            "r"
           ],
           "name": "Reddit",
           "type": "standard",
@@ -649,7 +643,7 @@
         {
           "id": "news",
           "triggers": [
-            "news"
+            "nw"
           ],
           "name": "Google News",
           "type": "standard",
@@ -688,8 +682,7 @@
         {
           "id": "youtube",
           "triggers": [
-            "yt",
-            "youtube"
+            "yt"
           ],
           "name": "YouTube",
           "type": "standard",
@@ -792,8 +785,7 @@
         {
           "id": "lyrics",
           "triggers": [
-            "ly",
-            "lyrics"
+            "ly"
           ],
           "name": "Lyrics",
           "type": "standard",
@@ -809,8 +801,7 @@
         {
           "id": "mangadex",
           "triggers": [
-            "mdex",
-            "manga"
+            "mdex"
           ],
           "name": "MangaDex",
           "type": "standard",
@@ -843,7 +834,7 @@
           "id": "miruro",
           "triggers": [
             "miruro",
-            "anime"
+            "ani"
           ],
           "name": "Miruro",
           "type": "standard",
@@ -914,7 +905,7 @@
         {
           "id": "discord",
           "triggers": [
-            "discord"
+            "dc"
           ],
           "name": "Discord",
           "type": "standard",
@@ -936,7 +927,7 @@
         {
           "id": "weather",
           "triggers": [
-            "weather"
+            "wx"
           ],
           "name": "Weather",
           "type": "standard",
@@ -1006,7 +997,7 @@
         {
           "id": "time",
           "triggers": [
-            "time"
+            "tm"
           ],
           "name": "Time",
           "type": "standard",
@@ -1133,8 +1124,7 @@
         {
           "id": "github",
           "triggers": [
-            "gh",
-            "github"
+            "gh"
           ],
           "name": "GitHub",
           "type": "standard",
@@ -1164,7 +1154,7 @@
         {
           "id": "gist",
           "triggers": [
-            "gist"
+            "gst"
           ],
           "name": "GitHub Gist",
           "type": "standard",
@@ -1180,7 +1170,7 @@
         {
           "id": "paste",
           "triggers": [
-            "paste"
+            "pb"
           ],
           "name": "Pastebin",
           "type": "standard",
@@ -1234,7 +1224,7 @@
         {
           "id": "stocks",
           "triggers": [
-            "stocks"
+            "stk"
           ],
           "name": "Yahoo Finance",
           "type": "standard",
@@ -1272,7 +1262,7 @@
         {
           "id": "docs",
           "triggers": [
-            "docs"
+            "doc"
           ],
           "name": "Google Docs",
           "type": "standard",
@@ -1288,7 +1278,7 @@
         {
           "id": "slides",
           "triggers": [
-            "slides"
+            "sl"
           ],
           "name": "Google Slides",
           "type": "standard",
@@ -1304,7 +1294,7 @@
         {
           "id": "sheets",
           "triggers": [
-            "sheets"
+            "sh"
           ],
           "name": "Google Sheets",
           "type": "standard",

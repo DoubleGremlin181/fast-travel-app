@@ -24,11 +24,11 @@
     }
   },
   {
-    "description": "Typo detection - 'weathr' suggests 'weather' (distance 1, >5 chars threshold 2)",
-    "input": { "rawQuery": "weathr forecast", "device": "Linux", "ignoreList": [] },
+    "description": "Typo detection - 'scholr' suggests 'scholar' (distance 1, >5 chars threshold 2)",
+    "input": { "rawQuery": "scholr papers", "device": "Linux", "ignoreList": [] },
     "expected": {
       "type": "typo",
-      "suggestedTrigger": "weather"
+      "suggestedTrigger": "scholar"
     }
   },
   {
@@ -56,11 +56,19 @@
     }
   },
   {
-    "description": "Typo detection - 'mps' suggests 'maps' (distance 1 for 3-char input)",
+    "description": "Typo detection - 'mps' suggests 'mp' (distance 1 for 3-char input)",
     "input": { "rawQuery": "mps directions/A/B", "device": "Linux", "ignoreList": [] },
     "expected": {
       "type": "typo",
-      "suggestedTrigger": "maps"
+      "suggestedTrigger": "mp"
+    }
+  },
+  {
+    "description": "Common word guard - 'for' is a common word, not suggested as typo of 'fog'",
+    "input": { "rawQuery": "for forecast", "device": "Linux", "ignoreList": [] },
+    "expected": {
+      "type": "redirect",
+      "matchType": "default-search"
     }
   },
   {

@@ -91,7 +91,7 @@
   },
   {
     "description": "Pattern match - Google Maps directions",
-    "input": { "rawQuery": "maps directions/NYC/LA", "device": "Linux" },
+    "input": { "rawQuery": "mp directions/NYC/LA", "device": "Linux" },
     "expected": {
       "type": "redirect",
       "url": "https://maps.google.com/dir/NYC/LA",
@@ -141,7 +141,7 @@
   },
   {
     "description": "Device-specific routing - apps on Android",
-    "input": { "rawQuery": "apps spotify", "device": "Android" },
+    "input": { "rawQuery": "ap spotify", "device": "Android" },
     "expected": {
       "type": "redirect",
       "url": "https://play.google.com/store/search?q=spotify",
@@ -151,7 +151,7 @@
   },
   {
     "description": "Device-specific routing - apps on iOS",
-    "input": { "rawQuery": "apps spotify", "device": "iOS" },
+    "input": { "rawQuery": "ap spotify", "device": "iOS" },
     "expected": {
       "type": "redirect",
       "url": "https://apps.apple.com/search?q=spotify",
@@ -161,7 +161,7 @@
   },
   {
     "description": "Device-specific routing - apps on Linux (desktop fallback)",
-    "input": { "rawQuery": "apps spotify", "device": "Linux" },
+    "input": { "rawQuery": "ap spotify", "device": "Linux" },
     "expected": {
       "type": "redirect",
       "url": "https://store.steampowered.com/search/?term=spotify",
@@ -171,7 +171,7 @@
   },
   {
     "description": "Device routing - apps on Unknown device falls to desktop routes",
-    "input": { "rawQuery": "apps spotify", "device": "Unknown" },
+    "input": { "rawQuery": "ap spotify", "device": "Unknown" },
     "expected": {
       "type": "redirect",
       "url": "https://store.steampowered.com/search/?term=spotify",
@@ -311,7 +311,7 @@
   },
   {
     "description": "Device-specific pattern - apps developer on Android",
-    "input": { "rawQuery": "apps developer/Google", "device": "Android" },
+    "input": { "rawQuery": "ap developer/Google", "device": "Android" },
     "expected": {
       "type": "redirect",
       "url": "https://play.google.com/store/apps/developer?id=Google",
@@ -320,13 +320,13 @@
     }
   },
   {
-    "description": "Alias trigger - 'google kittens' resolves identically to 'g kittens'",
+    "description": "Removed full-word alias - 'google' is no longer a trigger, falls through to default search",
     "input": { "rawQuery": "google kittens", "device": "Linux" },
     "expected": {
       "type": "redirect",
-      "url": "https://www.google.com/search?q=kittens",
+      "url": "https://www.google.com/search?q=google%20kittens",
       "commandId": "google",
-      "matchType": "search"
+      "matchType": "default-search"
     }
   },
   {
