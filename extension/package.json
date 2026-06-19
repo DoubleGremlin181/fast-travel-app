@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "test:install": "playwright test tests/e2e/install.spec.ts",
     "record:demos": "npm run build && node scripts/record-demos.mjs",
+    "record:store-video": "npm run build && node scripts/record-store-video.mjs",
     "lint": "web-ext lint --source-dir dist/"
   },
   "devDependencies": {
