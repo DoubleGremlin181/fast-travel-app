@@ -153,51 +153,64 @@ async function setupOnboardingHint(): Promise<void> {
 }
 
 async function init(): Promise<void> {
-  applyAppearance(await getAppearance());
-  subscribeAppearance(applyAppearance);
-  config = await chrome.runtime.sendMessage({ type: "getConfig" });
-  await refreshIgnoreState();
+  // Everything is wrapped so the page can NEVER be stranded on a blank/error tab:
+  // whatever happens, the `finally` marks the page interactive (issue #44). The
+  // "?q=" path is reached via the default-search context menu / omnibox, so a
+  // thrown error or an un-navigable result must still leave a usable search bar.
+  try {
+    applyAppearance(await getAppearance());
+    subscribeAppearance(applyAppearance);
+    config = await chrome.runtime.sendMessage({ type: "getConfig" });
+    await refreshIgnoreState();
 
-  // Omnibox search-provider path: ?q=<query> → resolve + navigate immediately.
-  // The presence of ?q= proves Fast Travel is the active default search engine.
-  const q = new URLSearchParams(window.location.search).get("q");
-  if (q !== null) {
-    chrome.storage.local.set({ [SEARCH_ENGINE_ACTIVE_KEY]: true });
-  }
-  if (q !== null && config) {
-    const trimmed = q.trim();
-    if (trimmed) {
-      const result = parseCommand({
-        rawQuery: trimmed,
-        device,
-        config,
-        ignoreList: currentEffectiveIgnoreList(),
-      });
-      if (result.type === "redirect") {
-        if (!/^(https?|mailto|tel|file):/i.test(result.url)) return;
-        chrome.runtime.sendMessage({
-          type: "addHistory",
-          value: { query: trimmed, commandId: result.commandId, timestamp: Date.now() },
+    // Omnibox search-provider path: ?q=<query> → resolve + navigate immediately.
+    // The presence of ?q= proves Fast Travel is the active default search engine.
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q !== null) {
+      chrome.storage.local.set({ [SEARCH_ENGINE_ACTIVE_KEY]: true });
+    }
+    if (q !== null && config) {
+      const trimmed = q.trim();
+      if (trimmed) {
+        const result = parseCommand({
+          rawQuery: trimmed,
+          device,
+          config,
+          ignoreList: currentEffectiveIgnoreList(),
         });
-        window.location.replace(result.url);
-        return;
-      }
-      if (result.type === "typo") {
-        history.replaceState(null, "", window.location.pathname);
+        // Only navigate for a redirect whose scheme is allowed. A refused scheme
+        // must NOT silently strand the page — fall through to the search bar.
+        if (result.type === "redirect" && /^(https?|mailto|tel|file):/i.test(result.url)) {
+          chrome.runtime.sendMessage({
+            type: "addHistory",
+            value: { query: trimmed, commandId: result.commandId, timestamp: Date.now() },
+          });
+          window.location.replace(result.url);
+          return;
+        }
+        if (result.type === "typo") {
+          history.replaceState(null, "", window.location.pathname);
+          searchInput.value = trimmed;
+          updateLeadingIcon(trimmed);
+          if (config) renderQuickChips();
+          showTypoSuggestion(result);
+          return;
+        }
+        // Unresolvable / scheme-refused query: drop it into the search bar so the
+        // user lands on a working page (not an error) and can retry.
         searchInput.value = trimmed;
         updateLeadingIcon(trimmed);
-        if (config) renderQuickChips();
-        showTypoSuggestion(result);
-        markReady();
-        return;
       }
+      history.replaceState(null, "", window.location.pathname);
     }
-    history.replaceState(null, "", window.location.pathname);
-  }
 
-  if (config) renderQuickChips();
-  void setupOnboardingHint();
-  markReady();
+    if (config) renderQuickChips();
+    void setupOnboardingHint();
+  } catch (e) {
+    console.error("[fast-travel] newtab init failed:", e);
+  } finally {
+    markReady();
+  }
 }
 
 // Signal that init() has finished loading config and the page is interactive.
@@ -766,4 +779,6 @@ document.addEventListener("click", (e) => {
   }
 });
 
-init();
+// init() handles its own errors and always marks the page ready, but guard the
+// call site too so a rejection can never surface as an unhandled error.
+void init().catch((e) => console.error("[fast-travel] newtab init rejected:", e));
