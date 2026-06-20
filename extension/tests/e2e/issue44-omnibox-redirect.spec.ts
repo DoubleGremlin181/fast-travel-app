@@ -21,7 +21,7 @@ test("Chrome removes any stale declarativeNetRequest redirect rule (it would blo
 }) => {
   const sw = context.serviceWorkers()[0];
 
-  const result = await sw.evaluate(async () => {
+  const installed = await sw.evaluate(async () => {
     // Simulate the rule an older build left in the profile.
     await chrome.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: [1],
@@ -40,7 +40,7 @@ test("Chrome removes any stale declarativeNetRequest redirect rule (it would blo
         },
       ],
     });
-    const installed = (await chrome.declarativeNetRequest.getDynamicRules()).length;
+    const n = (await chrome.declarativeNetRequest.getDynamicRules()).length;
 
     // Re-run the worker's startup/update paths; on Chrome they remove the rule.
     (chrome.runtime.onStartup as chrome.events.Event<() => void>).dispatch();
@@ -49,13 +49,18 @@ test("Chrome removes any stale declarativeNetRequest redirect rule (it would blo
         (d: chrome.runtime.InstalledDetails) => void
       >
     ).dispatch({ reason: "update" } as chrome.runtime.InstalledDetails);
-
-    await new Promise((r) => setTimeout(r, 1500));
-    return { installed, remaining: (await chrome.declarativeNetRequest.getDynamicRules()).length };
+    return n;
   });
 
-  expect(result.installed).toBe(1);
-  expect(result.remaining).toBe(0);
+  expect(installed).toBe(1);
+  // The removal is async; poll from the test side so a slow CI worker can't flake
+  // on a fixed wait.
+  await expect
+    .poll(
+      async () => (await sw.evaluate(() => chrome.declarativeNetRequest.getDynamicRules())).length,
+      { timeout: 10000 },
+    )
+    .toBe(0);
 });
 
 test("Chrome routes the sentinel via a webNavigation handler (not a blocked DNR redirect)", async ({
