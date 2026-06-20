@@ -24,7 +24,14 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # A real release pushes the version-bump commit to the protected `main`
+          # branch. The default GITHUB_TOKEN runs as github-actions[bot] — a
+          # non-admin that cannot bypass branch protection, so that push is
+          # rejected ("protected branch hook declined"). Use a maintainer PAT
+          # (RELEASE_PAT) instead; since `enforce_admins` is off, an owner PAT
+          # bypasses the required status checks. Falls back to GITHUB_TOKEN for
+          # PR builds, which never push.
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
