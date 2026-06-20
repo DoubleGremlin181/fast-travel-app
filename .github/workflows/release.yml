@@ -74,7 +74,9 @@ jobs:
           git add package.json extension/package.json extension/manifest.json \
             extension/src/options/screens/about.ts android/app/build.gradle.kts
           git commit -m "chore: bump version to ${{ steps.bump.outputs.version }}"
-          git tag "v${{ steps.bump.outputs.version }}"
+          # Annotated tag so `git push --follow-tags` actually pushes it
+          # (--follow-tags ignores lightweight tags).
+          git tag -a "v${{ steps.bump.outputs.version }}" -m "v${{ steps.bump.outputs.version }}"
           git push --follow-tags
 
       # ── Extension build ────────────────────────────────────────────────────
@@ -149,14 +151,14 @@ jobs:
       # ── Publish (workflow_dispatch only) ───────────────────────────────────
       - name: Publish to Chrome Web Store
         if: github.event_name == 'workflow_dispatch'
-        run: |
-          npx chrome-webstore-upload-cli upload \
-            --source chrome-extension.zip \
-            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
-            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
-            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
-            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }} \
-            --auto-publish
+        # chrome-webstore-upload-cli v4 dropped the --client-id/--client-secret/
+        # --refresh-token/--extension-id flags in favour of env vars.
+        env:
+          EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: npx chrome-webstore-upload-cli@4 upload --source chrome-extension.zip --auto-publish
 
       - name: Publish to Firefox AMO
         if: github.event_name == 'workflow_dispatch'
