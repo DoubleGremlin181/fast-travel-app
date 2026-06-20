@@ -195,6 +195,21 @@ const SEARCH_REDIRECT_RULE_ID = 1;
 
 async function installSearchRedirectRule(): Promise<void> {
   if (!chrome.declarativeNetRequest?.updateDynamicRules) return;
+  // Chrome blocks DNR redirects of browser-initiated navigations into
+  // chrome-extension:// pages (issue #44) → ERR_BLOCKED_BY_CLIENT, and dynamic
+  // rules persist across updates. So on Chrome, actively REMOVE any rule a prior
+  // build installed and rely on the webNavigation handler instead. The DNR rule
+  // is only used on Firefox (regexSubstitution, FF 131+).
+  if (!navigator.userAgent.includes("Firefox")) {
+    try {
+      await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: [SEARCH_REDIRECT_RULE_ID],
+      });
+    } catch (e) {
+      console.warn("[fast-travel] failed to remove stale redirect rule:", e);
+    }
+    return;
+  }
   const target = `${chrome.runtime.getURL("newtab/newtab.html")}?q=\\1`;
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
@@ -219,11 +234,17 @@ async function installSearchRedirectRule(): Promise<void> {
   }
 }
 
-// Firefox fallback: declarativeNetRequest.redirect.regexSubstitution requires
-// Firefox 131+, but the manifest requires only 128+. For older Firefox, the
-// DNR rule fails silently and .invalid shows as blank. webNavigation fires
-// before DNS, so it reliably intercepts the sentinel URL on all Firefox versions.
-if (navigator.userAgent.includes("Firefox") && chrome.webNavigation?.onBeforeNavigate) {
+// Route the search_provider's sentinel URL into the New Tab page via an
+// extension-initiated navigation (chrome.tabs.update). This is the primary
+// mechanism on Chrome and the fallback on Firefox.
+//
+// Why not a declarativeNetRequest redirect on Chrome: Chrome BLOCKS DNR redirects
+// of browser-initiated navigations (omnibox / context-menu "Search Fast Travel
+// for …") into chrome-extension:// pages — ERR_BLOCKED_BY_CLIENT — even when the
+// target is declared web_accessible (issue #44). An extension-initiated
+// tabs.update is allowed. onBeforeNavigate fires before the network request, so
+// the .invalid host is never actually contacted.
+if (chrome.webNavigation?.onBeforeNavigate) {
   chrome.webNavigation.onBeforeNavigate.addListener(
     (details) => {
       if (details.frameId !== 0) return;
@@ -240,6 +261,11 @@ if (navigator.userAgent.includes("Firefox") && chrome.webNavigation?.onBeforeNav
     { url: [{ hostEquals: "fast-travel-omnibox.invalid" }] },
   );
 }
+
+// Run on every service-worker startup (not just onInstalled/onStartup, which
+// don't fire on a plain reload): on Chrome this REMOVES any stale redirect rule
+// a prior build left behind (issue #44); on Firefox it (re)installs it.
+installSearchRedirectRule();
 
 // On install: seed with bundled config, then try fetching latest from GitHub
 chrome.runtime.onInstalled.addListener(async () => {
@@ -310,9 +336,20 @@ chrome.commands?.onCommand.addListener((command) => {
 // chrome_url_overrides stays in the manifest as a fallback if the SW is idle.
 // Chrome: intercept via tabs.onCreated — pendingUrl is "chrome://newtab/" before
 // the NTP override resolves, giving us a reliable signal.
-chrome.tabs.onCreated.addListener((tab) => {
+chrome.tabs.onCreated.addListener(async (tab) => {
   if ((tab.pendingUrl ?? tab.url) !== "chrome://newtab/") return;
   if (tab.id === undefined) return;
+  // Never tear down the SOLE tab of a window. At browser startup / new window the
+  // New Tab Page is the only tab, so removing it closes the whole window before
+  // the replacement is created (issue #43). The omnibox focus-steal we work around
+  // only happens via Ctrl+T / "+", where the window already has other tabs.
+  let siblings: chrome.tabs.Tab[];
+  try {
+    siblings = await chrome.tabs.query({ windowId: tab.windowId });
+  } catch {
+    return;
+  }
+  if (siblings.length <= 1) return;
   chrome.tabs.remove(tab.id, () => {
     if (chrome.runtime.lastError) return;
     chrome.tabs.create({
@@ -329,12 +366,21 @@ chrome.tabs.onCreated.addListener((tab) => {
 if (navigator.userAgent.includes("Firefox")) {
   const handledTabs = new Set<number>();
 
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     if (changeInfo.status !== "loading") return;
     if (!changeInfo.url?.endsWith("/newtab/newtab.html")) return;
     if (!tab.active) return;
     if (handledTabs.has(tabId)) return;
     handledTabs.add(tabId);
+    // Don't tear down the sole tab of a window — removing it would close the
+    // window at startup / new window (mirrors the Chrome guard for issue #43).
+    let siblings: chrome.tabs.Tab[];
+    try {
+      siblings = await chrome.tabs.query({ windowId: tab.windowId });
+    } catch {
+      return;
+    }
+    if (siblings.length <= 1) return;
     chrome.tabs.remove(tabId, () => {
       if (chrome.runtime.lastError) return;
       chrome.tabs.create(
