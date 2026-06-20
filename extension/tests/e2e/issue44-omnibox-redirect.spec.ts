@@ -19,7 +19,7 @@ import { test, expect } from "./fixtures";
 test("Chrome removes any stale declarativeNetRequest redirect rule (it would block the search)", async ({
   context,
 }) => {
-  const sw = context.serviceWorkers()[0];
+  const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
 
   const installed = await sw.evaluate(async () => {
     // Simulate the rule an older build left in the profile.
@@ -66,7 +66,7 @@ test("Chrome removes any stale declarativeNetRequest redirect rule (it would blo
 test("Chrome routes the sentinel via a webNavigation handler (not a blocked DNR redirect)", async ({
   context,
 }) => {
-  const sw = context.serviceWorkers()[0];
+  const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
   // The fix replaces the Chrome-blocked DNR redirect with a webNavigation +
   // tabs.update interception of the sentinel host. Assert the listener is wired
   // up. (Driving the full .invalid → tabs.update → result chain end-to-end is a
