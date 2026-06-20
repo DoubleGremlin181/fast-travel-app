@@ -124,7 +124,9 @@ play {
     serviceAccountCredentials.set(
         file(System.getenv("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON") ?: "play-credentials.json")
     )
-    track.set("production")
+    // New Play accounts must complete closed testing (>=12 testers, 14 days)
+    // before they can publish to `production`; use `internal` until eligible.
+    track.set("internal")
     defaultToAppBundles.set(true)
 }
 
