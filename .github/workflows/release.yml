@@ -151,14 +151,16 @@ jobs:
       # ── Publish (workflow_dispatch only) ───────────────────────────────────
       - name: Publish to Chrome Web Store
         if: github.event_name == 'workflow_dispatch'
-        # chrome-webstore-upload-cli v4 dropped the --client-id/--client-secret/
-        # --refresh-token/--extension-id flags in favour of env vars.
+        # Pin to chrome-webstore-upload-cli v3: v4's underlying lib also requires
+        # a `publisherId` we don't have. v3 needs only extension id + OAuth creds,
+        # read from these env vars (EXTENSION_ID/CLIENT_ID/CLIENT_SECRET/
+        # REFRESH_TOKEN).
         env:
           EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
-        run: npx chrome-webstore-upload-cli@4 upload --source chrome-extension.zip --auto-publish
+        run: npx chrome-webstore-upload-cli@3 upload --source chrome-extension.zip --auto-publish
 
       - name: Publish to Firefox AMO
         if: github.event_name == 'workflow_dispatch'

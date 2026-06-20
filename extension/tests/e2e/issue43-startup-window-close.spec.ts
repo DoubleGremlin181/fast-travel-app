@@ -18,7 +18,7 @@ import { test, expect } from "./fixtures";
 test("a new window whose only tab is the New Tab Page is NOT torn down", async ({
   context,
 }) => {
-  const sw = context.serviceWorkers()[0];
+  const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
 
   const winId: number = await sw.evaluate(async () => {
     const win = await chrome.windows.create({ url: "chrome://newtab/" });
@@ -42,7 +42,7 @@ test("a new window whose only tab is the New Tab Page is NOT torn down", async (
 test("Ctrl+T (new tab in a window that already has tabs) still routes through the extension New Tab page", async ({
   context,
 }) => {
-  const sw = context.serviceWorkers()[0];
+  const sw = context.serviceWorkers()[0] ?? (await context.waitForEvent("serviceworker"));
 
   const result = await sw.evaluate(async () => {
     const [win] = await chrome.windows.getAll({ populate: true });
