@@ -2,9 +2,9 @@
 // WebM clips that Playwright's `recordVideo` produces. Shared by the browser
 // recorder (record-store-video.mjs) and the Android capture script's post step.
 //
-// No npm dependencies — just shells out to the system `ffmpeg` (same as
-// record-demos.mjs). All the look-and-feel knobs are the named constants below
-// so pacing/zoom can be re-tuned in one place.
+// No npm dependencies — just shells out to the system `ffmpeg`. All the
+// look-and-feel knobs are the named constants below so pacing/zoom can be
+// re-tuned in one place.
 
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -27,7 +27,7 @@ export const CRF = 20;
 
 // Chromium leaves a grey window-background gutter around the recorded surface:
 // ~24px on the right and ~52px below the (shorter-than-viewport) newtab page.
-// Identical crop to record-demos.mjs — a real user never sees it.
+// Crop both off — a real user never sees them.
 export const CROP = "crop=in_w-24:in_h-52:0:0";
 
 // ---- Preconditions ----------------------------------------------------------
