@@ -55,8 +55,17 @@ test("issue #20: onChange callback uses current config, not stale render-time sn
   await apiInput.fill("https://suggest.example.com?q={query}");
   await apiInput.dispatchEvent("change");  // triggers the onChange callback
 
-  // Give the async callback time to call getConfig() → setConfig().
-  await page.waitForTimeout(500);
+  // The onChange callback calls getConfig() → setConfig() asynchronously; poll
+  // until the edit is persisted instead of waiting a fixed time (which races).
+  await expect
+    .poll(() =>
+      sw.evaluate(() =>
+        chrome.storage.local
+          .get("fast-travel-config")
+          .then(v => (v["fast-travel-config"] as Record<string, unknown>)?.["defaultSuggestionsApi"]),
+      ),
+    )
+    .toBe("https://suggest.example.com?q={query}");
 
   // Step 4 — Read back the stored config and assert both changes survived.
   const saved = await sw.evaluate(() =>

@@ -54,9 +54,9 @@ test("config: editing default command sets dirty flag", async ({ context, extens
   const other = await select.locator(`option:not([value="${current}"])`).first().getAttribute("value");
   await select.selectOption(other!);
 
-  await page.waitForTimeout(300);
-  const dirty = await getDirtyFlag(context);
-  expect(dirty).toBe(true);
+  // The dirty flag is written asynchronously; poll until it flips instead of
+  // asserting once after a fixed wait (which races on a busy CI runner).
+  await expect.poll(() => getDirtyFlag(context)).toBe(true);
 });
 
 test("config: export produces valid JSON matching stored config", async ({ context, extensionId }) => {
