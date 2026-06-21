@@ -8,7 +8,8 @@
 # Usage:
 #   bash android/tools/record-store-video.sh
 #
-# Output: docs/store-assets/google-play/promo-video.mp4 (16:9) and promo-video-portrait.mp4
+# Output: docs/store-assets/google-play/promo-video.mp4 (16:9), promo-video-portrait.mp4,
+#         and docs/demo/android-demo.gif (downscaled montage GIF for the README)
 # Requires: Android SDK (emulator, adb, platform-tools), an installed AVD, gradle
 # wrapper, and the system `ffmpeg`. Run from anywhere; paths are resolved relative
 # to this script.
@@ -37,6 +38,7 @@ TEST_CLASS="sh.kavi.fasttravel.ui.StoreVideoDriverTest"
 OUT_DIR="$REPO_ROOT/docs/store-assets/google-play"
 OUT_FILE="$OUT_DIR/promo-video.mp4"
 OUT_FILE_PORTRAIT="$OUT_DIR/promo-video-portrait.mp4"
+GIF_FILE="$REPO_ROOT/docs/demo/android-demo.gif"  # README montage GIF
 DEVICE_MP4="/sdcard/ft-store-demo.mp4"
 RAW_MP4="$(mktemp -t ft-store-raw-XXXX.mp4)"
 
@@ -189,5 +191,16 @@ scale=-2:1280,format=yuv420p" \
   -c:v libx264 -crf 20 -preset medium -pix_fmt yuv420p -an "$OUT_FILE_PORTRAIT"
 SIZE_KB_P=$(( $(stat -c%s "$OUT_FILE_PORTRAIT" 2>/dev/null || stat -f%z "$OUT_FILE_PORTRAIT") / 1024 ))
 echo "Done -> ${OUT_FILE_PORTRAIT#"$REPO_ROOT/"} (${SIZE_KB_P} KB)"
+
+# --- README montage GIF: downscaled + two-pass palette from the 16:9 cut -------
+echo "Rendering README GIF -> $GIF_FILE"
+mkdir -p "$(dirname "$GIF_FILE")"
+GIF_PAL="$(mktemp -t ft-gif-pal-XXXX.png)"
+GIF_VF="fps=12,scale=640:-1:flags=lanczos"
+ffmpeg -y -i "$OUT_FILE" -vf "${GIF_VF},palettegen=stats_mode=diff" "$GIF_PAL" -loglevel error
+ffmpeg -y -i "$OUT_FILE" -i "$GIF_PAL" -lavfi "${GIF_VF}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3" "$GIF_FILE" -loglevel error
+rm -f "$GIF_PAL"
+SIZE_KB_G=$(( $(stat -c%s "$GIF_FILE" 2>/dev/null || stat -f%z "$GIF_FILE") / 1024 ))
+echo "Done -> ${GIF_FILE#"$REPO_ROOT/"} (${SIZE_KB_G} KB)"
 
 rm -f "$RAW_MP4" "$INSTR_LOG"

@@ -171,3 +171,36 @@ export function concatClips(mp4List, outMp4) {
   }
   return outMp4;
 }
+
+// ---- GIF (README) -----------------------------------------------------------
+
+// README montage GIF: downscaled, lower fps, two-pass palette so the file stays
+// small (~3-4 MB for a ~45s montage) despite GIF having no real interframe codec.
+export const GIF_WIDTH = 640;
+export const GIF_FPS = 12;
+
+/**
+ * Render a finished MP4 montage down to an optimised GIF for the README.
+ * Two passes: generate a diff-optimised palette, then apply it with light bayer
+ * dithering. Shared by the browser recorder and the Android capture script.
+ *
+ * @param {string} inputMp4
+ * @param {string} outGif
+ * @param {{width?: number, fps?: number}} [opts]
+ */
+export function writeGif(inputMp4, outGif, opts = {}) {
+  const width = opts.width ?? GIF_WIDTH;
+  const fps = opts.fps ?? GIF_FPS;
+  const palette = path.join(os.tmpdir(), `ft-gif-pal-${Date.now()}.png`);
+  const filters = `fps=${fps},scale=${width}:-1:flags=lanczos`;
+  execFileSync("ffmpeg", ["-y", "-i", inputMp4, "-vf", `${filters},palettegen=stats_mode=diff`, palette], {
+    stdio: "ignore",
+  });
+  execFileSync(
+    "ffmpeg",
+    ["-y", "-i", inputMp4, "-i", palette, "-lavfi", `${filters}[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3`, outGif],
+    { stdio: "ignore" },
+  );
+  fs.rmSync(palette, { force: true });
+  return outGif;
+}

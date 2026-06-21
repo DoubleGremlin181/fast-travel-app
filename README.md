@@ -81,6 +81,8 @@ artifacts on the [Releases page](https://github.com/DoubleGremlin181/fast-travel
 
 Type a command, get redirected — straight from the new-tab search bar, with live suggestions as you go.
 
+![Browser demo — typing commands and landing on the right page](docs/demo/browser-demo.gif)
+
 **`g mechanical keyboards`** — a Google search
 ![Typing "g mechanical keyboards" and landing on Google results](docs/demo/01-google.gif)
 
@@ -95,6 +97,13 @@ Type a command, get redirected — straight from the new-tab search bar, with li
 
 **`$TSLA`** — pull up a stock quote
 ![Typing "$TSLA" and landing on the Yahoo Finance quote](docs/demo/05-stocks.gif)
+
+### On Android
+
+The same commands run from the Android search bar — and open the matching native app when
+it's installed (YouTube, Wikipedia, Maps), falling back to the browser otherwise.
+
+![Android demo — commands opening native apps and the browser](docs/demo/android-demo.gif)
 
 ## Development
 

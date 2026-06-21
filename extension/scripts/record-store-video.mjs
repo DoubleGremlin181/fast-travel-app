@@ -14,6 +14,7 @@
 //   (or: npm run build && node scripts/record-store-video.mjs [name-filter])
 //
 // Output: docs/store-assets/chrome/promo-video.mp4  (committed)
+//         docs/demo/browser-demo.gif  (downscaled montage GIF for the README)
 // Requires: a built extension/dist, the system `ffmpeg`, and Playwright's chromium.
 
 import { chromium } from "@playwright/test";
@@ -21,13 +22,15 @@ import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { assertFfmpeg, normalizeClip, concatClips } from "./lib/montage.mjs";
+import { assertFfmpeg, normalizeClip, concatClips, writeGif } from "./lib/montage.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, "../dist");
 const REPO_ROOT = path.resolve(__dirname, "../..");
 const OUT_DIR = path.join(REPO_ROOT, "docs/store-assets/chrome");
 const OUT_FILE = path.join(OUT_DIR, "promo-video.mp4");
+// README montage GIF (a downscaled, optimised copy of the same montage).
+const GIF_FILE = path.join(REPO_ROOT, "docs/demo/browser-demo.gif");
 
 const VIEWPORT = { width: 1000, height: 720 };
 const TYPE_DELAY = 55; // ms per char — tighter than record-demos for a fast-paced feel
@@ -214,6 +217,12 @@ async function main() {
     concatClips(clips, OUT_FILE);
     const kb = (fs.statSync(OUT_FILE).size / 1024).toFixed(0);
     console.log(`-> ${path.relative(REPO_ROOT, OUT_FILE)} (${kb} KB, ${clips.length} clips)`);
+
+    // Also render the README montage GIF from the finished MP4.
+    fs.mkdirSync(path.dirname(GIF_FILE), { recursive: true });
+    writeGif(OUT_FILE, GIF_FILE);
+    const gifKb = (fs.statSync(GIF_FILE).size / 1024).toFixed(0);
+    console.log(`-> ${path.relative(REPO_ROOT, GIF_FILE)} (${gifKb} KB)`);
   } finally {
     if (context.browser() || context.serviceWorkers().length) {
       await context.close().catch(() => {});
