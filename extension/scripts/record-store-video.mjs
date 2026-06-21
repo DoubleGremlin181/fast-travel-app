@@ -6,7 +6,7 @@
 //
 // This is a regeneration tool, NOT a test. It needs network access and live
 // sites, so it lives in scripts/ (not tests/) and is excluded from the e2e run.
-// It deliberately mirrors record-demos.mjs — same launch flags, light-theme
+// It reuses the e2e fixtures' approach — same launch flags, light-theme
 // injection, race-free navigation wait, and per-page WebM capture.
 //
 // Usage:
@@ -33,7 +33,7 @@ const OUT_FILE = path.join(OUT_DIR, "promo-video.mp4");
 const GIF_FILE = path.join(REPO_ROOT, "docs/demo/browser-demo.gif");
 
 const VIEWPORT = { width: 1000, height: 720 };
-const TYPE_DELAY = 55; // ms per char — tighter than record-demos for a fast-paced feel
+const TYPE_DELAY = 55; // ms per char — tight typing for a fast-paced feel
 const DROPDOWN_LINGER_MS = 500; // hold on the live suggestions dropdown
 const SETTLE_MS = 1600; // default hold on the destination so the loaded page (+favicon) reads
 
@@ -45,8 +45,8 @@ const APPEARANCE = { mode: "light", variant: "material", shape: "pill" };
 // in-app "Did you mean?" typo card. This list is kept in sync with the Android driver
 // (android/.../StoreVideoDriverTest.kt) so both store videos show the same searches.
 // `typo: true` scenarios don't navigate — they wait for the typo card instead.
-// `removeSelector` strips a late-injected consent banner before it can paint
-// (see record-demos.mjs); add one per-scenario if a banner shows up while tuning.
+// `removeSelector` strips a late-injected consent banner before it can paint;
+// add one per-scenario if a banner shows up while tuning.
 /** @type {{ name: string, input: string, navPattern?: RegExp, typo?: boolean, settleMs?: number, removeSelector?: string }[]} */
 const SCENARIOS = [
   { name: "01-google", input: "g mechanical keyboards", navPattern: /google\.com\/search\?q=/ },
@@ -70,7 +70,7 @@ function assertPreconditions() {
 }
 
 // Race-free: attach the request listener synchronously, then press Enter. Resolves
-// the moment the main-frame navigation is issued (mirrors record-demos.mjs).
+// the moment the main-frame navigation is issued (same pattern as the e2e specs).
 async function pressEnterAndWaitNav(page, pattern) {
   await Promise.all([
     page.waitForRequest(
