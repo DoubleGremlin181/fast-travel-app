@@ -86,4 +86,5 @@ https://kavi.sh/fast-travel-app/
 - Screenshots: `screenshots/` (4 @ 1280×800).
 - Small promo tile: `promo-tile.png` (440×280).
 - Marquee promo tile (optional): `marquee-promo-tile.png` (1400×560).
+- Promo video: `promo-video.mp4` (1280×720) — upload to YouTube, then paste the link in the listing's "Video" field.
 - Packaged icon: 128×128 (`extension/src/icons/icon128.png`).

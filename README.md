@@ -81,20 +81,20 @@ artifacts on the [Releases page](https://github.com/DoubleGremlin181/fast-travel
 
 Type a command, get redirected — straight from the new-tab search bar, with live suggestions as you go.
 
-**`g best espresso machines`** — a Google search
-![Typing "g best espresso machines" and landing on Google results](docs/demo/01-google.gif)
+**`g mechanical keyboards`** — a Google search
+![Typing "g mechanical keyboards" and landing on Google results](docs/demo/01-google.gif)
 
 **`r/mechanicalkeyboards`** — jump straight to a subreddit
 ![Typing "r/mechanicalkeyboards" and landing on the subreddit](docs/demo/02-reddit-subreddit.gif)
 
-**`fa SFO`** — pull up an airport on FlightAware
-![Typing "fa SFO" and landing on the FlightAware airport page](docs/demo/03-flightaware.gif)
-
-**`qq explain the Roman aqueducts`** — send a prompt to ChatGPT
-![Typing "qq explain the Roman aqueducts" and landing on ChatGPT](docs/demo/04-chatgpt.gif)
+**`yt lofi hip hop radio`** — search YouTube
+![Typing "yt lofi hip hop radio" and landing on YouTube results](docs/demo/03-youtube.gif)
 
 **`w machine learning`** — search Wikipedia
-![Typing "w machine learning" and landing on the Wikipedia article](docs/demo/05-wikipedia.gif)
+![Typing "w machine learning" and landing on the Wikipedia article](docs/demo/04-wikipedia.gif)
+
+**`$TSLA`** — pull up a stock quote
+![Typing "$TSLA" and landing on the Yahoo Finance quote](docs/demo/05-stocks.gif)
 
 ## Development
 

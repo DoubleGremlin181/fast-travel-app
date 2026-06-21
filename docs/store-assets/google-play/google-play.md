@@ -93,4 +93,5 @@ https://kavi.sh/fast-travel-app/
 - Phone screenshots: `screenshots/` (5 @ 1080×2160, within Play's 2:1 max).
 - Feature graphic: `feature-graphic.png` (1024×500).
 - App icon: `icon-512.png` (512×512).
+- Promo video: `promo-video.mp4` (1280×720, landscape) — upload to YouTube, then paste the link in the listing's "Promo video" field. `promo-video-portrait.mp4` is an un-letterboxed portrait cut for a phone-framed placement.
 - Package name: `sh.kavi.fasttravel` (fixed — cannot change after first upload).

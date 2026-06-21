@@ -13,7 +13,7 @@
 //   cd extension && npm run record:store-video
 //   (or: npm run build && node scripts/record-store-video.mjs [name-filter])
 //
-// Output: docs/store-video/browser.mp4  (committed)
+// Output: docs/store-assets/chrome/promo-video.mp4  (committed)
 // Requires: a built extension/dist, the system `ffmpeg`, and Playwright's chromium.
 
 import { chromium } from "@playwright/test";
@@ -26,32 +26,36 @@ import { assertFfmpeg, normalizeClip, concatClips } from "./lib/montage.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, "../dist");
 const REPO_ROOT = path.resolve(__dirname, "../..");
-const OUT_DIR = path.join(REPO_ROOT, "docs/store-video");
-const OUT_FILE = path.join(OUT_DIR, "browser.mp4");
+const OUT_DIR = path.join(REPO_ROOT, "docs/store-assets/chrome");
+const OUT_FILE = path.join(OUT_DIR, "promo-video.mp4");
 
 const VIEWPORT = { width: 1000, height: 720 };
 const TYPE_DELAY = 55; // ms per char — tighter than record-demos for a fast-paced feel
 const DROPDOWN_LINGER_MS = 500; // hold on the live suggestions dropdown
-const SETTLE_MS = 1200; // default hold on the destination so the "arrival" reads
+const SETTLE_MS = 1600; // default hold on the destination so the loaded page (+favicon) reads
 
 // Light theme, applied before first paint (src/ui/apply-theme.ts reads this key).
 const APPEARANCE = { mode: "light", variant: "material", shape: "pill" };
 
-// Montage order = narrative: same topic via several routes (g → ddg → r/ → r/ search),
-// then varied commands across media / dev / reference / finance / AI.
+// Montage order = narrative: same lookup via several routes (g → ddg → r/ → r/ search),
+// then varied commands across media / reference / dev / maps / finance, closing on the
+// in-app "Did you mean?" typo card. This list is kept in sync with the Android driver
+// (android/.../StoreVideoDriverTest.kt) so both store videos show the same searches.
+// `typo: true` scenarios don't navigate — they wait for the typo card instead.
 // `removeSelector` strips a late-injected consent banner before it can paint
 // (see record-demos.mjs); add one per-scenario if a banner shows up while tuning.
-/** @type {{ name: string, input: string, navPattern: RegExp, settleMs?: number, removeSelector?: string }[]} */
+/** @type {{ name: string, input: string, navPattern?: RegExp, typo?: boolean, settleMs?: number, removeSelector?: string }[]} */
 const SCENARIOS = [
   { name: "01-google", input: "g mechanical keyboards", navPattern: /google\.com\/search\?q=/ },
   { name: "02-duckduckgo", input: "ddg mechanical keyboards", navPattern: /duckduckgo\.com/ },
   { name: "03-reddit-subreddit", input: "r/mechanicalkeyboards", navPattern: /reddit\.com\/r\/mechanicalkeyboards/ },
-  { name: "04-reddit-search", input: "r/mechanicalkeyboard best keyboard under $250", navPattern: /google\.com\/search/ },
-  { name: "05-youtube", input: "yt lofi hip hop radio", navPattern: /youtube\.com\/results/ },
-  { name: "06-github", input: "gh facebook/react", navPattern: /github\.com\/facebook\/react/ },
-  { name: "07-wikipedia", input: "w machine learning", navPattern: /en\.wikipedia\.org/ },
-  { name: "08-stocks", input: "$TSLA", navPattern: /finance\.yahoo\.com\/quote\/TSLA/ },
-  { name: "09-chatgpt", input: "qq best mechanical keyboard switches", navPattern: /(chat\.openai\.com|chatgpt\.com)/ },
+  { name: "04-reddit-search", input: "r/mechanicalkeyboards best keyboard under $250", navPattern: /reddit\.com|google\.com\/search/, settleMs: 2000 },
+  { name: "05-youtube", input: "yt lofi hip hop radio", navPattern: /youtube\.com\/results/, settleMs: 2000 },
+  { name: "06-wikipedia", input: "w machine learning", navPattern: /en\.wikipedia\.org/ },
+  { name: "07-github", input: "gh facebook/react", navPattern: /github\.com\/facebook\/react/, settleMs: 2000 },
+  { name: "08-maps", input: "mp coffee near me", navPattern: /maps\.google\.com|google\.com\/maps/, settleMs: 2000 },
+  { name: "09-stocks", input: "$TSLA", navPattern: /finance\.yahoo\.com\/quote\/TSLA/, settleMs: 2500 },
+  { name: "10-typo", input: "ddh mechanical keyboards", typo: true, settleMs: 2800 },
 ];
 
 function assertPreconditions() {
@@ -74,7 +78,13 @@ async function pressEnterAndWaitNav(page, pattern) {
   ]);
 }
 
-async function recordScenario(context, extensionId, scenario) {
+async function recordScenario(context, extensionId, worker, scenario) {
+  // Clear search history before each scenario so the focused-empty state never shows
+  // "Recent" entries from earlier scenarios (or a previous recording run).
+  await worker
+    .evaluate(() => chrome.storage.local.set({ "fast-travel-history": [] }))
+    .catch(() => {});
+
   const page = await context.newPage();
   await page.setViewportSize(VIEWPORT);
 
@@ -110,9 +120,19 @@ async function recordScenario(context, extensionId, scenario) {
     .catch(() => {}); // some inputs (e.g. exact prefix) may not open the dropdown
   await page.waitForTimeout(DROPDOWN_LINGER_MS);
 
-  await pressEnterAndWaitNav(page, scenario.navPattern);
-  await page.waitForLoadState("load", { timeout: 20000 }).catch(() => {});
-  await page.waitForTimeout(scenario.settleMs ?? SETTLE_MS);
+  if (scenario.typo) {
+    // Typo commands don't navigate — Enter surfaces the in-app "Did you mean?" card.
+    await page.keyboard.press("Enter");
+    await page
+      .locator("#typo-container:not(.hidden)")
+      .waitFor({ state: "visible", timeout: 5000 })
+      .catch(() => {});
+    await page.waitForTimeout(scenario.settleMs ?? SETTLE_MS);
+  } else {
+    await pressEnterAndWaitNav(page, scenario.navPattern);
+    await page.waitForLoadState("load", { timeout: 20000 }).catch(() => {});
+    await page.waitForTimeout(scenario.settleMs ?? SETTLE_MS);
+  }
 
   const video = page.video();
   await page.close(); // flushes the video file
@@ -136,8 +156,10 @@ async function main() {
   const videoDir = fs.mkdtempSync(path.join(os.tmpdir(), "ft-store-video-"));
   const clipDir = fs.mkdtempSync(path.join(os.tmpdir(), "ft-store-clips-"));
 
+  // Use Playwright's bundled chromium (default). `channel: "chromium"`/`"chrome"` either
+  // fail to install on newer distros or won't register the MV3 service worker via
+  // --load-extension; the default download loads the unpacked extension reliably.
   const context = await chromium.launchPersistentContext(userDataDir, {
-    channel: "chromium",
     headless: false,
     viewport: VIEWPORT,
     recordVideo: { dir: videoDir, size: VIEWPORT },
@@ -166,7 +188,7 @@ async function main() {
     const recorded = [];
     for (const scenario of scenarios) {
       console.log(`Recording ${scenario.name}: "${scenario.input}"`);
-      recorded.push(await recordScenario(context, extensionId, scenario));
+      recorded.push(await recordScenario(context, extensionId, worker, scenario));
     }
 
     await context.close(); // ensure all videos are written
