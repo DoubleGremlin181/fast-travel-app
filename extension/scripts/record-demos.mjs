@@ -32,22 +32,17 @@ const APPEARANCE = { mode: "light", variant: "material", shape: "pill" };
 
 // `removeSelector` — a MutationObserver installed before first paint removes any node
 // matching this selector the instant it's inserted, so a cookie/consent banner never
-// becomes visible. FlightAware injects a OneTrust "Do Not Sell" notice ~5s after load,
-// which CSS/click dismissal can't reliably beat (late inject + inline !important);
-// removing the node sidesteps that.
+// becomes visible (add one per-scenario if a banner shows up while tuning).
+//
+// These README GIFs use the same inputs as the store-listing video
+// (extension/scripts/record-store-video.mjs), a representative subset of its searches.
 /** @type {{ name: string, input: string, navPattern: RegExp, settleMs?: number, removeSelector?: string }[]} */
 const SCENARIOS = [
-  { name: "01-google", input: "g best espresso machines", navPattern: /google\.com\/search\?q=/ },
+  { name: "01-google", input: "g mechanical keyboards", navPattern: /google\.com\/search\?q=/ },
   { name: "02-reddit-subreddit", input: "r/mechanicalkeyboards", navPattern: /reddit\.com\/r\/mechanicalkeyboards/ },
-  {
-    name: "03-flightaware",
-    input: "fa SFO",
-    navPattern: /flightaware\.com\/live\/airport/,
-    settleMs: 4500,
-    removeSelector: "#onetrust-consent-sdk, .onetrust-pc-dark-filter",
-  },
-  { name: "04-chatgpt", input: "qq explain the Roman aqueducts", navPattern: /(chat\.openai\.com|chatgpt\.com)/ },
-  { name: "05-wikipedia", input: "w machine learning", navPattern: /en\.wikipedia\.org/ },
+  { name: "03-youtube", input: "yt lofi hip hop radio", navPattern: /youtube\.com\/results/, settleMs: 3000 },
+  { name: "04-wikipedia", input: "w machine learning", navPattern: /en\.wikipedia\.org/ },
+  { name: "05-stocks", input: "$TSLA", navPattern: /finance\.yahoo\.com\/quote\/TSLA/, settleMs: 3000 },
 ];
 
 function assertPreconditions() {
@@ -75,7 +70,13 @@ async function pressEnterAndWaitNav(page, pattern) {
   ]);
 }
 
-async function recordScenario(context, extensionId, scenario) {
+async function recordScenario(context, extensionId, worker, scenario) {
+  // Clear search history before each scenario so the focused-empty state never shows
+  // "Recent" entries from earlier scenarios (or a previous recording run).
+  await worker
+    .evaluate(() => chrome.storage.local.set({ "fast-travel-history": [] }))
+    .catch(() => {});
+
   const page = await context.newPage();
   await page.setViewportSize(VIEWPORT);
 
@@ -156,8 +157,10 @@ async function main() {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ft-demo-"));
   const videoDir = fs.mkdtempSync(path.join(os.tmpdir(), "ft-video-"));
 
+  // Use Playwright's bundled chromium (default). `channel: "chromium"`/`"chrome"` either
+  // fail to install on newer distros or won't register the MV3 service worker via
+  // --load-extension; the default download loads the unpacked extension reliably.
   const context = await chromium.launchPersistentContext(userDataDir, {
-    channel: "chromium",
     headless: false,
     viewport: VIEWPORT,
     recordVideo: { dir: videoDir, size: VIEWPORT },
@@ -188,7 +191,7 @@ async function main() {
     const recorded = [];
     for (const scenario of scenarios) {
       console.log(`Recording ${scenario.name}: "${scenario.input}"`);
-      recorded.push(await recordScenario(context, extensionId, scenario));
+      recorded.push(await recordScenario(context, extensionId, worker, scenario));
     }
 
     await context.close(); // ensure all videos are written
