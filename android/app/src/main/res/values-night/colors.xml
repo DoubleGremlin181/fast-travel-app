@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="widget_hint_text">#94A3B8</color>
+    <!-- Window background (dark). Matches DarkBackground = Night. -->
+    <color name="ft_window_background">#0E1020</color>
 </resources>

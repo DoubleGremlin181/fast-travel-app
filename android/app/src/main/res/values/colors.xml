@@ -2,4 +2,6 @@
 <resources>
     <color name="widget_hint_text">#9AA0A6</color>
     <color name="ic_launcher_background">#F5F2EC</color>
+    <!-- Window background (light). Matches LightBackground = Paper. -->
+    <color name="ft_window_background">#F5F2EC</color>
 </resources>
