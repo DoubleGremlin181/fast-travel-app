@@ -152,7 +152,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         // Rank commands and (when enabled) launched installed apps together by frecency;
         // empty history falls back to config order. Command frecency is shared with the
         // extension via shared/test-fixtures/frecency.fixtures.json.
-        val history = searchHistory.getHistory().map {
+        val rawHistory = searchHistory.getHistory()
+        val history = rawHistory.map {
             Frecency.HistoryEntry(it.commandId, it.timestamp)
         }
         val appsEnabled = themePrefs.installedAppsEnabled
@@ -172,14 +173,26 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
 
+        // Most-recent stored label per app id, used as the chip label (and the placeholder
+        // label while the app is uninstalled). rawHistory is newest-first.
+        val appLabels = HashMap<String, String>()
+        for (h in rawHistory) {
+            val c = h.commandId
+            if (isInstalledAppId(c) && c !in appLabels) appLabels[c!!] = h.query
+        }
+
         // App chips need a PackageManager lookup + icon decode — resolve off the main thread.
         chipJob = viewModelScope.launch {
             val items = withContext(Dispatchers.Default) {
                 rankedIds.mapNotNull { id ->
                     if (isInstalledAppId(id)) {
                         val (pkg, activity) = parseInstalledAppId(id) ?: return@mapNotNull null
-                        InstalledAppResolver.findByComponent(getApplication(), pkg, activity)
-                            ?.let { ChipItem.App(it) }
+                        // Keep ranking a launched app even while uninstalled (placeholder
+                        // icon); the chip toasts if it's still gone when tapped.
+                        val app = InstalledAppResolver.resolveForHistory(
+                            getApplication(), pkg, activity, appLabels[id] ?: pkg,
+                        )
+                        ChipItem.App(app)
                     } else {
                         byId[id]?.let { ChipItem.Cmd(it) }
                     }
@@ -350,8 +363,10 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 val cid = entry.commandId
                 if (isInstalledAppId(cid)) {
                     val (pkg, activity) = parseInstalledAppId(cid!!) ?: return@mapNotNull null
-                    val app = InstalledAppResolver.findByComponent(getApplication(), pkg, activity)
-                        ?: return@mapNotNull null  // app was uninstalled — drop the entry
+                    // Keep showing a launched app even while it's uninstalled (it may be
+                    // reinstalled). resolveForHistory falls back to a placeholder icon; the
+                    // launch site toasts if it's still gone when tapped.
+                    val app = InstalledAppResolver.resolveForHistory(getApplication(), pkg, activity, entry.query)
                     Suggestion(
                         text = entry.query,
                         displayText = app.label,

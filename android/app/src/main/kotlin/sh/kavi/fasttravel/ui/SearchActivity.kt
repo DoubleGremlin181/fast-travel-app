@@ -1,11 +1,13 @@
 package sh.kavi.fasttravel.ui
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -378,6 +380,19 @@ fun SearchScreen(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // Launch an installed app, recording the launch on success. A launched app stays in
+    // history/chips even after it's uninstalled (it may be reinstalled); if it's still gone
+    // when tapped, startActivity throws — show a toast instead of crashing. The entry is
+    // kept, so it works again once the app is reinstalled.
+    val launchApp: (InstalledApp) -> Unit = { app ->
+        try {
+            context.startActivity(InstalledAppResolver.launchIntent(app))
+            viewModel.recordAppLaunch(app)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, "${app.label} is no longer installed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     var isSearchFocused by remember { mutableStateOf(false) }
 
     val isDark = isSystemInDarkTheme()
@@ -589,10 +604,7 @@ fun SearchScreen(
                     },
                     onSuggestionPopulate = { s -> viewModel.onQueryChanged(s.text) },
                     onHistoryRemove = { q -> viewModel.removeHistoryEntry(q) },
-                    onAppLaunch = { app ->
-                        viewModel.recordAppLaunch(app)
-                        context.startActivity(InstalledAppResolver.launchIntent(app))
-                    },
+                    onAppLaunch = launchApp,
                     onCommandAutocompletePick = { cmd ->
                         val trig = cmd.triggers.firstOrNull() ?: return@FocusedContent
                         if (cmd.type == CommandType.Redirect) {
@@ -617,10 +629,7 @@ fun SearchScreen(
                             keyboardController?.show()
                         }
                     },
-                    onAppClick = { app ->
-                        viewModel.recordAppLaunch(app)
-                        context.startActivity(InstalledAppResolver.launchIntent(app))
-                    },
+                    onAppClick = launchApp,
                 )
             }
         }

@@ -103,6 +103,28 @@ object InstalledAppResolver {
         )
     }
 
+    /**
+     * Always returns an [InstalledApp] for a stored history/chip entry: the live app when
+     * installed, otherwise a placeholder using the stored [label] and the system default
+     * app icon. This keeps a previously-launched app visible (and re-launchable after a
+     * reinstall) instead of vanishing while it's uninstalled — the launch site shows a
+     * toast if it's still gone when tapped.
+     */
+    fun resolveForHistory(
+        context: Context,
+        packageName: String,
+        activityName: String,
+        label: String,
+    ): InstalledApp {
+        return findByComponent(context, packageName, activityName)
+            ?: InstalledApp(
+                label = label,
+                packageName = packageName,
+                activityName = activityName,
+                icon = context.packageManager.defaultActivityIcon,
+            )
+    }
+
     fun launchIntent(app: InstalledApp): Intent {
         return Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
