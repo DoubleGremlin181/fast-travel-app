@@ -40,10 +40,10 @@ test("resolveCandidate returns the candidate when source resolves and HEAD check
   const fakeCheckDomain = async (host) => ({ ok: true, status: 200, error: null });
 
   const result = await resolveCandidate({
-    downDomain: "down.example",
+    downDomain: "reachable.org",
     commandId: "some-cmd",
-    commandName: "Some Cmd",
-    autoUpdateEntry: { source: "wikipedia", wikipediaTitle: "Some Cmd" },
+    commandName: "Reachable",
+    autoUpdateEntry: { source: "wikipedia", wikipediaTitle: "Reachable" },
     fetchImpl: fakeFetch,
     checkDomainImpl: fakeCheckDomain,
   });
@@ -83,14 +83,15 @@ test("resolveCandidate returns null when the candidate itself fails its HEAD che
       },
     }),
   });
-  // Resolver suggests "dead.example", but the second HEAD check says it's down.
+  // Resolver suggests "dead.example" (brand match), but the second HEAD check
+  // says it's down, so resolveCandidate must reject it.
   const fakeCheckDomain = async () => ({ ok: false, status: null, error: "dns-error" });
 
   const result = await resolveCandidate({
-    downDomain: "down.example",
+    downDomain: "dead.org",
     commandId: "some-cmd",
-    commandName: "Some Cmd",
-    autoUpdateEntry: { source: "wikipedia", wikipediaTitle: "Some Cmd" },
+    commandName: "Dead",
+    autoUpdateEntry: { source: "wikipedia", wikipediaTitle: "Dead" },
     fetchImpl: fakeFetch,
     checkDomainImpl: fakeCheckDomain,
   });

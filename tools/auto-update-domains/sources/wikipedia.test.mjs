@@ -18,20 +18,52 @@ function fakeMediaWikiResponse(extlinks) {
   };
 }
 
-test("resolve returns first plausible external link, skipping the down domain", async () => {
+test("returns a same-brand mirror on a different TLD, skipping the down domain", async () => {
   const fakeFetch = async () =>
     fakeMediaWikiResponse([
-      "https://olddomain.example/",   // down — skipped
-      "https://newdomain.example/",
-      "https://some-other.example/",
+      "https://sci-hub.se/",            // down — skipped
+      "https://www.nature.com/articles/d41586", // unrelated coverage — skipped
+      "https://sci-hub.st/",            // PICKED (same brand)
     ]);
   const host = await resolve({
-    downDomain: "olddomain.example",
-    autoUpdate: { source: "wikipedia", wikipediaTitle: "Some Service" },
-    commandName: "Some Service",
+    downDomain: "sci-hub.se",
+    autoUpdate: { source: "wikipedia", wikipediaTitle: "Sci-Hub" },
+    commandName: "Sci-Hub",
     fetchImpl: fakeFetch,
   });
-  assert.equal(host, "newdomain.example");
+  assert.equal(host, "sci-hub.st");
+});
+
+test("skips a news article that merely mentions the service and picks the real mirror", async () => {
+  // Regression for the real failure: Wikipedia's first extlink for Anna's
+  // Archive was a LA Weekly news article, not a mirror.
+  const fakeFetch = async () =>
+    fakeMediaWikiResponse([
+      "https://www.laweekly.com/free-z-library-e-book-download-search-engine-annas-archive-launches/",
+      "https://annas-archive.gl/", // PICKED (brand match)
+    ]);
+  const host = await resolve({
+    downDomain: "annas-archive.org",
+    autoUpdate: { source: "wikipedia", wikipediaTitle: "Anna's Archive" },
+    commandName: "Anna's Archive",
+    fetchImpl: fakeFetch,
+  });
+  assert.equal(host, "annas-archive.gl");
+});
+
+test("returns null when no external link matches the service brand (won't guess a news domain)", async () => {
+  const fakeFetch = async () =>
+    fakeMediaWikiResponse([
+      "https://www.laweekly.com/some-article/",
+      "https://news.ycombinator.com/item?id=1",
+    ]);
+  const host = await resolve({
+    downDomain: "annas-archive.org",
+    autoUpdate: { source: "wikipedia", wikipediaTitle: "Anna's Archive" },
+    commandName: "Anna's Archive",
+    fetchImpl: fakeFetch,
+  });
+  assert.equal(host, null);
 });
 
 test("resolve skips internet-archive and citation-database hosts", async () => {
@@ -40,15 +72,15 @@ test("resolve skips internet-archive and citation-database hosts", async () => {
       "https://web.archive.org/web/...",
       "https://www.wikidata.org/wiki/Q123",
       "https://viaf.org/viaf/123",
-      "https://realdomain.example/",
+      "https://sci-hub.st/", // brand match
     ]);
   const host = await resolve({
-    downDomain: "olddomain.example",
-    autoUpdate: { source: "wikipedia", wikipediaTitle: "Service" },
-    commandName: "Service",
+    downDomain: "sci-hub.se",
+    autoUpdate: { source: "wikipedia", wikipediaTitle: "Sci-Hub" },
+    commandName: "Sci-Hub",
     fetchImpl: fakeFetch,
   });
-  assert.equal(host, "realdomain.example");
+  assert.equal(host, "sci-hub.st");
 });
 
 test("resolve returns null when Wikipedia returns no external links", async () => {
@@ -66,13 +98,14 @@ test("resolve uses commandName when wikipediaTitle is absent", async () => {
   const captured = [];
   const fakeFetch = async (url) => {
     captured.push(url);
-    return fakeMediaWikiResponse(["https://x.example/"]);
+    return fakeMediaWikiResponse(["https://sci-hub.st/"]);
   };
-  await resolve({
-    downDomain: "olddomain.example",
+  const host = await resolve({
+    downDomain: "sci-hub.se",
     autoUpdate: { source: "wikipedia" },
-    commandName: "Fallback Title",
+    commandName: "Sci-Hub",
     fetchImpl: fakeFetch,
   });
-  assert.ok(captured[0].includes("Fallback%20Title"));
+  assert.ok(captured[0].includes("Sci-Hub"));
+  assert.equal(host, "sci-hub.st");
 });
