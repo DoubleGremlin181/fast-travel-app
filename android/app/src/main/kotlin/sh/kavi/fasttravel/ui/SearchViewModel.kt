@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.SharedPreferences
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import sh.kavi.fasttravel.core.ChipRanking
 import sh.kavi.fasttravel.core.Command
 import sh.kavi.fasttravel.core.CommandParser
 import sh.kavi.fasttravel.core.CommandType
@@ -17,6 +18,9 @@ import sh.kavi.fasttravel.core.ParseInput
 import sh.kavi.fasttravel.core.ParseOutput
 import sh.kavi.fasttravel.core.Suggestion
 import sh.kavi.fasttravel.core.SuggestionProvider
+import sh.kavi.fasttravel.core.installedAppId
+import sh.kavi.fasttravel.core.isInstalledAppId
+import sh.kavi.fasttravel.core.parseInstalledAppId
 import sh.kavi.fasttravel.core.resolveIconUrl
 import sh.kavi.fasttravel.data.AutoIgnoreStore
 import sh.kavi.fasttravel.data.ConfigRepository
@@ -57,9 +61,10 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private var config: FastTravelConfig? = null
     private var suggestionJob: Job? = null
     private var installedAppsJob: Job? = null
+    private var chipJob: Job? = null
 
-    private val _chipCommands = MutableStateFlow<List<Command>>(emptyList())
-    val chipCommands: StateFlow<List<Command>> = _chipCommands.asStateFlow()
+    private val _chipItems = MutableStateFlow<List<ChipItem>>(emptyList())
+    val chipItems: StateFlow<List<ChipItem>> = _chipItems.asStateFlow()
 
     private val _installedApps = MutableStateFlow<List<InstalledApp>>(emptyList())
     val installedApps: StateFlow<List<InstalledApp>> = _installedApps.asStateFlow()
@@ -77,7 +82,13 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
      */
     private val prefsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == "shortcut_rows") updateChipCommands()
+            if (key == "shortcut_rows" || key == ThemePreferences.KEY_INSTALLED_APPS_ENABLED) {
+                updateChipCommands()
+            }
+            // Toggling installed apps changes whether app launches show under "Recent".
+            if (key == ThemePreferences.KEY_INSTALLED_APPS_ENABLED && _query.value.isBlank()) {
+                config?.let { _suggestions.value = getHistorySuggestions(it) }
+            }
         }
 
     // Auto-ignore tracking for false positive typos
@@ -138,17 +149,53 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         // ~4 chips per row fits the Figma spec's pill grid.
         val targetCount = (shortcutRows * 4).coerceAtLeast(4)
 
-        // Rank by frecency (usage frequency + recency); empty history falls back
-        // to config order. Shared with the extension via
-        // shared/test-fixtures/frecency.fixtures.json.
+        // Rank commands and (when enabled) launched installed apps together by frecency;
+        // empty history falls back to config order. Command frecency is shared with the
+        // extension via shared/test-fixtures/frecency.fixtures.json.
         val history = searchHistory.getHistory().map {
             Frecency.HistoryEntry(it.commandId, it.timestamp)
         }
+        val appsEnabled = themePrefs.installedAppsEnabled
+        val rankedIds = ChipRanking.rankedIds(
+            commandIds = standardCommands.map { it.id },
+            history = history,
+            now = System.currentTimeMillis(),
+            includeApps = appsEnabled,
+            limit = targetCount,
+        )
         val byId = standardCommands.associateBy { it.id }
-        _chipCommands.value = Frecency
-            .rank(standardCommands.map { it.id }, history, System.currentTimeMillis())
-            .mapNotNull { byId[it] }
-            .take(targetCount)
+
+        // Fast path: no app chips (cold start or toggle off) — resolve synchronously.
+        chipJob?.cancel()
+        if (rankedIds.none { isInstalledAppId(it) }) {
+            _chipItems.value = rankedIds.mapNotNull { id -> byId[id]?.let { ChipItem.Cmd(it) } }
+            return
+        }
+
+        // App chips need a PackageManager lookup + icon decode — resolve off the main thread.
+        chipJob = viewModelScope.launch {
+            val items = withContext(Dispatchers.Default) {
+                rankedIds.mapNotNull { id ->
+                    if (isInstalledAppId(id)) {
+                        val (pkg, activity) = parseInstalledAppId(id) ?: return@mapNotNull null
+                        InstalledAppResolver.findByComponent(getApplication(), pkg, activity)
+                            ?.let { ChipItem.App(it) }
+                    } else {
+                        byId[id]?.let { ChipItem.Cmd(it) }
+                    }
+                }
+            }
+            _chipItems.value = items
+        }
+    }
+
+    /**
+     * Record an installed-app launch in history (under its [installedAppId]) so it surfaces
+     * in "Recent" and ranks into the shortcut chips. The Activity performs the actual launch.
+     */
+    fun recordAppLaunch(app: InstalledApp) {
+        searchHistory.addEntry(app.label, installedAppId(app.packageName, app.activityName))
+        updateChipCommands()
     }
 
     private fun flattenCommands(groups: List<Group>): List<Command> = groups.flatMap { it.commands }
@@ -244,7 +291,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         installedAppsJob?.cancel()
-        if (newQuery.isBlank()) {
+        if (newQuery.isBlank() || !themePrefs.installedAppsEnabled) {
             _installedApps.value = emptyList()
         } else {
             installedAppsJob = viewModelScope.launch {
@@ -293,20 +340,36 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         val history = searchHistory.getHistory()
         if (history.isEmpty()) return emptyList()
 
+        val appsEnabled = themePrefs.installedAppsEnabled
         val triggerMap = CommandParser.buildTriggerMap(config)
-        return history.distinctBy { it.query }.take(10).map { entry ->
-            val cmd = entry.commandId?.let { id ->
-                triggerMap.values.find { it.id == id }
+        return history.distinctBy { it.query }
+            // Hide installed-app launches from "Recent" when the feature is off.
+            .filter { appsEnabled || !isInstalledAppId(it.commandId) }
+            .take(10)
+            .mapNotNull { entry ->
+                val cid = entry.commandId
+                if (isInstalledAppId(cid)) {
+                    val (pkg, activity) = parseInstalledAppId(cid!!) ?: return@mapNotNull null
+                    val app = InstalledAppResolver.findByComponent(getApplication(), pkg, activity)
+                        ?: return@mapNotNull null  // app was uninstalled — drop the entry
+                    Suggestion(
+                        text = entry.query,
+                        displayText = app.label,
+                        isHistory = true,
+                        installedApp = app,
+                    )
+                } else {
+                    val cmd = cid?.let { id -> triggerMap.values.find { it.id == id } }
+                    Suggestion(
+                        text = entry.query,
+                        displayText = entry.query,
+                        commandTrigger = cmd?.triggers?.firstOrNull(),
+                        commandName = cmd?.name,
+                        commandIconUrl = cmd?.let { resolveIconUrl(it, DeviceType.Android) },
+                        isHistory = true,
+                    )
+                }
             }
-            Suggestion(
-                text = entry.query,
-                displayText = entry.query,
-                commandTrigger = cmd?.triggers?.firstOrNull(),
-                commandName = cmd?.name,
-                commandIconUrl = cmd?.let { resolveIconUrl(it, DeviceType.Android) },
-                isHistory = true,
-            )
-        }
     }
 
     fun onSearch(searchQuery: String) {

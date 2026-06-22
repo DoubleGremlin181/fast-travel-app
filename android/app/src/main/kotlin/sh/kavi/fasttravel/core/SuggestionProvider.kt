@@ -16,6 +16,9 @@ data class Suggestion(
     val commandName: String? = null,
     val commandIconUrl: String? = null,
     val isHistory: Boolean = false,
+    /** Non-null when this (history) suggestion represents a launched installed app.
+     *  Such rows render the app icon and launch the app instead of running a query. */
+    val installedApp: InstalledApp? = null,
 )
 
 /**

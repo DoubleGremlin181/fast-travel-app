@@ -84,6 +84,25 @@ object InstalledAppResolver {
         }
     }
 
+    /**
+     * Rebuild an [InstalledApp] (with its current icon + label) from a previously
+     * stored package/activity pair — used to render history "Recent" rows and shortcut
+     * chips for launched apps. Returns null if the app is no longer installed.
+     */
+    fun findByComponent(context: Context, packageName: String, activityName: String): InstalledApp? {
+        val entry = ensureLoaded(context).firstOrNull {
+            val ai = it.resolveInfo.activityInfo
+            ai.packageName == packageName && ai.name == activityName
+        } ?: return null
+        val pm = context.packageManager
+        return InstalledApp(
+            label = entry.label,
+            packageName = packageName,
+            activityName = activityName,
+            icon = loadIcon(context, pm, entry.resolveInfo, isThemedIconMode(context), IconPackResolver.getActivePackPackage(context)),
+        )
+    }
+
     fun launchIntent(app: InstalledApp): Intent {
         return Intent(Intent.ACTION_MAIN).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)

@@ -17,7 +17,11 @@ enum class ConfigRefreshInterval(val displayName: String, val hours: Long?) {
     }
 }
 
-class ThemePreferences(context: Context) {
+class ThemePreferences(private val prefs: SharedPreferences) {
+
+    constructor(context: Context) : this(
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    )
 
     companion object {
         private const val PREFS_NAME = "fast_travel_theme"
@@ -30,6 +34,7 @@ class ThemePreferences(context: Context) {
         private const val KEY_SHORTCUT_ROWS = "shortcut_rows"
         private const val KEY_AUTO_IGNORE_THRESHOLD = "auto_ignore_threshold"
         private const val KEY_CONFIG_SOURCE_DIRTY = "config_source_dirty"
+        const val KEY_INSTALLED_APPS_ENABLED = "installed_apps_enabled"
         const val DEFAULT_AUTO_IGNORE_THRESHOLD = 3
         const val AUTO_IGNORE_THRESHOLD_MIN = 1
         const val AUTO_IGNORE_THRESHOLD_MAX = 20
@@ -37,9 +42,6 @@ class ThemePreferences(context: Context) {
         const val DEFAULT_CONFIG_URL =
             "https://raw.githubusercontent.com/DoubleGremlin181/fast-travel-app/main/shared/config/default-config.json"
     }
-
-    private val prefs: SharedPreferences =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -88,6 +90,12 @@ class ThemePreferences(context: Context) {
     var configSourceDirty: Boolean
         get() = prefs.getBoolean(KEY_CONFIG_SOURCE_DIRTY, false)
         set(value) { prefs.edit().putBoolean(KEY_CONFIG_SOURCE_DIRTY, value).apply() }
+
+    /** When on (default), installed apps are launchable from the search results row,
+     *  appear in "Recent" history, and rank into the empty-input shortcut chips. */
+    var installedAppsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_INSTALLED_APPS_ENABLED, true)
+        set(value) { prefs.edit().putBoolean(KEY_INSTALLED_APPS_ENABLED, value).apply() }
 
     var shortcutRows: Int
         get() = prefs.getInt(KEY_SHORTCUT_ROWS, 2)
