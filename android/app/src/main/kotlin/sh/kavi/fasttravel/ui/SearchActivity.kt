@@ -371,7 +371,7 @@ fun SearchScreen(
     val query by viewModel.query.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
     val searchState by viewModel.searchState.collectAsState()
-    val chipCommands by viewModel.chipCommands.collectAsState()
+    val chipItems by viewModel.chipItems.collectAsState()
     val installedApps by viewModel.installedApps.collectAsState()
     val groupColorMap by viewModel.groupColorMap.collectAsState()
     val context = LocalContext.current
@@ -590,6 +590,7 @@ fun SearchScreen(
                     onSuggestionPopulate = { s -> viewModel.onQueryChanged(s.text) },
                     onHistoryRemove = { q -> viewModel.removeHistoryEntry(q) },
                     onAppLaunch = { app ->
+                        viewModel.recordAppLaunch(app)
                         context.startActivity(InstalledAppResolver.launchIntent(app))
                     },
                     onCommandAutocompletePick = { cmd ->
@@ -603,10 +604,10 @@ fun SearchScreen(
                 )
             } else {
                 UnfocusedContent(
-                    chipCommands = chipCommands,
+                    chipItems = chipItems,
                     groupColorMap = groupColorMap,
                     shortcutRows = shortcutRows,
-                    onChipClick = { command ->
+                    onCommandClick = { command ->
                         val trigger = command.triggers.firstOrNull() ?: return@UnfocusedContent
                         if (command.type == CommandType.Redirect) {
                             viewModel.onSearch(trigger)
@@ -615,6 +616,10 @@ fun SearchScreen(
                             focusRequester.requestFocus()
                             keyboardController?.show()
                         }
+                    },
+                    onAppClick = { app ->
+                        viewModel.recordAppLaunch(app)
+                        context.startActivity(InstalledAppResolver.launchIntent(app))
                     },
                 )
             }
@@ -749,7 +754,10 @@ private fun FocusedContent(
                             suggestion = suggestion,
                             viewModel = viewModel,
                             groupColorMap = groupColorMap,
-                            onClick = { onSuggestionClick(suggestion) },
+                            onClick = {
+                                val app = suggestion.installedApp
+                                if (app != null) onAppLaunch(app) else onSuggestionClick(suggestion)
+                            },
                             onRemoveConfirmed = { onHistoryRemove(suggestion.text) },
                             onPopulate = { onSuggestionPopulate(suggestion) },
                         )
@@ -984,6 +992,7 @@ private fun HistoryRow(
         )
     }
 
+    val launchableApp = suggestion.installedApp
     val matchedCommand = suggestion.commandTrigger?.let { viewModel.findCommandByTrigger(it) }
     // Default Google favicon for unmatched (search-only) history rows so we don't
     // fall back to a per-row letter monogram that looks random.
@@ -1008,17 +1017,28 @@ private fun HistoryRow(
             )
             .padding(horizontal = 8.dp, vertical = 12.dp)
             .semantics {
-                contentDescription =
+                contentDescription = if (launchableApp != null) {
+                    "Recent app: ${suggestion.displayText}. Long press to remove."
+                } else {
                     "Recent search: ${suggestion.displayText}. Long press to remove."
+                }
             },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CommandFavicon(
-            iconUrl = favicon,
-            trigger = triggerForMonogram,
-            groupColorHex = groupColorHex,
-            size = 24.dp,
-        )
+        if (launchableApp != null) {
+            AsyncImage(
+                model = launchableApp.icon,
+                contentDescription = "${launchableApp.label} icon",
+                modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
+            )
+        } else {
+            CommandFavicon(
+                iconUrl = favicon,
+                trigger = triggerForMonogram,
+                groupColorHex = groupColorHex,
+                size = 24.dp,
+            )
+        }
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = suggestion.displayText,
@@ -1028,14 +1048,18 @@ private fun HistoryRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = onPopulate, modifier = Modifier.size(32.dp)) {
-            // ArrowOutward points NE; rotate -90° -> NW arrow ("↖") per spec.
-            Icon(
-                imageVector = Icons.Default.ArrowOutward,
-                contentDescription = "Populate search bar",
-                modifier = Modifier.size(20.dp).rotate(-90f),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            )
+        // Apps launch directly on tap, so the "populate search bar" affordance only
+        // applies to query rows.
+        if (launchableApp == null) {
+            IconButton(onClick = onPopulate, modifier = Modifier.size(32.dp)) {
+                // ArrowOutward points NE; rotate -90° -> NW arrow ("↖") per spec.
+                Icon(
+                    imageVector = Icons.Default.ArrowOutward,
+                    contentDescription = "Populate search bar",
+                    modifier = Modifier.size(20.dp).rotate(-90f),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+            }
         }
     }
 }
@@ -1161,12 +1185,13 @@ private fun SuggestionRow(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun UnfocusedContent(
-    chipCommands: List<Command>,
+    chipItems: List<ChipItem>,
     groupColorMap: Map<String, String>,
     shortcutRows: Int,
-    onChipClick: (Command) -> Unit,
+    onCommandClick: (Command) -> Unit,
+    onAppClick: (InstalledApp) -> Unit,
 ) {
-    if (chipCommands.isEmpty()) return
+    if (chipItems.isEmpty()) return
 
     val rows = shortcutRows.coerceIn(1, 3)
 
@@ -1178,13 +1203,50 @@ private fun UnfocusedContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         maxLines = rows,
     ) {
-        for (command in chipCommands) {
-            CommandChip(
-                command = command,
-                groupColorHex = groupColorMap[command.id],
-                onClick = { onChipClick(command) },
-            )
+        for (item in chipItems) {
+            when (item) {
+                is ChipItem.Cmd -> CommandChip(
+                    command = item.command,
+                    groupColorHex = groupColorMap[item.command.id],
+                    onClick = { onCommandClick(item.command) },
+                )
+                is ChipItem.App -> AppChip(
+                    app = item.app,
+                    onClick = { onAppClick(item.app) },
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun AppChip(
+    app: InstalledApp,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .semantics { contentDescription = "Open ${app.label}" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AsyncImage(
+            model = app.icon,
+            contentDescription = "${app.label} icon",
+            modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = app.label,
+            fontWeight = FontWeight.Bold,
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

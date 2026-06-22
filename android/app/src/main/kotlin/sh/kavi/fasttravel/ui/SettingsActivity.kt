@@ -169,6 +169,7 @@ sealed class SettingsRoute(val route: String) {
     }
     data object IgnoreList : SettingsRoute("config/ignoreList")
     data object SearchHistoryScreen : SettingsRoute("search_history")
+    data object LocalSearch : SettingsRoute("local_search")
     data object About : SettingsRoute("about")
     data object Configuration : SettingsRoute("configuration")
     data object ImportExport : SettingsRoute("import_export")
@@ -439,6 +440,12 @@ fun SettingsNavHost(
                 snackbarHostState = snackbarHostState,
             )
         }
+        composable(SettingsRoute.LocalSearch.route) {
+            LocalSearchScreen(
+                navController = navController,
+                themePrefs = themePrefs,
+            )
+        }
         composable(SettingsRoute.About.route) {
             AboutScreen(navController = navController)
         }
@@ -570,6 +577,12 @@ fun SettingsHomeScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 NavigableListItem(
+                    headlineText = "Local search",
+                    supportingText = "Installed apps",
+                    onClick = { navController.navigate(SettingsRoute.LocalSearch.route) },
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                NavigableListItem(
                     headlineText = "Ignore list",
                     supportingText = pluralize(config?.ignoreList?.size ?: 0, "item"),
                     onClick = { navController.navigate(SettingsRoute.IgnoreList.route) },
@@ -589,6 +602,73 @@ fun SettingsHomeScreen(
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
+}
+
+// ==================== Local Search Screen ====================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalSearchScreen(
+    navController: NavHostController,
+    themePrefs: ThemePreferences,
+) {
+    var installedAppsEnabled by remember { mutableStateOf(themePrefs.installedAppsEnabled) }
+
+    Scaffold(
+        topBar = { SettingsTopBar(title = "Local search", onBack = { navController.popBackStack() }) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+            SettingsCard {
+                SettingsSwitchItem(
+                    headlineText = "Show installed apps",
+                    supportingText = "Launch installed apps from search results, recents, and shortcuts.",
+                    checked = installedAppsEnabled,
+                    onCheckedChange = {
+                        installedAppsEnabled = it
+                        themePrefs.installedAppsEnabled = it
+                    },
+                )
+            }
+            // Future on-device, non-web options (e.g. the `s` local file-search command,
+            // issue #25) will live on this screen.
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun SettingsSwitchItem(
+    headlineText: String,
+    supportingText: String? = null,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    ListItem(
+        headlineContent = {
+            Text(text = headlineText, style = MaterialTheme.typography.bodyLarge)
+        },
+        supportingContent = if (supportingText != null) {
+            {
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        } else null,
+        trailingContent = {
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable { onCheckedChange(!checked) },
+    )
 }
 
 // ==================== Configuration Screen ====================
