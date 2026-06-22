@@ -1,7 +1,7 @@
 {
   "$schema": "./auto-update.schema.json",
   "commands": {
-    "annas-archive": { "source": "wikipedia", "wikipediaTitle": "Anna's Archive" },
+    "annas-archive": { "source": "fmhy", "fmhyPath": "reading",     "matchName": "Anna's Archive" },
     "libgen":        { "source": "fmhy", "fmhyPath": "reading",     "matchName": "Library Genesis" },
     "scihub":        { "source": "wikipedia", "wikipediaTitle": "Sci-Hub" },
     "mangadex":      { "source": "wikipedia", "wikipediaTitle": "MangaDex" },

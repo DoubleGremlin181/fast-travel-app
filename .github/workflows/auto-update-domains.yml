@@ -3,11 +3,19 @@ name: Auto-update domains
 # Weekly health check on the default-config domains. For each unreachable
 # domain whose command-id is listed in tools/auto-update-domains/auto-update.json,
 # the script picks a replacement via the configured source (Wikipedia or FMHY),
-# verifies the candidate is itself reachable, and commits the patched config
-# straight to main. Three safety gates run before push:
+# verifies the candidate is itself reachable, and opens a pull request with the
+# patched config (auto-merged once CI passes). `main` has branch protection with
+# required status checks, so the bot cannot push to it directly — it must go
+# through a PR. Three safety gates run before the PR is opened:
 #   1. Resolver unit tests must pass.
 #   2. The orchestrator only writes candidates that pass a HEAD check.
 #   3. The patched config and auto-update mapping must validate.
+#
+# NOTE: For the required CI checks to actually run on the bot's PR (and thus for
+# auto-merge to complete), set an `AUTOMATION_PAT` repo secret — a fine-grained
+# PAT with contents+pull-requests write. PRs opened with the default GITHUB_TOKEN
+# do NOT trigger other workflows, so without the PAT the PR is opened but its
+# required checks never run and it must be merged by hand.
 
 on:
   schedule:
@@ -16,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   check-domains:
@@ -24,6 +33,10 @@ jobs:
       - name: Checkout repository
         # actions/checkout@v4
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          # Use the PAT (if set) so the branch push is attributed to it and the
+          # PR triggers CI; falls back to the default token otherwise.
+          token: ${{ secrets.AUTOMATION_PAT || github.token }}
 
       - name: Setup Node.js
         # actions/setup-node@v4.4.0
@@ -43,21 +56,29 @@ jobs:
       - name: Validate patched config
         run: node tools/validate-config.mjs
 
-      - name: Commit and push if config changed
+      - name: Open PR with domain updates (if any)
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || github.token }}
         run: |
           if git diff --quiet shared/config/default-config.json; then
             echo "No config changes — nothing to commit."
             exit 0
           fi
+          branch="auto-update-domains/$(date -u +%Y-%m-%d)"
           git config user.name  'fast-travel-bot'
           git config user.email 'fast-travel-bot@users.noreply.github.com'
+          git switch -c "$branch"
           git add shared/config/default-config.json
           git commit -m "chore(config): auto-update mirror domains"
-          for attempt in 1 2 3 4; do
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            sleep $((2 ** attempt))
-          done
-          echo "git push failed after retries" >&2
-          exit 1
+          git push --force-with-lease origin "$branch"
+          # Open the PR if one doesn't already exist for this branch.
+          if ! gh pr view "$branch" >/dev/null 2>&1; then
+            gh pr create --base main --head "$branch" \
+              --title "chore(config): auto-update mirror domains" \
+              --body "Automated weekly domain health check found one or more unreachable mirror domains in \`shared/config/default-config.json\` and replaced them with reachable alternatives (verified via a HEAD check). Review the diff; CI must pass before this merges."
+          fi
+          # Best-effort: queue auto-merge once required checks pass. Requires
+          # auto-merge to be enabled on the repo and a PAT for CI to run (see
+          # the note at the top of this file).
+          gh pr merge "$branch" --auto --squash \
+            || echo "::warning::Could not enable auto-merge; merge the PR manually once CI is green."
