@@ -802,14 +802,17 @@ fun ImportExportScreen(
                                     isLoading = false
                                     return@launch
                                 }
-                                editableStore.saveLocalConfig(fetched)
                                 themePrefs.configUrl = url
                                 themePrefs.configRefreshInterval = selectedInterval
                                 if (selectedInterval != ConfigRefreshInterval.MANUAL) {
+                                    // Adopt as the remote baseline (cache it + drop any
+                                    // editable snapshot) so auto-refresh isn't shadowed.
+                                    configRepository.adoptRemoteConfig(fetched)
                                     themePrefs.configSourceDirty = false
                                     ConfigRefreshScheduler.schedule(context, selectedInterval)
                                     statusText = "Synced"
                                 } else {
+                                    editableStore.saveLocalConfig(fetched)
                                     markDirtyAndCancelRefresh(context, themePrefs)
                                     statusText = "Local config"
                                 }
@@ -886,7 +889,9 @@ fun ImportExportScreen(
                     scope.launch {
                         val fetched = configRepository.fetchFromUrl(themePrefs.configUrl)
                         if (fetched != null) {
-                            editableStore.saveLocalConfig(fetched)
+                            // Adopt as the remote baseline so the reset actually
+                            // clears local edits instead of re-saving them.
+                            configRepository.adoptRemoteConfig(fetched)
                             themePrefs.configSourceDirty = false
                             ConfigRefreshScheduler.schedule(context, themePrefs.configRefreshInterval)
                             onConfigChanged()

@@ -8,6 +8,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import sh.kavi.fasttravel.core.ConfigParser
+import sh.kavi.fasttravel.core.ConfigWriter
 import sh.kavi.fasttravel.core.FastTravelConfig
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -33,9 +34,15 @@ class ConfigRepository(private val context: Context) {
     private val fetchMutex = Mutex()
 
     suspend fun getConfig(): FastTravelConfig {
-        // Local edits (direct-edit model) win over any remote/bundled base.
-        editableStore.getLocalConfig()
-            ?.let { if (validate(it, "local")) return it }
+        // Local edits (direct-edit model) win over any remote/bundled base — but
+        // ONLY when the user actually has local edits (dirty). A non-dirty
+        // editable snapshot (e.g. one left behind by "Fetch & Import" or
+        // "Reset to remote") must NOT shadow the live remote, otherwise
+        // auto-refresh silently freezes on that stale snapshot.
+        if (themePreferences.configSourceDirty) {
+            editableStore.getLocalConfig()
+                ?.let { if (validate(it, "local")) return it }
+        }
 
         // Cached remote (if fresh enough) — re-validate every load so a corrupt
         // entry doesn't survive forever.
@@ -113,6 +120,18 @@ class ConfigRepository(private val context: Context) {
 
     /** Convenience for callers that want to know if the user has any local edits. */
     fun hasLocalEdits(): Boolean = editableStore.hasLocalConfig()
+
+    /**
+     * Adopt a freshly-fetched remote config as the new baseline: cache it so
+     * [getConfig] serves it immediately and the periodic refresh keeps it
+     * current, and drop any editable snapshot so it can't shadow the remote.
+     * Used by URL import and reset-to-remote (which must NOT leave a non-dirty
+     * editable snapshot — that is the "frozen config" bug).
+     */
+    fun adoptRemoteConfig(config: FastTravelConfig) {
+        editableStore.clearLocalConfig()
+        cacheConfig(ConfigWriter.writeConfig(config))
+    }
 
     private fun getCachedConfig(): FastTravelConfig? {
         val json = prefs.getString(KEY_CACHED_CONFIG, null) ?: return null
