@@ -242,21 +242,29 @@ class SettingsActivity : ComponentActivity() {
             var appearance by remember { mutableStateOf(resolveFromPrefs(applicationContext, themePrefs)) }
 
             FastTravelTheme(appearance = appearance.forSettings()) {
-                SettingsNavHost(
-                    onFinish = { finish() },
-                    themePrefs = themePrefs,
-                    onAppearanceChanged = { appearance = it },
-                    onImportFile = { callback ->
-                        importLauncherCallback = callback
-                        isLauncherPending = true
-                        importFileLauncher.launch(arrayOf("application/json", "text/plain"))
-                    },
-                    onExportFile = { filename, callback ->
-                        exportLauncherCallback = callback
-                        isLauncherPending = true
-                        exportFileLauncher.launch(filename)
-                    },
-                )
+                // Paint the themed background behind the NavHost so page
+                // transitions (and the first frame) never reveal the white
+                // window background in dark mode.
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
+                    SettingsNavHost(
+                        onFinish = { finish() },
+                        themePrefs = themePrefs,
+                        onAppearanceChanged = { appearance = it },
+                        onImportFile = { callback ->
+                            importLauncherCallback = callback
+                            isLauncherPending = true
+                            importFileLauncher.launch(arrayOf("application/json", "text/plain"))
+                        },
+                        onExportFile = { filename, callback ->
+                            exportLauncherCallback = callback
+                            isLauncherPending = true
+                            exportFileLauncher.launch(filename)
+                        },
+                    )
+                }
             }
         }
     }
@@ -1897,7 +1905,7 @@ fun AboutScreen(navController: NavHostController) {
                     },
                     supportingContent = {
                         Text(
-                            "Kavish",
+                            "DoubleGremlin181",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

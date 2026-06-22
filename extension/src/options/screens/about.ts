@@ -37,7 +37,7 @@ export function renderAbout(main: HTMLElement): void {
     el(
       "div",
       { class: "card-body about-info" },
-      el("p", null, "Built by Kavish (GitHub @DoubleGremlin181)."),
+      el("p", null, "Built by DoubleGremlin181."),
       el("p", null, "Command catalog is community-sourced; contributions welcome via pull request."),
     ),
   );
