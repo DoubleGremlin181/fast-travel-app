@@ -21,6 +21,7 @@ import {
   type AutoIgnoreStore,
 } from "../core/auto-ignore-store.js";
 import { effectiveIgnoreList } from "../core/effective-ignore-list.js";
+import { rankByFrecency } from "../core/frecency.js";
 
 interface HistoryEntry {
   query: string;
@@ -84,6 +85,9 @@ function findResolvedByTrigger(cfg: FastTravelConfig, trigger: string): Resolved
 
 // State
 let config: FastTravelConfig | null = null;
+// Recent usage history, fetched once at load and used to frecency-rank the
+// empty-input quick chips.
+let topChipHistory: HistoryEntry[] = [];
 let permanentIgnoreList: string[] = [];
 let candidates: AutoIgnoreStore = {};
 let threshold = 3;
@@ -162,6 +166,7 @@ async function init(): Promise<void> {
     subscribeAppearance(applyAppearance);
     config = await chrome.runtime.sendMessage({ type: "getConfig" });
     await refreshIgnoreState();
+    topChipHistory = (await chrome.runtime.sendMessage({ type: "getHistory" })) ?? [];
 
     // Omnibox search-provider path: ?q=<query> → resolve + navigate immediately.
     // The presence of ?q= proves Fast Travel is the active default search engine.
@@ -263,7 +268,18 @@ function renderQuickChips(): void {
   if (!config) return;
   chipsContent.replaceChildren();
   const resolved = flattenWithColors(config).filter(({ cmd }) => cmd.type === "standard");
-  for (const { cmd, groupColor } of resolved.slice(0, 8)) {
+  // Rank the standard commands by frecency (usage frequency + recency), most
+  // relevant first; falls back to config order with no history. Shared with the
+  // Android side via shared/test-fixtures/frecency.fixtures.json.
+  const byId = new Map(resolved.map((rc) => [rc.cmd.id, rc]));
+  const ranked = rankByFrecency(
+    resolved.map((rc) => rc.cmd.id),
+    topChipHistory,
+    Date.now(),
+  )
+    .map((id) => byId.get(id))
+    .filter((rc): rc is ResolvedCommand => rc !== undefined);
+  for (const { cmd, groupColor } of ranked.slice(0, 8)) {
     const tint = resolveGroupTint(groupColor);
     const btn = document.createElement("button");
     btn.type = "button";
