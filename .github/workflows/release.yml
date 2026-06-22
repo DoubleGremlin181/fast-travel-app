@@ -69,6 +69,7 @@ jobs:
         run: node tools/bump-version.mjs beta ${{ github.event.pull_request.number }}
 
       - name: Commit and tag version bump
+        id: commit_bump
         if: github.event_name == 'workflow_dispatch'
         run: |
           git add package.json extension/package.json extension/manifest.json \
@@ -194,3 +195,22 @@ jobs:
             firefox-extension.zip
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
+
+      # ── Roll back the version bump if anything after it failed ─────────────
+      # The bump commit + tag are pushed to `main` before publishing, so a failed
+      # publish (e.g. a store still in initial review rejecting a stacked upload)
+      # would otherwise strand them on `main` and block a clean re-run. Undo both
+      # so the workflow can simply be re-run once the cause is resolved. Only runs
+      # when the bump was actually committed/pushed (commit_bump succeeded); uses a
+      # revert + normal push (RELEASE_PAT bypasses required checks, but not force).
+      - name: Roll back version bump on failure
+        if: failure() && github.event_name == 'workflow_dispatch' && steps.commit_bump.outcome == 'success'
+        run: |
+          VERSION="${{ steps.bump.outputs.version }}"
+          echo "::warning::Release failed after bumping to v$VERSION — reverting the bump commit + tag so the run can be retried cleanly."
+          # Delete the tag on the remote and locally (no-op if already gone).
+          git push origin ":refs/tags/v$VERSION" || true
+          git tag -d "v$VERSION" 2>/dev/null || true
+          # Revert the bump commit (HEAD — nothing is committed after it) and push.
+          git revert --no-edit HEAD
+          git push origin HEAD:main
