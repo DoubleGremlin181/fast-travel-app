@@ -9,6 +9,7 @@ import sh.kavi.fasttravel.core.CommandParser
 import sh.kavi.fasttravel.core.CommandType
 import sh.kavi.fasttravel.core.DeviceType
 import sh.kavi.fasttravel.core.FastTravelConfig
+import sh.kavi.fasttravel.core.Frecency
 import sh.kavi.fasttravel.core.Group
 import sh.kavi.fasttravel.core.InstalledApp
 import sh.kavi.fasttravel.core.InstalledAppResolver
@@ -132,26 +133,21 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun updateChipCommands() {
         val cfg = config ?: return
-        val allCommands = flattenCommands(cfg.groups)
-        val standardCommands = allCommands.filter { it.type == CommandType.Standard }
+        val standardCommands = flattenCommands(cfg.groups).filter { it.type == CommandType.Standard }
 
         // ~4 chips per row fits the Figma spec's pill grid.
         val targetCount = (shortcutRows * 4).coerceAtLeast(4)
 
-        val history = searchHistory.getHistory()
-        if (history.isEmpty()) {
-            _chipCommands.value = standardCommands.take(targetCount)
-            return
+        // Rank by frecency (usage frequency + recency); empty history falls back
+        // to config order. Shared with the extension via
+        // shared/test-fixtures/frecency.fixtures.json.
+        val history = searchHistory.getHistory().map {
+            Frecency.HistoryEntry(it.commandId, it.timestamp)
         }
-
-        val frequencyMap = mutableMapOf<String, Int>()
-        for (entry in history) {
-            val id = entry.commandId ?: continue
-            frequencyMap[id] = (frequencyMap[id] ?: 0) + 1
-        }
-
-        _chipCommands.value = standardCommands
-            .sortedByDescending { frequencyMap[it.id] ?: 0 }
+        val byId = standardCommands.associateBy { it.id }
+        _chipCommands.value = Frecency
+            .rank(standardCommands.map { it.id }, history, System.currentTimeMillis())
+            .mapNotNull { byId[it] }
             .take(targetCount)
     }
 

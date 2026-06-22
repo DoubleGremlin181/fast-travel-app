@@ -1,0 +1,74 @@
+[
+  {
+    "description": "cold start - no history keeps config order",
+    "commandIds": ["g", "ddg", "yt", "gh"],
+    "nowMs": 1700000000000,
+    "history": [],
+    "expected": ["g", "ddg", "yt", "gh"]
+  },
+  {
+    "description": "a single recent use outranks never-used commands",
+    "commandIds": ["g", "ddg", "yt"],
+    "nowMs": 1700000000000,
+    "history": [{ "commandId": "yt", "ageDays": 0 }],
+    "expected": ["yt", "g", "ddg"]
+  },
+  {
+    "description": "recent use outranks older use",
+    "commandIds": ["g", "ddg", "yt"],
+    "nowMs": 1700000000000,
+    "history": [
+      { "commandId": "yt", "ageDays": 0 },
+      { "commandId": "g", "ageDays": 30 }
+    ],
+    "expected": ["yt", "g", "ddg"]
+  },
+  {
+    "description": "frequency accumulates - frequent and recent beats single recent",
+    "commandIds": ["g", "ddg", "yt"],
+    "nowMs": 1700000000000,
+    "history": [
+      { "commandId": "ddg", "ageDays": 1 },
+      { "commandId": "ddg", "ageDays": 2 },
+      { "commandId": "g", "ageDays": 0 }
+    ],
+    "expected": ["ddg", "g", "yt"]
+  },
+  {
+    "description": "unused commands keep config order after used ones",
+    "commandIds": ["a", "b", "c", "d"],
+    "nowMs": 1700000000000,
+    "history": [{ "commandId": "c", "ageDays": 0 }],
+    "expected": ["c", "a", "b", "d"]
+  },
+  {
+    "description": "equal frecency is tie-broken by config order",
+    "commandIds": ["a", "b"],
+    "nowMs": 1700000000000,
+    "history": [
+      { "commandId": "b", "ageDays": 0 },
+      { "commandId": "a", "ageDays": 0 }
+    ],
+    "expected": ["a", "b"]
+  },
+  {
+    "description": "future timestamps are clamped so they cannot over-weight",
+    "commandIds": ["a", "b"],
+    "nowMs": 1700000000000,
+    "history": [
+      { "commandId": "a", "ageDays": 0 },
+      { "commandId": "b", "ageDays": -5 }
+    ],
+    "expected": ["a", "b"]
+  },
+  {
+    "description": "history referencing an unknown command id is ignored",
+    "commandIds": ["a", "b"],
+    "nowMs": 1700000000000,
+    "history": [
+      { "commandId": "zzz", "ageDays": 0 },
+      { "commandId": "b", "ageDays": 0 }
+    ],
+    "expected": ["b", "a"]
+  }
+]
