@@ -1,6 +1,6 @@
 {
   "name": "fast-travel",
-  "version": "2.1.1",
+  "version": "2.1.0",
   "private": true,
   "description": "Command-based search engine replacement - browser extension + native mobile app",
   "workspaces": [
