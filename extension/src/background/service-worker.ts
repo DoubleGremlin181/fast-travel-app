@@ -15,25 +15,10 @@ const REFRESH_INTERVAL_KEY = "fast-travel-refresh-interval";
 const LAST_SYNCED_KEY = "fast-travel-last-synced";
 const REFRESH_ALARM = "config-refresh";
 const CONFIG_FETCH_TIMEOUT_MS = 5000;
-const APPEARANCE_KEY = "fast-travel-appearance";
 
-/**
- * Keep chrome.storage.session mirroring the appearance prefs from
- * chrome.storage.sync so the pre-paint apply-theme script can read them
- * without an async round-trip to sync storage (which is slower and may be
- * unavailable offline). Called on install, startup, and whenever sync changes.
- */
-async function syncAppearanceToSession(): Promise<void> {
-  try {
-    const v = await chrome.storage.sync.get(APPEARANCE_KEY);
-    const prefs = v[APPEARANCE_KEY];
-    if (prefs !== undefined) {
-      await chrome.storage.session.set({ [APPEARANCE_KEY]: prefs });
-    }
-  } catch {
-    // storage.sync or storage.session may be unavailable; pre-paint falls back to defaults
-  }
-}
+// Appearance prefs are mirrored to localStorage by the page (appearance.ts) and
+// read synchronously before first paint by apply-theme.ts. The service worker is
+// no longer involved in theming (it has no localStorage and runs async).
 
 type RefreshInterval = "manual" | "daily" | "weekly";
 
@@ -280,7 +265,6 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
   scheduleRefresh();
   installSearchRedirectRule();
-  syncAppearanceToSession();
 });
 
 // Reinstall the rule on every worker startup — dynamic rules persist across
@@ -289,26 +273,15 @@ chrome.runtime.onInstalled.addListener(async () => {
 // Also refresh config unless user has locally-edited (dirty) config.
 chrome.runtime.onStartup.addListener(async () => {
   installSearchRedirectRule();
-  syncAppearanceToSession();
   if (!(await isDirty())) {
     fetchAndStoreConfig();
   }
 });
 
 // When the refresh interval changes in settings, reschedule the alarm.
-// Also mirror appearance prefs from sync -> session so the pre-paint script
-// sees fresh values on the next page load.
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && changes[REFRESH_INTERVAL_KEY]) {
     scheduleRefresh();
-  }
-  if (areaName === "sync" && changes[APPEARANCE_KEY]) {
-    const newValue = changes[APPEARANCE_KEY].newValue;
-    if (newValue === undefined) {
-      chrome.storage.session.remove(APPEARANCE_KEY).catch(() => {});
-    } else {
-      chrome.storage.session.set({ [APPEARANCE_KEY]: newValue }).catch(() => {});
-    }
   }
 });
 

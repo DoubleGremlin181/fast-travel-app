@@ -18,7 +18,6 @@ const entryPoints = [
   "src/newtab/newtab.ts",
   "src/options/options.ts",
   "src/popup/popup.ts",
-  "src/ui/apply-theme.ts",
 ];
 
 await esbuild.build({
@@ -31,6 +30,20 @@ await esbuild.build({
   minify: false,
   splitting: true,
   loader: { ".json": "json" },
+});
+
+// apply-theme is loaded as a render-blocking CLASSIC <script> (not a module) so
+// it runs synchronously before first paint and applies the saved theme without a
+// FOUC flash. A classic <script> can't load an ESM file, so emit it as a
+// standalone IIFE (no splitting/imports) at dist/ui/apply-theme.js.
+await esbuild.build({
+  entryPoints: [resolve(root, "src/ui/apply-theme.ts")],
+  bundle: true,
+  outfile: resolve(dist, "ui/apply-theme.js"),
+  format: "iife",
+  target: "es2022",
+  sourcemap: true,
+  minify: false,
 });
 
 // Copy static files
