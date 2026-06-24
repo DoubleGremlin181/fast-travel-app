@@ -12,10 +12,11 @@ name: Auto-update domains
 #   3. The patched config and auto-update mapping must validate.
 #
 # NOTE: For the required CI checks to actually run on the bot's PR (and thus for
-# auto-merge to complete), set an `AUTOMATION_PAT` repo secret — a fine-grained
-# PAT with contents+pull-requests write. PRs opened with the default GITHUB_TOKEN
-# do NOT trigger other workflows, so without the PAT the PR is opened but its
-# required checks never run and it must be merged by hand.
+# auto-merge to complete), this uses the `RELEASE_PAT` repo secret — a maintainer
+# PAT with contents+pull-requests write (shared with the release workflow). PRs
+# opened with the default GITHUB_TOKEN do NOT trigger other workflows, so without
+# the PAT the PR is opened but its required checks never run and it must be
+# merged by hand.
 
 on:
   schedule:
@@ -36,7 +37,7 @@ jobs:
         with:
           # Use the PAT (if set) so the branch push is attributed to it and the
           # PR triggers CI; falls back to the default token otherwise.
-          token: ${{ secrets.AUTOMATION_PAT || github.token }}
+          token: ${{ secrets.RELEASE_PAT || github.token }}
 
       - name: Setup Node.js
         # actions/setup-node@v4.4.0
@@ -58,7 +59,7 @@ jobs:
 
       - name: Open PR with domain updates (if any)
         env:
-          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || github.token }}
         run: |
           if git diff --quiet shared/config/default-config.json; then
             echo "No config changes — nothing to commit."
