@@ -422,6 +422,7 @@ object CommandParser {
                 )
             }
         }
+        // Unreachable with a valid config: defaultCommand could not be resolved.
         return ParseOutput.RedirectResult(
             url = "https://www.google.com",
             commandId = null,
@@ -448,7 +449,17 @@ object CommandParser {
                     matchType = MatchType.DefaultSearch,
                 )
             }
+            // Default command resolves but has no searchUrl for this device —
+            // land on its home page rather than assuming a specific engine.
+            if (route != null) {
+                return ParseOutput.RedirectResult(
+                    url = route.defaultUrl,
+                    commandId = defaultCmd.id,
+                    matchType = MatchType.DefaultSearch,
+                )
+            }
         }
+        // Unreachable with a valid config: defaultCommand could not be resolved.
         return ParseOutput.RedirectResult(
             url = "https://www.google.com/search?q=${encodeURIComponent(query)}",
             commandId = null,

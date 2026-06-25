@@ -462,7 +462,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun googleSearchTypo() {
+    fun fallbackSearchAfterTypo() {
         val state = _searchState.value
         if (state is SearchState.TypoSuggestion) {
             val trigger = state.typo.originalQuery.split(Regex("\\s+"))[0]
@@ -470,10 +470,21 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             // at parse time by effectiveIgnoreList (Task 6 wires it up).
             autoIgnoreStore.increment(trigger)
 
-            val query = state.typo.originalQuery
-            val encodedQuery = sh.kavi.fasttravel.core.UrlEncoding.component(query)
-            searchHistory.addEntry(query, null)
-            _searchState.value = SearchState.Navigate("https://www.google.com/search?q=$encodedQuery")
+            // Force the typo'd trigger into the ignore list for this parse so the
+            // query is searched verbatim on the user's default engine — never a
+            // hard-coded one.
+            val cfg = config ?: return
+            val input = ParseInput(
+                rawQuery = state.typo.originalQuery,
+                device = DeviceType.Android,
+                config = effectiveConfig(cfg),
+                ignoreList = listOf(trigger),
+            )
+            val result = CommandParser.parseCommand(input)
+            if (result is ParseOutput.RedirectResult) {
+                searchHistory.addEntry(state.typo.originalQuery, null)
+                _searchState.value = SearchState.Navigate(result.url)
+            }
         }
     }
 
