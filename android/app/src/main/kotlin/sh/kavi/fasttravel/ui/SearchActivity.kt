@@ -85,6 +85,11 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -541,6 +546,8 @@ fun SearchScreen(
                 onFocusChanged = { isSearchFocused = it },
                 leadingCommand = leadingCommand,
                 leadingCommandGroupColor = leadingCommand?.let { groupColorMap[it.id] },
+                typoActive = searchState is SearchState.TypoSuggestion,
+                onDeclineTypo = { viewModel.fallbackSearchAfterTypo() },
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -647,6 +654,8 @@ private fun SearchBarPill(
     onFocusChanged: (Boolean) -> Unit,
     leadingCommand: Command? = null,
     leadingCommandGroupColor: String? = null,
+    typoActive: Boolean = false,
+    onDeclineTypo: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val appearance = LocalAppearance.current
@@ -719,6 +728,20 @@ private fun SearchBarPill(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
+                    // Hardware-keyboard "n" ("no") declines a showing typo suggestion,
+                    // mirroring the browser's hidden decline shortcut. Consumed here so
+                    // the letter isn't also typed into the field. Not advertised in the UI.
+                    .onPreviewKeyEvent { event ->
+                        if (typoActive &&
+                            event.type == KeyEventType.KeyDown &&
+                            event.key == Key.N
+                        ) {
+                            onDeclineTypo()
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     .onFocusChanged { onFocusChanged(it.isFocused) },
             )
         }

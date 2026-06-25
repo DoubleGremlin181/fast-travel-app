@@ -245,6 +245,13 @@ function focusSearchInput(): void {
   // has focus but a non-input element is active.
   document.addEventListener("keydown", (e) => {
     if (!document.hasFocus()) return;
+    // Defer to the typo prompt while it's showing. This handler is registered at
+    // module-eval time (via focusSearchInput()), so it runs BEFORE the typo
+    // keydown handler. Without this guard it would re-focus the search box and
+    // type the shortcut letter (y/g/i/n) — firing the input listener's hideTypo()
+    // and clearing currentTypo before the typo handler ever sees the key, which
+    // is why the typo shortcuts appeared dead.
+    if (currentTypo) return;
     if (e.target === searchInput) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key.length !== 1) return;
@@ -765,12 +772,17 @@ searchInput.addEventListener("blur", () => {
   applyTailVisible(searchInput);
 });
 
+// Typo-prompt shortcuts. The type-anywhere handler defers to these while a typo
+// is showing (see focusSearchInput), so the search box stays blurred and these
+// keys reach here. "g" and "n" both decline the suggestion and fall back to the
+// user's default engine (defaultSearch) — "n" ("no") is the engine-agnostic alias
+// and is intentionally not advertised in the UI.
 document.addEventListener("keydown", (e) => {
   if (!currentTypo) return;
   if (e.key === "y" || e.key === "Y") {
     e.preventDefault();
     void acceptTypo();
-  } else if (e.key === "g" || e.key === "G") {
+  } else if (e.key === "g" || e.key === "G" || e.key === "n" || e.key === "N") {
     e.preventDefault();
     void defaultSearch();
   } else if (e.key === "i" || e.key === "I") {
