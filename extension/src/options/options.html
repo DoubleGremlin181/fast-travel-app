@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fast Travel — Settings</title>
-    <script type="module" src="../ui/apply-theme.js"></script>
+    <!-- Classic (non-module) so it's render-blocking and runs synchronously
+         before first paint — applies the saved theme to avoid a FOUC flash. -->
+    <script src="../ui/apply-theme.js"></script>
     <link rel="stylesheet" href="../ui/tokens.css" />
     <link rel="stylesheet" href="options.css" />
   </head>

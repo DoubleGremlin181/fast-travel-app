@@ -15,12 +15,27 @@ export interface AppearancePrefs {
 const STORAGE_KEY = "fast-travel-appearance";
 const DEFAULTS: AppearancePrefs = { mode: "system", variant: "material", shape: "pill" };
 
+/**
+ * Mirror prefs to localStorage so the pre-paint shim (apply-theme.ts) can read
+ * them synchronously before first paint — chrome.storage is async-only and would
+ * paint the wrong theme first (FOUC). Page-only; wrapped because localStorage may
+ * be unavailable (the shim then falls back to system via matchMedia).
+ */
+function mirrorToLocalStorage(prefs: AppearancePrefs): void {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    } catch {
+        // ignore — pre-paint falls back to system
+    }
+}
+
 export async function getAppearance(): Promise<AppearancePrefs> {
     const stored = await chrome.storage.sync.get(STORAGE_KEY);
     return { ...DEFAULTS, ...(stored[STORAGE_KEY] ?? {}) };
 }
 
 export async function setAppearance(prefs: AppearancePrefs): Promise<void> {
+    mirrorToLocalStorage(prefs);
     await chrome.storage.sync.set({ [STORAGE_KEY]: prefs });
 }
 
@@ -35,6 +50,10 @@ export function subscribe(listener: (prefs: AppearancePrefs) => void): () => voi
 }
 
 export function applyAppearance(prefs: AppearancePrefs) {
+    // Refresh the synchronous mirror every time prefs are applied (each page's
+    // init applies the chrome.storage.sync source of truth), so the next page
+    // load's pre-paint shim reads an up-to-date value.
+    mirrorToLocalStorage(prefs);
     const html = document.documentElement;
     const resolvedMode = prefs.mode === "system"
         ? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
