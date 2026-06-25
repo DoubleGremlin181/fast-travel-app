@@ -385,16 +385,15 @@ async function defaultSearch(): Promise<void> {
   // implicitly by effectiveIgnoreList (Task 8 wires it at parse time).
   await incrementCandidate(trigger);
   candidates = await loadCandidates();
+  // Force the typo'd trigger into the ignore list for this parse so the query is
+  // searched verbatim on the user's default engine — never a hard-coded one.
   const fallback = parseCommand({
     rawQuery: query,
     device,
     config,
-    ignoreList: currentEffectiveIgnoreList(),
+    ignoreList: [...currentEffectiveIgnoreList(), trigger],
   });
-  const url = fallback.type === "redirect"
-    ? fallback.url
-    : `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-  window.location.href = url;
+  if (fallback.type === "redirect") window.location.href = fallback.url;
 }
 
 async function ignoreTypo(): Promise<void> {

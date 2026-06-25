@@ -140,6 +140,91 @@ describe("typo detection - shared fixtures", () => {
   }
 });
 
+describe("default engine independence", () => {
+  // A config whose default engine is DuckDuckGo, not Google.
+  const ddgConfig: FastTravelConfig = {
+    version: 2,
+    defaultCommand: "ddg",
+    groups: [
+      {
+        id: "engines",
+        name: "Engines",
+        commands: [
+          {
+            id: "duckduckgo",
+            triggers: ["ddg"],
+            name: "DuckDuckGo",
+            type: "standard",
+            routes: [
+              {
+                devices: "*",
+                defaultUrl: "https://duckduckgo.com",
+                searchUrl: "https://duckduckgo.com/?q={query}",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    ignoreList: [],
+  };
+
+  it("empty query redirects to the default engine's home, not Google", () => {
+    const result = parseCommand({ rawQuery: "", device: "Linux", config: ddgConfig });
+    expect(result.type).toBe("redirect");
+    expect((result as ParseResult).url).toBe("https://duckduckgo.com");
+    expect((result as ParseResult).commandId).toBe("duckduckgo");
+  });
+
+  it("an unmatched query searches the default engine, not Google", () => {
+    const result = parseCommand({ rawQuery: "some random thing", device: "Linux", config: ddgConfig });
+    expect(result.type).toBe("redirect");
+    expect((result as ParseResult).url).toBe("https://duckduckgo.com/?q=some%20random%20thing");
+    expect((result as ParseResult).commandId).toBe("duckduckgo");
+    expect((result as ParseResult).matchType).toBe("default-search");
+  });
+
+  it("dismissing a typo (trigger ignored) searches the default engine, not Google", () => {
+    // Mirrors newtab.ts defaultSearch(): re-parse with the typo'd trigger forced
+    // into the ignore list → a verbatim default-engine search, never Google.
+    const result = parseCommand({
+      rawQuery: "ddh something",
+      device: "Linux",
+      config: ddgConfig,
+      ignoreList: ["ddh"],
+    });
+    expect(result.type).toBe("redirect");
+    expect((result as ParseResult).url).toBe("https://duckduckgo.com/?q=ddh%20something");
+  });
+
+  it("falls back to the default command's home page when it has no searchUrl (not Google)", () => {
+    const noSearchConfig: FastTravelConfig = {
+      version: 2,
+      defaultCommand: "home",
+      groups: [
+        {
+          id: "grp",
+          name: "Group",
+          commands: [
+            {
+              id: "home",
+              triggers: ["home"],
+              name: "Home",
+              type: "standard",
+              routes: [{ devices: "*", defaultUrl: "https://home.example.com" }],
+            },
+          ],
+        },
+      ],
+      ignoreList: [],
+    };
+    const result = parseCommand({ rawQuery: "anything here", device: "Linux", config: noSearchConfig });
+    expect(result.type).toBe("redirect");
+    expect((result as ParseResult).url).toBe("https://home.example.com");
+    expect((result as ParseResult).commandId).toBe("home");
+  });
+});
+
 describe("levenshtein", () => {
   it("returns 0 for identical strings", () => {
     expect(levenshtein("abc", "abc")).toBe(0);

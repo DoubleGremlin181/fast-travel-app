@@ -584,7 +584,7 @@ fun SearchScreen(
                     TypoSuggestionCard(
                         typo = typo,
                         onAccept = { viewModel.acceptTypo() },
-                        onGoogle = { viewModel.googleSearchTypo() },
+                        onFallbackSearch = { viewModel.fallbackSearchAfterTypo() },
                         onIgnore = { viewModel.ignoreTypo() },
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -1298,7 +1298,7 @@ private fun CommandChip(
 fun TypoSuggestionCard(
     typo: sh.kavi.fasttravel.core.ParseOutput.TypoResult,
     onAccept: () -> Unit,
-    onGoogle: () -> Unit,
+    onFallbackSearch: () -> Unit,
     onIgnore: () -> Unit,
 ) {
     Card(
@@ -1358,13 +1358,13 @@ fun TypoSuggestionCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Secondary: fall through to Google
+            // Secondary: fall through to a plain search on the default engine
             OutlinedButton(
-                onClick = onGoogle,
+                onClick = onFallbackSearch,
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics {
-                        contentDescription = "Search on Google instead"
+                        contentDescription = "Search instead"
                     },
             ) {
                 Row(

@@ -488,6 +488,7 @@ function makeDefaultRedirect(
       };
     }
   }
+  // Unreachable with a valid config: defaultCommand could not be resolved.
   return {
     type: "redirect",
     url: "https://www.google.com",
@@ -516,7 +517,18 @@ function makeDefaultSearch(
         matchType: "default-search",
       };
     }
+    // Default command resolves but has no searchUrl for this device — land on
+    // its home page rather than assuming a specific engine.
+    if (route) {
+      return {
+        type: "redirect",
+        url: route.defaultUrl,
+        commandId: defaultCmd.id,
+        matchType: "default-search",
+      };
+    }
   }
+  // Unreachable with a valid config: defaultCommand could not be resolved.
   return {
     type: "redirect",
     url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
