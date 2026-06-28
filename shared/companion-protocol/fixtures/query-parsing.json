@@ -1,0 +1,204 @@
+{
+  "cases": [
+    {
+      "name": "single term – simple",
+      "query": "report",
+      "queryMode": "simple",
+      "ast": {
+        "op": "term",
+        "field": "name",
+        "value": "report",
+        "wildcard": false
+      }
+    },
+    {
+      "name": "two terms AND – simple",
+      "query": "annual report",
+      "queryMode": "simple",
+      "ast": {
+        "op": "and",
+        "nodes": [
+          { "op": "term", "field": "name", "value": "annual", "wildcard": false },
+          { "op": "term", "field": "name", "value": "report", "wildcard": false }
+        ]
+      }
+    },
+    {
+      "name": "OR with keyword – simple",
+      "query": "cat OR dog",
+      "queryMode": "simple",
+      "ast": {
+        "op": "or",
+        "nodes": [
+          { "op": "term", "field": "name", "value": "cat", "wildcard": false },
+          { "op": "term", "field": "name", "value": "dog", "wildcard": false }
+        ]
+      }
+    },
+    {
+      "name": "OR with pipe + AND precedence – wildcard",
+      "query": "a b | c d",
+      "queryMode": "wildcard",
+      "ast": {
+        "op": "or",
+        "nodes": [
+          {
+            "op": "and",
+            "nodes": [
+              { "op": "term", "field": "name", "value": "a", "wildcard": false },
+              { "op": "term", "field": "name", "value": "b", "wildcard": false }
+            ]
+          },
+          {
+            "op": "and",
+            "nodes": [
+              { "op": "term", "field": "name", "value": "c", "wildcard": false },
+              { "op": "term", "field": "name", "value": "d", "wildcard": false }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "NOT with dash – simple",
+      "query": "report -draft",
+      "queryMode": "simple",
+      "ast": {
+        "op": "and",
+        "nodes": [
+          { "op": "term", "field": "name", "value": "report", "wildcard": false },
+          {
+            "op": "not",
+            "node": { "op": "term", "field": "name", "value": "draft", "wildcard": false }
+          }
+        ]
+      }
+    },
+    {
+      "name": "NOT with bang – wildcard",
+      "query": "report !draft",
+      "queryMode": "wildcard",
+      "ast": {
+        "op": "and",
+        "nodes": [
+          { "op": "term", "field": "name", "value": "report", "wildcard": false },
+          {
+            "op": "not",
+            "node": { "op": "term", "field": "name", "value": "draft", "wildcard": false }
+          }
+        ]
+      }
+    },
+    {
+      "name": "phrase – simple",
+      "query": "\"final report\"",
+      "queryMode": "simple",
+      "ast": {
+        "op": "phrase",
+        "field": "name",
+        "value": "final report"
+      }
+    },
+    {
+      "name": "path scope term – simple",
+      "query": "path:projects",
+      "queryMode": "simple",
+      "ast": {
+        "op": "term",
+        "field": "path",
+        "value": "projects",
+        "wildcard": false
+      }
+    },
+    {
+      "name": "path scope phrase – wildcard",
+      "query": "path:\"my docs\"",
+      "queryMode": "wildcard",
+      "ast": {
+        "op": "phrase",
+        "field": "path",
+        "value": "my docs"
+      }
+    },
+    {
+      "name": "wildcard glob – wildcard mode",
+      "query": "inv*.pdf",
+      "queryMode": "wildcard",
+      "ast": {
+        "op": "term",
+        "field": "name",
+        "value": "inv*.pdf",
+        "wildcard": true
+      }
+    },
+    {
+      "name": "wildcard literal in simple mode",
+      "query": "inv*.pdf",
+      "queryMode": "simple",
+      "ast": {
+        "op": "term",
+        "field": "name",
+        "value": "inv*.pdf",
+        "wildcard": false
+      }
+    },
+    {
+      "name": "path wildcard – wildcard mode",
+      "query": "path:*reports*",
+      "queryMode": "wildcard",
+      "ast": {
+        "op": "term",
+        "field": "path",
+        "value": "*reports*",
+        "wildcard": true
+      }
+    },
+    {
+      "name": "regex mode – name field",
+      "query": "^budget_\\d{4}\\.xlsx$",
+      "queryMode": "regex",
+      "ast": {
+        "op": "regex",
+        "field": "name",
+        "value": "^budget_\\d{4}\\.xlsx$"
+      }
+    },
+    {
+      "name": "regex mode – path field",
+      "query": "path:.*/invoices/.*",
+      "queryMode": "regex",
+      "ast": {
+        "op": "regex",
+        "field": "path",
+        "value": ".*/invoices/.*"
+      }
+    },
+    {
+      "name": "mixed – path scope + AND + OR + NOT – wildcard",
+      "query": "path:src foo OR bar -baz",
+      "queryMode": "wildcard",
+      "ast": {
+        "op": "or",
+        "nodes": [
+          {
+            "op": "and",
+            "nodes": [
+              { "op": "term", "field": "path", "value": "src", "wildcard": false },
+              { "op": "term", "field": "name", "value": "foo", "wildcard": false }
+            ]
+          },
+          {
+            "op": "and",
+            "nodes": [
+              { "op": "term", "field": "name", "value": "bar", "wildcard": false },
+              {
+                "op": "not",
+                "node": { "op": "term", "field": "name", "value": "baz", "wildcard": false }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

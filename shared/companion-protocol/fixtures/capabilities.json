@@ -1,0 +1,138 @@
+{
+  "cases": [
+    {
+      "name": "linux-kde – baloo default, plocate available (regex routed to plocate)",
+      "ping": {
+        "name": "fast-travel-companion",
+        "version": "1.0.0",
+        "protocolVersion": 1,
+        "os": "linux",
+        "paired": true,
+        "pairingOpen": false,
+        "defaultIndexer": "baloo",
+        "indexers": [
+          {
+            "id": "baloo",
+            "name": "KDE Baloo",
+            "available": true,
+            "capabilities": {
+              "booleanOps": true,
+              "prefixWildcard": true,
+              "infixWildcard": false,
+              "regex": false,
+              "pathScope": true,
+              "content": true
+            }
+          },
+          {
+            "id": "plocate",
+            "name": "plocate",
+            "available": true,
+            "capabilities": {
+              "booleanOps": false,
+              "prefixWildcard": true,
+              "infixWildcard": true,
+              "regex": true,
+              "pathScope": true,
+              "content": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "linux – plocate only, awaiting pairing",
+      "ping": {
+        "name": "fast-travel-companion",
+        "version": "1.0.0",
+        "protocolVersion": 1,
+        "os": "linux",
+        "paired": false,
+        "pairingOpen": true,
+        "defaultIndexer": "plocate",
+        "indexers": [
+          {
+            "id": "plocate",
+            "name": "plocate",
+            "available": true,
+            "capabilities": {
+              "booleanOps": false,
+              "prefixWildcard": true,
+              "infixWildcard": true,
+              "regex": true,
+              "pathScope": true,
+              "content": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "windows – wsearch default, Everything available",
+      "ping": {
+        "name": "fast-travel-companion",
+        "version": "1.0.0",
+        "protocolVersion": 1,
+        "os": "windows",
+        "paired": true,
+        "pairingOpen": false,
+        "defaultIndexer": "wsearch",
+        "indexers": [
+          {
+            "id": "wsearch",
+            "name": "Windows Search",
+            "available": true,
+            "capabilities": {
+              "booleanOps": true,
+              "prefixWildcard": true,
+              "infixWildcard": false,
+              "regex": false,
+              "pathScope": true,
+              "content": true
+            }
+          },
+          {
+            "id": "everything",
+            "name": "Everything",
+            "available": true,
+            "capabilities": {
+              "booleanOps": true,
+              "prefixWildcard": true,
+              "infixWildcard": true,
+              "regex": true,
+              "pathScope": true,
+              "content": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "android – MediaStore only, no regex",
+      "ping": {
+        "name": "fast-travel-companion",
+        "version": "1.0.0",
+        "protocolVersion": 1,
+        "os": "linux",
+        "paired": true,
+        "pairingOpen": false,
+        "defaultIndexer": "mediastore",
+        "indexers": [
+          {
+            "id": "mediastore",
+            "name": "Android MediaStore",
+            "available": true,
+            "capabilities": {
+              "booleanOps": false,
+              "prefixWildcard": true,
+              "infixWildcard": false,
+              "regex": false,
+              "pathScope": false,
+              "content": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

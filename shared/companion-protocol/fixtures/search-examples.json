@@ -1,0 +1,143 @@
+{
+  "cases": [
+    {
+      "name": "simple mode – annual report, multiple types",
+      "request": {
+        "query": "annual report",
+        "queryMode": "simple",
+        "sort": { "field": "relevance", "dir": "desc" },
+        "filters": { "types": ["document", "image"] },
+        "page": 0,
+        "pageSize": 10
+      },
+      "response": {
+        "results": [
+          {
+            "id": "/home/alice/Documents/annual-report-2024.pdf",
+            "name": "annual-report-2024.pdf",
+            "path": "/home/alice/Documents/annual-report-2024.pdf",
+            "dir": "/home/alice/Documents",
+            "ext": "pdf",
+            "mime": "application/pdf",
+            "type": "document",
+            "size": 1572864,
+            "createdAt": 1704067200000,
+            "modifiedAt": 1711929600000,
+            "score": 0.95
+          },
+          {
+            "id": "/home/alice/Documents/annual-report-2023.pdf",
+            "name": "annual-report-2023.pdf",
+            "path": "/home/alice/Documents/annual-report-2023.pdf",
+            "dir": "/home/alice/Documents",
+            "ext": "pdf",
+            "mime": "application/pdf",
+            "type": "document",
+            "size": 1441792,
+            "createdAt": 1672531200000,
+            "modifiedAt": 1680307200000,
+            "score": 0.82
+          },
+          {
+            "id": "/home/alice/Pictures/annual-report-cover.png",
+            "name": "annual-report-cover.png",
+            "path": "/home/alice/Pictures/annual-report-cover.png",
+            "dir": "/home/alice/Pictures",
+            "ext": "png",
+            "mime": "image/png",
+            "type": "image",
+            "size": 204800,
+            "createdAt": 1704067200000,
+            "modifiedAt": 1704067200000,
+            "score": 0.61
+          }
+        ],
+        "total": 3,
+        "page": 0,
+        "tookMs": 8,
+        "indexer": "baloo"
+      }
+    },
+    {
+      "name": "regex mode – degraded via plocate fallback",
+      "request": {
+        "query": "^budget_\\d{4}\\.xlsx$",
+        "queryMode": "regex",
+        "sort": { "field": "modified", "dir": "desc" },
+        "filters": {},
+        "page": 0,
+        "pageSize": 20
+      },
+      "response": {
+        "results": [
+          {
+            "id": "/home/bob/Finance/budget_2024.xlsx",
+            "name": "budget_2024.xlsx",
+            "path": "/home/bob/Finance/budget_2024.xlsx",
+            "dir": "/home/bob/Finance",
+            "ext": "xlsx",
+            "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "type": "document",
+            "size": 327680,
+            "createdAt": 1704067200000,
+            "modifiedAt": 1717200000000,
+            "score": 1.0
+          }
+        ],
+        "total": 1,
+        "page": 0,
+        "tookMs": 12,
+        "indexer": "plocate",
+        "degraded": true
+      }
+    },
+    {
+      "name": "wildcard mode – invoice files by path prefix",
+      "request": {
+        "query": "inv*.pdf",
+        "queryMode": "wildcard",
+        "sort": { "field": "modified", "dir": "desc" },
+        "filters": { "pathPrefix": "/home/bob/Invoices" },
+        "page": 0,
+        "pageSize": 50,
+        "history": [
+          "/home/bob/Invoices/invoice_2024_003.pdf"
+        ]
+      },
+      "response": {
+        "results": [
+          {
+            "id": "/home/bob/Invoices/invoice_2024_003.pdf",
+            "name": "invoice_2024_003.pdf",
+            "path": "/home/bob/Invoices/invoice_2024_003.pdf",
+            "dir": "/home/bob/Invoices",
+            "ext": "pdf",
+            "mime": "application/pdf",
+            "type": "document",
+            "size": 98304,
+            "createdAt": 1717200000000,
+            "modifiedAt": 1717200000000,
+            "score": 0.88
+          },
+          {
+            "id": "/home/bob/Invoices/invoice_2024_002.pdf",
+            "name": "invoice_2024_002.pdf",
+            "path": "/home/bob/Invoices/invoice_2024_002.pdf",
+            "dir": "/home/bob/Invoices",
+            "ext": "pdf",
+            "mime": "application/pdf",
+            "type": "document",
+            "size": 94208,
+            "createdAt": 1714521600000,
+            "modifiedAt": 1714521600000,
+            "score": 0.85
+          }
+        ],
+        "total": 2,
+        "page": 0,
+        "tookMs": 5,
+        "indexer": "plocate"
+      }
+    }
+  ]
+}

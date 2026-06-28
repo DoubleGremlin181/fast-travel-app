@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fast-travel.kavi.sh/companion-protocol.schema.json",
+  "title": "Fast Travel Companion Protocol",
+  "description": "Cross-platform JSON contract for the fast-travel local-search companion daemon. All HTTP endpoints live under /v1 on 127.0.0.1. Named types in $defs are the authoritative source of truth for the Go companion, browser extension (TypeScript), and Android app (Kotlin).",
+  "$defs": {
+    "Capabilities": {
+      "type": "object",
+      "description": "Feature flags for an indexer. All fields are required booleans.",
+      "required": ["booleanOps", "prefixWildcard", "infixWildcard", "regex", "pathScope", "content"],
+      "properties": {
+        "booleanOps": {
+          "type": "boolean",
+          "description": "Supports OR / NOT natively at the indexer level."
+        },
+        "prefixWildcard": {
+          "type": "boolean",
+          "description": "Supports term* glob patterns."
+        },
+        "infixWildcard": {
+          "type": "boolean",
+          "description": "Supports *term* infix glob patterns."
+        },
+        "regex": {
+          "type": "boolean",
+          "description": "Supports full regular-expression queries natively."
+        },
+        "pathScope": {
+          "type": "boolean",
+          "description": "Can scope a query to a specific path or path prefix."
+        },
+        "content": {
+          "type": "boolean",
+          "description": "Supports full-text content search (not just file name)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "IndexerInfo": {
+      "type": "object",
+      "description": "Describes one search indexer available on the host.",
+      "required": ["id", "name", "available", "capabilities"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable machine id. Well-known values: baloo, tracker, plocate, wsearch, everything, mediastore."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable label, e.g. \"KDE Baloo\"."
+        },
+        "available": {
+          "type": "boolean",
+          "description": "Whether the indexer is installed and its daemon/service is reachable."
+        },
+        "capabilities": {
+          "$ref": "#/$defs/Capabilities"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PingResponse": {
+      "type": "object",
+      "description": "Response from GET /v1/ping. Always returned without authentication.",
+      "required": ["name", "version", "protocolVersion", "os", "paired", "pairingOpen", "defaultIndexer", "indexers"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Companion binary name, e.g. \"fast-travel-companion\"."
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Semver version of the companion binary, e.g. \"1.0.0\"."
+        },
+        "protocolVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Protocol schema version. Starts at 1. The extension enforces a minimum and refuses older companions."
+        },
+        "os": {
+          "enum": ["linux", "windows", "macos"],
+          "description": "Operating system of the host running the companion. Android reports \"linux\" (Android runs on Linux kernel)."
+        },
+        "paired": {
+          "type": "boolean",
+          "description": "Whether the calling client has a valid pairing token."
+        },
+        "pairingOpen": {
+          "type": "boolean",
+          "description": "Whether the companion's pairing window is currently open and accepting new pairs."
+        },
+        "defaultIndexer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Id of the indexer used by default for search requests."
+        },
+        "indexers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IndexerInfo"
+          },
+          "description": "All indexers discovered on this host, available or not."
+        }
+      },
+      "additionalProperties": false
+    },
+    "PairRequest": {
+      "type": "object",
+      "description": "Body of POST /v1/pair. Requires the pairing window to be open.",
+      "required": ["clientName"],
+      "properties": {
+        "clientName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable name for the client, e.g. \"Fast Travel (Chrome)\"."
+        }
+      },
+      "additionalProperties": false
+    },
+    "PairResponse": {
+      "type": "object",
+      "description": "Successful response from POST /v1/pair.",
+      "required": ["token"],
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Bearer token to include in subsequent authenticated requests."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Sort": {
+      "type": "object",
+      "description": "Sort order for search results.",
+      "required": ["field", "dir"],
+      "properties": {
+        "field": {
+          "enum": ["relevance", "created", "modified"],
+          "description": "Field to sort by."
+        },
+        "dir": {
+          "enum": ["asc", "desc"],
+          "description": "Sort direction."
+        }
+      },
+      "additionalProperties": false
+    },
+    "DateRange": {
+      "type": "object",
+      "description": "Inclusive date range in epoch milliseconds. Omitting a bound leaves that end open.",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Start of range (epoch ms, inclusive). Omit for open start."
+        },
+        "to": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "End of range (epoch ms, inclusive). Omit for open end."
+        }
+      },
+      "additionalProperties": false
+    },
+    "Filters": {
+      "type": "object",
+      "description": "Optional filters applied server-side before pagination. All fields are optional.",
+      "properties": {
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileType"
+          },
+          "description": "Restrict results to these file-type categories."
+        },
+        "createdRange": {
+          "$ref": "#/$defs/DateRange",
+          "description": "Restrict to files created within this range."
+        },
+        "modifiedRange": {
+          "$ref": "#/$defs/DateRange",
+          "description": "Restrict to files last modified within this range."
+        },
+        "pathPrefix": {
+          "type": "string",
+          "description": "Restrict results to files whose absolute path starts with this prefix."
+        },
+        "titleOnly": {
+          "type": "boolean",
+          "description": "When true, match the file name only; ignore path and content fields."
+        },
+        "content": {
+          "type": "boolean",
+          "description": "When true, include content matches. Only honoured when the active indexer's capabilities.content is true."
+        }
+      },
+      "additionalProperties": false
+    },
+    "SearchRequest": {
+      "type": "object",
+      "description": "Body of POST /v1/search. Requires Bearer token.",
+      "required": ["query", "queryMode", "sort", "filters", "page", "pageSize"],
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Raw user query in the mini-syntax (see README §2)."
+        },
+        "queryMode": {
+          "enum": ["simple", "wildcard", "regex"],
+          "description": "Parsing mode. simple: wildcards are literals. wildcard: * and ? are globs. regex: query is a regex; no AND/OR/NOT tokenization."
+        },
+        "sort": {
+          "$ref": "#/$defs/Sort"
+        },
+        "filters": {
+          "$ref": "#/$defs/Filters"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based page number."
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Number of results per page."
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of recently opened result ids (FileResult.id). The companion may boost these for recency re-ranking."
+        }
+      },
+      "additionalProperties": false
+    },
+    "FileType": {
+      "enum": ["document", "image", "video", "audio", "archive", "code", "folder", "other"],
+      "description": "Broad file-type category used in FileResult.type and Filters.types."
+    },
+    "FileResult": {
+      "type": "object",
+      "description": "A single file match returned by /v1/search. FileResult.id is the absolute path of the file. Implementations that cannot guarantee a stable absolute path may use a deterministic hash of it, but must document the choice.",
+      "required": ["id", "name", "path", "dir", "ext", "mime", "type", "size", "createdAt", "modifiedAt", "score"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable result id. Canonical choice is the absolute path (e.g. /home/alice/docs/report.pdf). If using a hash, document the hash function."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "File name including extension, e.g. \"report.pdf\"."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path to the file, e.g. \"/home/alice/docs/report.pdf\"."
+        },
+        "dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path to the parent directory, e.g. \"/home/alice/docs\"."
+        },
+        "ext": {
+          "type": "string",
+          "description": "Lowercase file extension without the leading dot, e.g. \"pdf\". Empty string for files with no extension."
+        },
+        "mime": {
+          "type": "string",
+          "description": "Best-effort MIME type, e.g. \"application/pdf\". Empty string when unknown."
+        },
+        "type": {
+          "$ref": "#/$defs/FileType"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "File size in bytes. 0 for folders."
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Creation timestamp in epoch milliseconds. 0 when the platform does not expose ctime."
+        },
+        "modifiedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Last-modified timestamp in epoch milliseconds. 0 when unknown."
+        },
+        "score": {
+          "type": "number",
+          "description": "Ranking score assigned by the indexer. Higher is better. Not comparable across indexers."
+        },
+        "iconHint": {
+          "type": "string",
+          "description": "Optional extra hint for icon selection, e.g. a MIME type or Android app package id."
+        }
+      },
+      "additionalProperties": false
+    },
+    "SearchResponse": {
+      "type": "object",
+      "description": "Successful response from POST /v1/search.",
+      "required": ["results", "total", "page", "tookMs", "indexer"],
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FileResult"
+          },
+          "description": "Paginated result set."
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of matches before pagination."
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Zero-based page number of this response."
+        },
+        "tookMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Time taken to produce this response, in milliseconds."
+        },
+        "indexer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Id of the indexer that served this query. May differ from PingResponse.defaultIndexer when the companion routed a regex query to a capable fallback."
+        },
+        "degraded": {
+          "type": "boolean",
+          "description": "Optional. True when the requested query mode could not be served natively; results were filtered over a candidate set rather than the full index."
+        }
+      },
+      "additionalProperties": false
+    },
+    "OpenRequest": {
+      "type": "object",
+      "description": "Body of POST /v1/open. Requires Bearer token.",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute path of the file or folder to open."
+        },
+        "reveal": {
+          "type": "boolean",
+          "description": "Optional. When true, reveal the item in the file manager instead of opening it directly."
+        }
+      },
+      "additionalProperties": false
+    },
+    "OpenResponse": {
+      "type": "object",
+      "description": "Successful response from POST /v1/open.",
+      "required": ["ok"],
+      "properties": {
+        "ok": {
+          "const": true,
+          "description": "Always true on success."
+        }
+      },
+      "additionalProperties": false
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "description": "Error response returned by any endpoint on failure. HTTP status codes: unauthorized=401, pairing_closed=403, bad_request=400, indexer_unavailable=503, unsupported_mode=422, internal=500.",
+      "required": ["error", "message"],
+      "properties": {
+        "error": {
+          "enum": ["unauthorized", "pairing_closed", "bad_request", "indexer_unavailable", "unsupported_mode", "internal"],
+          "description": "Machine-readable error code."
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable description of the error."
+        }
+      },
+      "additionalProperties": false
+    },
+    "AstNode": {
+      "description": "A node in the parsed query AST. Produced by parsing a SearchRequest.query string under the mini-syntax rules (see README §2). The AST is the normalized, canonical representation used by all three implementations.",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "Logical AND: all child nodes must match. Children are flattened (no nested ands).",
+          "required": ["op", "nodes"],
+          "properties": {
+            "op": { "const": "and" },
+            "nodes": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "$ref": "#/$defs/AstNode" }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "Logical OR: at least one child node must match. AND binds tighter: 'a b OR c d' parses as (a AND b) OR (c AND d).",
+          "required": ["op", "nodes"],
+          "properties": {
+            "op": { "const": "or" },
+            "nodes": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "$ref": "#/$defs/AstNode" }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "Logical NOT: the child node must not match. Produced by a leading - or ! on a term.",
+          "required": ["op", "node"],
+          "properties": {
+            "op": { "const": "not" },
+            "node": { "$ref": "#/$defs/AstNode" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "A single term matched against a field. In wildcard mode, wildcard:true if the value contains * or ?. In simple mode, wildcard is always false.",
+          "required": ["op", "field", "value", "wildcard"],
+          "properties": {
+            "op": { "const": "term" },
+            "field": {
+              "enum": ["name", "path"],
+              "description": "Field to match against. path: prefix in the query sets this to \"path\"."
+            },
+            "value": {
+              "type": "string",
+              "description": "The term string (with path: prefix stripped)."
+            },
+            "wildcard": {
+              "type": "boolean",
+              "description": "True only in wildcard mode when the value contains * or ?."
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "A quoted phrase matched as a contiguous sequence of words against a field.",
+          "required": ["op", "field", "value"],
+          "properties": {
+            "op": { "const": "phrase" },
+            "field": {
+              "enum": ["name", "path"]
+            },
+            "value": {
+              "type": "string",
+              "description": "The phrase content (without surrounding quotes)."
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "description": "A regular expression (regex mode only). No AND/OR/NOT tokenization occurs; the entire query string is the regex value.",
+          "required": ["op", "field", "value"],
+          "properties": {
+            "op": { "const": "regex" },
+            "field": {
+              "enum": ["name", "path"],
+              "description": "\"path\" when query starts with path:, otherwise \"name\"."
+            },
+            "value": {
+              "type": "string",
+              "description": "The regex string (with path: prefix stripped if present)."
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}
