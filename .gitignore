@@ -79,3 +79,6 @@ yarn-error.log
 # Environment files
 .env
 .env.*
+
+# Subagent-driven-development scratch
+.superpowers/
