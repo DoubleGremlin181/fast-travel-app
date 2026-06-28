@@ -179,3 +179,107 @@ func TestRegexPattern_ANDNode_False(t *testing.T) {
 		t.Error("expected ok=false for and node")
 	}
 }
+
+// --- RegexSeeds ---
+
+func TestRegexSeeds_PlainLiteral(t *testing.T) {
+	seeds, broad := index.RegexSeeds("report")
+	if broad {
+		t.Fatal("expected broad=false")
+	}
+	if len(seeds) != 1 || seeds[0] != "report" {
+		t.Errorf("seeds=%v want [report]", seeds)
+	}
+}
+
+func TestRegexSeeds_BudgetPattern(t *testing.T) {
+	// ^budget_\d{4}\.xlsx$ — longest required run is "budget_" (breaks at \d)
+	seeds, broad := index.RegexSeeds(`^budget_\d{4}\.xlsx$`)
+	if broad {
+		t.Fatal("expected broad=false")
+	}
+	if len(seeds) != 1 || seeds[0] != "budget_" {
+		t.Errorf("seeds=%v want [budget_]", seeds)
+	}
+}
+
+func TestRegexSeeds_Alternation(t *testing.T) {
+	// foo|bar — two seeds
+	seeds, broad := index.RegexSeeds("foo|bar")
+	if broad {
+		t.Fatal("expected broad=false")
+	}
+	if len(seeds) != 2 {
+		t.Fatalf("len(seeds)=%d want 2; seeds=%v", len(seeds), seeds)
+	}
+	has := func(s string) bool {
+		for _, v := range seeds {
+			if v == s {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("foo") || !has("bar") {
+		t.Errorf("seeds=%v; want both foo and bar", seeds)
+	}
+}
+
+func TestRegexSeeds_SingleCharAlternation_Broad(t *testing.T) {
+	// a|.* — "a" is len 1 (< 2), so broad=true
+	_, broad := index.RegexSeeds(`a|.*`)
+	if !broad {
+		t.Error("expected broad=true (one alternative has no usable literal)")
+	}
+}
+
+func TestRegexSeeds_WildcardOnly_Broad(t *testing.T) {
+	_, broad := index.RegexSeeds(`^.*$`)
+	if !broad {
+		t.Error("expected broad=true for ^.*$")
+	}
+}
+
+func TestRegexSeeds_EscapedDotPattern(t *testing.T) {
+	// inv\.pdf — \. is a literal dot; longest run is "inv.pdf"
+	seeds, broad := index.RegexSeeds(`inv\.pdf`)
+	if broad {
+		t.Fatalf("expected broad=false; seeds=%v", seeds)
+	}
+	if len(seeds) != 1 {
+		t.Fatalf("len(seeds)=%d want 1; seeds=%v", len(seeds), seeds)
+	}
+	if seeds[0] != "inv.pdf" {
+		t.Errorf("seed=%q want inv.pdf", seeds[0])
+	}
+}
+
+func TestRegexSeeds_CharClassPrefix(t *testing.T) {
+	// [ab]cdef — char class breaks run, "cdef" is the longest required run
+	seeds, broad := index.RegexSeeds("[ab]cdef")
+	if broad {
+		t.Fatal("expected broad=false")
+	}
+	if len(seeds) != 1 || seeds[0] != "cdef" {
+		t.Errorf("seeds=%v want [cdef]", seeds)
+	}
+}
+
+func TestRegexSeeds_Deduplication(t *testing.T) {
+	// same seed from two branches → deduplicated
+	seeds, broad := index.RegexSeeds("foo|foo")
+	if broad {
+		t.Fatal("expected broad=false")
+	}
+	if len(seeds) != 1 || seeds[0] != "foo" {
+		t.Errorf("seeds=%v want [foo] (deduplicated)", seeds)
+	}
+}
+
+func TestRegexSeeds_FlatOR_ThreeBranches(t *testing.T) {
+	// a | b | c — each branch is len 1 → broad=true
+	_, broad := index.RegexSeeds("a|b|c")
+	if !broad {
+		t.Error("expected broad=true for single-char alternation branches")
+	}
+}

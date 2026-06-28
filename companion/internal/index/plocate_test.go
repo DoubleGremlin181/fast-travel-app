@@ -2,6 +2,7 @@ package index_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,13 +22,18 @@ type runCall struct {
 // fakeRunner records calls and returns pre-canned stdout strings in order.
 // Once the stdouts slice is exhausted, the last element is repeated.
 // An empty stdouts slice always returns nil output.
+// If returnErr is non-nil it is returned from every Run call (no output).
 type fakeRunner struct {
-	calls   []runCall
-	stdouts []string
+	calls     []runCall
+	stdouts   []string
+	returnErr error
 }
 
 func (f *fakeRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
 	f.calls = append(f.calls, runCall{name: name, args: args})
+	if f.returnErr != nil {
+		return nil, f.returnErr
+	}
 	if len(f.stdouts) == 0 {
 		return nil, nil
 	}
@@ -102,20 +108,22 @@ func TestPlocate_IDAndName(t *testing.T) {
 }
 
 func TestPlocate_RegexMode_Command(t *testing.T) {
+	// inv.*\.pdf → longest required literal run is ".pdf" (4); seed not the raw pattern.
 	dir := t.TempDir()
 	f := filepath.Join(dir, "invoice.pdf")
 	writeTestFile(t, f)
 
 	fr := &fakeRunner{stdouts: []string{f + "\n"}}
 	idx := index.NewPlocateIndexer(fr)
+	idx.Bin = "plocate" // set explicitly so the assertion is deterministic in CI
 
 	ast, _ := query.Parse(`inv.*\.pdf`, query.ModeRegex)
 	results, degraded, err := idx.Query(context.Background(), ast, query.ModeRegex, protocol.SearchRequest{})
 	if err != nil {
 		t.Fatalf("Query: %v", err)
 	}
-	if degraded {
-		t.Error("expected degraded=false for regex mode")
+	if !degraded {
+		t.Error("expected degraded=true for regex mode (candidate set + post-filter)")
 	}
 	if len(results) != 1 {
 		t.Fatalf("got %d results, want 1", len(results))
@@ -126,11 +134,11 @@ func TestPlocate_RegexMode_Command(t *testing.T) {
 	}
 	call := fr.calls[0]
 
-	if call.name != idx.Bin {
-		t.Errorf("binary: got %q, want %q", call.name, idx.Bin)
+	if call.name != "plocate" {
+		t.Errorf("binary: got %q, want plocate", call.name)
 	}
-	if !argsContain(call.args, "--regexp") {
-		t.Error("expected --regexp flag in regex mode")
+	if argsContain(call.args, "--regexp") {
+		t.Error("regex mode must NOT use --regexp (RE2 vs BRE incompatibility)")
 	}
 	if !argsContain(call.args, "-i") {
 		t.Error("expected -i (case-insensitive) flag")
@@ -139,15 +147,16 @@ func TestPlocate_RegexMode_Command(t *testing.T) {
 		t.Error("expected limit 500")
 	}
 	ddIdx := argIndex(call.args, "--")
-	patIdx := argIndex(call.args, `inv.*\.pdf`)
 	if ddIdx < 0 {
 		t.Fatal("expected -- in args")
 	}
-	if patIdx < 0 {
-		t.Fatal("expected regex pattern in args")
+	// Seed must come after -- and must NOT be the raw RE2 pattern.
+	lastArg := call.args[len(call.args)-1]
+	if lastArg == `inv.*\.pdf` {
+		t.Errorf("raw RE2 pattern passed to plocate (BRE incompatible): %q", lastArg)
 	}
-	if ddIdx >= patIdx {
-		t.Error("-- must appear before the pattern")
+	if argIndex(call.args, lastArg) <= ddIdx {
+		t.Error("seed must appear after --")
 	}
 }
 
@@ -317,5 +326,117 @@ func TestPlocate_ResultsNeverNil(t *testing.T) {
 	}
 	if results == nil {
 		t.Error("results must never be nil")
+	}
+}
+
+func TestPlocate_RegexMode_BroadFallback(t *testing.T) {
+	// ^.*$ has no required literal ≥ 2 chars → broad → "/" whole-index scan.
+	dir := t.TempDir()
+	f := filepath.Join(dir, "anything.txt")
+	writeTestFile(t, f)
+
+	fr := &fakeRunner{stdouts: []string{f + "\n"}}
+	idx := index.NewPlocateIndexer(fr)
+	idx.Bin = "plocate"
+
+	ast, _ := query.Parse(`^.*$`, query.ModeRegex)
+	_, degraded, err := idx.Query(context.Background(), ast, query.ModeRegex, protocol.SearchRequest{})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if !degraded {
+		t.Error("expected degraded=true for broad regex fallback")
+	}
+	if len(fr.calls) != 1 {
+		t.Fatalf("expected 1 runner call, got %d", len(fr.calls))
+	}
+	call := fr.calls[0]
+	lastArg := call.args[len(call.args)-1]
+	if lastArg != "/" {
+		t.Errorf("broad fallback must query '/', got %q", lastArg)
+	}
+	if argsContain(call.args, "--regexp") {
+		t.Error("broad fallback must NOT use --regexp")
+	}
+}
+
+func TestPlocate_RegexMode_AlternationSeeds(t *testing.T) {
+	// foo|bar → two seeds → two substring queries, results unioned.
+	dir := t.TempDir()
+	f1 := filepath.Join(dir, "foo.txt")
+	f2 := filepath.Join(dir, "bar.txt")
+	writeTestFile(t, f1)
+	writeTestFile(t, f2)
+
+	fr := &fakeRunner{stdouts: []string{f1 + "\n", f2 + "\n"}}
+	idx := index.NewPlocateIndexer(fr)
+	idx.Bin = "plocate"
+
+	ast, _ := query.Parse(`foo|bar`, query.ModeRegex)
+	results, degraded, err := idx.Query(context.Background(), ast, query.ModeRegex, protocol.SearchRequest{})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if !degraded {
+		t.Error("expected degraded=true for regex alternation mode")
+	}
+	if len(fr.calls) != 2 {
+		t.Fatalf("expected 2 runner calls (one per alternation seed), got %d", len(fr.calls))
+	}
+	seed0 := fr.calls[0].args[len(fr.calls[0].args)-1]
+	seed1 := fr.calls[1].args[len(fr.calls[1].args)-1]
+	if (seed0 != "foo" || seed1 != "bar") && (seed0 != "bar" || seed1 != "foo") {
+		t.Errorf("expected seeds foo and bar, got %q and %q", seed0, seed1)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results (union of branches), got %d", len(results))
+	}
+}
+
+func TestPlocate_RegexMode_DegradedTrue(t *testing.T) {
+	// Any regex query returns degraded=true regardless of seed extraction.
+	dir := t.TempDir()
+	f := filepath.Join(dir, "report.pdf")
+	writeTestFile(t, f)
+
+	fr := &fakeRunner{stdouts: []string{f + "\n"}}
+	idx := index.NewPlocateIndexer(fr)
+
+	ast, _ := query.Parse(`report`, query.ModeRegex)
+	_, degraded, err := idx.Query(context.Background(), ast, query.ModeRegex, protocol.SearchRequest{})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if !degraded {
+		t.Error("expected degraded=true for all regex mode queries")
+	}
+}
+
+func TestPlocate_RunnerError_RegexMode(t *testing.T) {
+	// Runner errors in regex mode must propagate to the caller.
+	fr := &fakeRunner{returnErr: errors.New("plocate: database not found")}
+	idx := index.NewPlocateIndexer(fr)
+	idx.Bin = "plocate"
+
+	ast, _ := query.Parse(`report`, query.ModeRegex)
+	_, _, err := idx.Query(context.Background(), ast, query.ModeRegex, protocol.SearchRequest{})
+	if err == nil {
+		t.Error("expected runner error to propagate in regex mode")
+	}
+}
+
+func TestPlocate_RunnerError_SubstringMode(t *testing.T) {
+	// Runner errors in substring mode are silently skipped (branch skipped → empty results).
+	fr := &fakeRunner{returnErr: errors.New("plocate: database not found")}
+	idx := index.NewPlocateIndexer(fr)
+	idx.Bin = "plocate"
+
+	ast, _ := query.Parse("report", query.ModeSimple)
+	results, _, err := idx.Query(context.Background(), ast, query.ModeSimple, protocol.SearchRequest{})
+	if err != nil {
+		t.Errorf("substring mode swallows runner errors; got unexpected error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results when runner errors; got %d", len(results))
 	}
 }

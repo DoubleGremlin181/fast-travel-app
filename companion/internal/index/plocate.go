@@ -43,7 +43,7 @@ func (p *PlocateIndexer) Available() bool { return p.avail }
 //   - BooleanOps: false  — plocate matches one pattern at a time
 //   - PrefixWildcard: true — plocate accepts glob patterns
 //   - InfixWildcard: true  — plocate accepts glob patterns
-//   - Regex: true          — plocate --regexp / --regex
+//   - Regex: true          — regex queries handled via literal-seed substring fallback
 //   - PathScope: true      — plocate always matches on the full path
 //   - Content: false       — plocate is a path-name index only
 func (p *PlocateIndexer) Capabilities() protocol.Capabilities {
@@ -59,8 +59,20 @@ func (p *PlocateIndexer) Capabilities() protocol.Capabilities {
 
 // Query returns candidate FileResults from the plocate index.
 //
-// Regex mode: issues a single `<bin> --regexp -i -l 500 -- <pattern>` call.
-// plocate handles BRE regex natively; degraded is false.
+// Regex mode: plocate's --regexp flag speaks POSIX BRE, which is incompatible
+// with Go RE2 syntax (\d, {n}, (?:…), (?i) etc.). Passing a raw RE2 pattern to
+// --regexp causes plocate to under-return, silently dropping true matches before
+// the pipeline's RE2 matcher sees them.
+//
+// Instead, RegexSeeds extracts the longest recall-safe literal substring(s) from
+// the pattern and issues ordinary substring queries:
+//   - If seeds are found, one substring query per seed; results are unioned.
+//   - If the pattern has no required literal of length ≥ 2 (broad=true), a single
+//     "/" query is used — every absolute path contains "/" — capping the candidate
+//     set at plocateLimit entries for the RE2 matcher to filter.
+//
+// degraded=true for all regex queries: results are a candidate superset, not a
+// definitive index match.
 //
 // Substring mode: for each OR branch that has a positive literal seed, issues
 // one `<bin> -i -l 500 -- <seed>` call (case-insensitive substring match on
@@ -71,11 +83,29 @@ func (p *PlocateIndexer) Capabilities() protocol.Capabilities {
 // Normalize (stale index entries) are silently dropped.
 func (p *PlocateIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode, _ protocol.SearchRequest) ([]protocol.FileResult, bool, error) {
 	if pat, ok := RegexPattern(ast); ok {
-		out, err := p.runner.Run(ctx, p.Bin, "--regexp", "-i", "-l", plocateLimit, "--", pat)
-		if err != nil {
-			return nil, false, err
+		seeds, broad := RegexSeeds(pat)
+		var all []string
+		if broad {
+			// No required literal ≥ 2 chars: fall back to a capped whole-index scan
+			// using "/" as the seed (every absolute path contains "/"). The RE2
+			// matcher in the pipeline performs precision filtering over this superset.
+			out, err := p.runner.Run(ctx, p.Bin, "-i", "-l", plocateLimit, "--", "/")
+			if err != nil {
+				return nil, true, err
+			}
+			all = parsePlocatePaths(out)
+		} else {
+			for _, seed := range seeds {
+				out, err := p.runner.Run(ctx, p.Bin, "-i", "-l", plocateLimit, "--", seed)
+				if err != nil {
+					return nil, true, err
+				}
+				all = append(all, parsePlocatePaths(out)...)
+			}
 		}
-		return normalizeAndDedupe(parsePlocatePaths(out)), false, nil
+		// degraded=true: results are candidates from a substring superset query,
+		// not a true regex index match. The pipeline matcher filters for precision.
+		return normalizeAndDedupe(all), true, nil
 	}
 
 	// Substring mode: one invocation per OR branch with a resolvable seed.
