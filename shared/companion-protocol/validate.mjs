@@ -18,7 +18,7 @@ const QUERY_MODES = new Set(["simple", "wildcard", "regex"]);
 const SORT_FIELDS = new Set(["relevance", "created", "modified"]);
 const SORT_DIRS = new Set(["asc", "desc"]);
 const FILE_TYPES = new Set(["document", "image", "video", "audio", "archive", "code", "folder", "other"]);
-const OS_VALUES = new Set(["linux", "windows", "macos"]);
+const OS_VALUES = new Set(["linux", "windows", "macos", "android"]);
 const AST_OPS = new Set(["and", "or", "not", "term", "phrase", "regex"]);
 const AST_FIELDS = new Set(["name", "path"]);
 

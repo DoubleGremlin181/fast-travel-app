@@ -113,7 +113,7 @@
         "name": "fast-travel-companion",
         "version": "1.0.0",
         "protocolVersion": 1,
-        "os": "linux",
+        "os": "android",
         "paired": true,
         "pairingOpen": false,
         "defaultIndexer": "mediastore",

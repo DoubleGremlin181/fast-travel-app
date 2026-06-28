@@ -14,12 +14,17 @@ node shared/companion-protocol/validate.mjs
 
 Exit 0 = all fixtures pass; exit 1 = errors.  Use as a CI gate or pre-commit hook.
 
+**Note:** The enum constants inside `validate.mjs` (e.g., `OS_VALUES`, `QUERY_MODES`) mirror those in `protocol.schema.json` and must be kept in sync when the schema's enums change.
+
 ---
 
 ## Endpoints
 
-All endpoints are HTTP/JSON on `127.0.0.1`. The companion listens on a fixed local port
-(not yet specified here; tracked in the companion implementation task).
+All endpoints are HTTP/JSON on `127.0.0.1`.
+
+### Companion port
+
+The daemon listens on `127.0.0.1` at default port **7333**.  If that port is busy, it scans upward through **7333–7343**.  Clients discover the active port and capabilities via `GET /v1/ping`.
 
 | Method / Path   | Auth         | Request body  | Response body                    |
 |-----------------|--------------|---------------|----------------------------------|
@@ -152,9 +157,6 @@ platform scenarios:
 | Linux KDE | `baloo` | plocate available for regex routing |
 | Linux (plocate only) | `plocate` | No content search |
 | Windows | `wsearch` | Everything available for regex/wildcard |
-| Android | `mediastore` | Reports `os: "linux"` (Android kernel); no regex, no content |
+| Android | `mediastore` | Reports `os: "android"`; no regex, no content |
 
-> **Android OS value:** The companion protocol's `os` field has three values —
-> `"linux"`, `"windows"`, `"macos"`. An Android device reports `"linux"` because Android
-> runs on the Linux kernel.  Client code that needs to distinguish Android from a desktop
-> Linux host should check whether `defaultIndexer` is `"mediastore"`.
+> **Android detection:** Android devices report `os: "android"` in the `PingResponse`. The `defaultIndexer` is `"mediastore"` as a secondary signal.

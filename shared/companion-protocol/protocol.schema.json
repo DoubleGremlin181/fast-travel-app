@@ -82,8 +82,8 @@
           "description": "Protocol schema version. Starts at 1. The extension enforces a minimum and refuses older companions."
         },
         "os": {
-          "enum": ["linux", "windows", "macos"],
-          "description": "Operating system of the host running the companion. Android reports \"linux\" (Android runs on Linux kernel)."
+          "enum": ["linux", "windows", "macos", "android"],
+          "description": "Operating system of the host running the companion."
         },
         "paired": {
           "type": "boolean",
