@@ -240,6 +240,39 @@ func TestRegexSeeds_WildcardOnly_Broad(t *testing.T) {
 	}
 }
 
+func TestRegexSeeds_QuantifiedGroupSeedsOutsideGroup(t *testing.T) {
+	// (foo)*bar — "foo" is inside an optional group, so the only required
+	// literal is "bar". Seeding on "foo" would drop matches like "bar".
+	seeds, broad := index.RegexSeeds(`(foo)*bar`)
+	if broad {
+		t.Fatalf("expected broad=false; seeds=%v", seeds)
+	}
+	if len(seeds) != 1 || seeds[0] != "bar" {
+		t.Errorf("seeds=%v want [bar]", seeds)
+	}
+}
+
+func TestRegexSeeds_GroupLiteralsIgnored(t *testing.T) {
+	// (budget)_2024 — literals inside the group are never used as a required
+	// seed; the required top-level run is "_2024".
+	seeds, broad := index.RegexSeeds(`(budget)_2024`)
+	if broad {
+		t.Fatalf("expected broad=false; seeds=%v", seeds)
+	}
+	if len(seeds) != 1 || seeds[0] != "_2024" {
+		t.Errorf("seeds=%v want [_2024]", seeds)
+	}
+}
+
+func TestRegexSeeds_OnlyShortTopLevelLiterals_Broad(t *testing.T) {
+	// a(bc)*d — the only top-level literals are "a" and "d" (each len 1), so
+	// no usable seed exists and we must scan broadly (recall-safe fallback).
+	_, broad := index.RegexSeeds(`a(bc)*d`)
+	if !broad {
+		t.Error("expected broad=true for a(bc)*d")
+	}
+}
+
 func TestRegexSeeds_EscapedDotPattern(t *testing.T) {
 	// inv\.pdf — \. is a literal dot; longest run is "inv.pdf"
 	seeds, broad := index.RegexSeeds(`inv\.pdf`)

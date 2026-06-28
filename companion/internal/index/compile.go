@@ -167,6 +167,8 @@ func splitTopLevelAlternation(pattern string) []string {
 //   - Run-breakers (start a new empty run): '.', '[…]' (skip the class),
 //     '(', ')', '^', '$', any '\<letter>' escape (\d \w \s etc.).
 //   - Quantifiers on breaker elements are consumed but don't affect an empty run.
+//   - Only TOP-LEVEL literals (paren depth 0) are collected: a group (…) may be
+//     quantified/optional (e.g. (foo)*bar), so its contents are never required.
 func longestRequiredLiteralRun(alt string) string {
 	best := ""
 	cur := make([]byte, 0, 16)
@@ -204,6 +206,7 @@ func longestRequiredLiteralRun(alt string) string {
 		return i
 	}
 
+	depth := 0
 	i := 0
 	for i < len(alt) {
 		ch := alt[i]
@@ -216,7 +219,7 @@ func longestRequiredLiteralRun(alt string) string {
 				// these are class shorthands or zero-width assertions → break run.
 				endRun()
 				i = consumeQuantifier(i)
-			} else {
+			} else if depth == 0 {
 				// \. \* \( \) \\ \{ \} \+ \? \^ \$ etc. → literal symbol.
 				cur = append(cur, next)
 				if i < len(alt) {
@@ -263,7 +266,19 @@ func longestRequiredLiteralRun(alt string) string {
 			}
 			i = consumeQuantifier(i)
 
-		case '(', ')', '^', '$':
+		case '(':
+			depth++
+			endRun()
+			i++
+
+		case ')':
+			if depth > 0 {
+				depth--
+			}
+			endRun()
+			i++
+
+		case '^', '$':
 			endRun()
 			i++
 
@@ -278,20 +293,23 @@ func longestRequiredLiteralRun(alt string) string {
 			i = consumeQuantifier(i)
 
 		default:
-			// Regular literal character.
-			cur = append(cur, ch)
+			// Regular literal character — collected only at the top level
+			// (depth 0); characters inside a group (...) are never required.
 			i++
-			if i < len(alt) {
-				switch alt[i] {
-				case '*', '?':
-					dropLastAndEndRun()
-					i++
-				case '+':
-					endRun()
-					i++
-				case '{':
-					dropLastAndEndRun()
-					i = consumeQuantifier(i)
+			if depth == 0 {
+				cur = append(cur, ch)
+				if i < len(alt) {
+					switch alt[i] {
+					case '*', '?':
+						dropLastAndEndRun()
+						i++
+					case '+':
+						endRun()
+						i++
+					case '{':
+						dropLastAndEndRun()
+						i = consumeQuantifier(i)
+					}
 				}
 			}
 		}
