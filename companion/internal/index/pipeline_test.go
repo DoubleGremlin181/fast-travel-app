@@ -398,6 +398,124 @@ func TestSearch_NonNilEmptyResults(t *testing.T) {
 	}
 }
 
+// financeCorpus is a small fixture used by path-scope and regex-broadening tests.
+//
+//	g1 – "Finance" in path dir only; name is neutral
+//	g2 – "Finance" in name only; path dir is neutral (name appears in path but dir doesn't contain Finance)
+//	g3 – "Finance" in both name and path
+//	g4 – "Finance" nowhere
+//
+// NOTE: In g2, the Path field is set to a directory that does not contain the
+// word "Finance", so Path="/accounting/budget.xlsx" while Name="Finance_plan.xlsx".
+// This lets us distinguish name-only vs path-only matches cleanly.
+var financeCorpus = []protocol.FileResult{
+	{ID: "g1", Name: "quarterly.pdf", Path: "/Finance/quarterly.pdf", Dir: "/Finance", Ext: "pdf", Type: protocol.FileTypeDocument, ModifiedAt: ts1, CreatedAt: ts1},
+	{ID: "g2", Name: "Finance_plan.xlsx", Path: "/accounting/budget.xlsx", Dir: "/accounting", Ext: "xlsx", Type: protocol.FileTypeDocument, ModifiedAt: ts1, CreatedAt: ts1},
+	{ID: "g3", Name: "Finance_summary.pdf", Path: "/Finance/Finance_summary.pdf", Dir: "/Finance", Ext: "pdf", Type: protocol.FileTypeDocument, ModifiedAt: ts1, CreatedAt: ts1},
+	{ID: "g4", Name: "budget.csv", Path: "/other/budget.csv", Dir: "/other", Ext: "csv", Type: protocol.FileTypeDocument, ModifiedAt: ts1, CreatedAt: ts1},
+}
+
+// TestSearch_ExplicitPathScope verifies that an explicit path:-scoped term is
+// never broadened to also check the name field (TitleOnly=false), and that
+// TitleOnly=true coerces the path: leaf to a name check instead.
+func TestSearch_ExplicitPathScope(t *testing.T) {
+	idx := index.NewMemIndexer(financeCorpus, protocol.Capabilities{})
+
+	// TitleOnly=false: explicit path:Finance leaf stays path-scoped (broadenToPath
+	// only widens name-field leaves). So only files with "Finance" in their PATH
+	// match; a file with "Finance" only in its name does NOT match.
+	req := newSearch("path:Finance")
+	req.Filters.TitleOnly = false
+	resp, err := index.Search(context.Background(), idx, req)
+	if err != nil {
+		t.Fatalf("Search (path:Finance, TitleOnly=false): %v", err)
+	}
+	// g1 and g3 have Finance in their path → must match.
+	// g2 has Finance only in its name, not path → must NOT match.
+	// g4 has Finance nowhere → must NOT match.
+	foundG1, foundG3 := false, false
+	for _, r := range resp.Results {
+		switch r.ID {
+		case "g1":
+			foundG1 = true
+		case "g2":
+			t.Error("TitleOnly=false: g2 (Finance only in name, path lacks it) must NOT match explicit path:Finance — path: leaf must not be broadened to name")
+		case "g3":
+			foundG3 = true
+		case "g4":
+			t.Error("TitleOnly=false: g4 (Finance nowhere) must NOT match")
+		}
+	}
+	if !foundG1 {
+		t.Error("TitleOnly=false: g1 (Finance in path dir, not in name) must match explicit path:Finance")
+	}
+	if !foundG3 {
+		t.Error("TitleOnly=false: g3 (Finance in both name and path) must match explicit path:Finance")
+	}
+
+	// TitleOnly=true: coerceFieldsToName forces the path: leaf to evaluate
+	// against the name field. Outcome: g2 (Finance in name) and g3 (Finance in
+	// both) now match; g1 (Finance only in path dir, not in name) no longer does.
+	req.Filters.TitleOnly = true
+	resp, err = index.Search(context.Background(), idx, req)
+	if err != nil {
+		t.Fatalf("Search (path:Finance, TitleOnly=true): %v", err)
+	}
+	foundG2, foundG3 := false, false
+	for _, r := range resp.Results {
+		switch r.ID {
+		case "g1":
+			t.Error("TitleOnly=true: g1 (Finance only in path, not name) must NOT match once path: is coerced to name-check")
+		case "g2":
+			foundG2 = true
+		case "g3":
+			foundG3 = true
+		case "g4":
+			t.Error("TitleOnly=true: g4 (Finance nowhere) must NOT match")
+		}
+	}
+	if !foundG2 {
+		t.Error("TitleOnly=true: g2 (Finance in name) must match — path: leaf coerced to name-check")
+	}
+	if !foundG3 {
+		t.Error("TitleOnly=true: g3 (Finance in both name and path) must match")
+	}
+}
+
+// TestSearch_RegexPathBroadening verifies that a regex-mode query without an
+// explicit path: prefix is broadened to name-OR-path (TitleOnly=false), so a
+// file whose PATH matches the pattern is included even when the name does not.
+func TestSearch_RegexPathBroadening(t *testing.T) {
+	idx := index.NewMemIndexer(financeCorpus, protocol.Capabilities{})
+
+	// "Finance" in regex mode produces a regex leaf with field="name".
+	// broadenToPath then wraps it as OR(name-regex, path-regex), so g1
+	// (Finance in path dir, not in name) is returned.
+	req := newSearch("Finance")
+	req.QueryMode = query.ModeRegex
+	req.Filters.TitleOnly = false
+	resp, err := index.Search(context.Background(), idx, req)
+	if err != nil {
+		t.Fatalf("Search (regex Finance, TitleOnly=false): %v", err)
+	}
+	// g1 matches via path, g2 via name, g3 via both; g4 matches neither.
+	foundG1 := false
+	for _, r := range resp.Results {
+		switch r.ID {
+		case "g1":
+			foundG1 = true
+		case "g4":
+			t.Error("regex TitleOnly=false: g4 (Finance nowhere) must NOT match")
+		}
+	}
+	if !foundG1 {
+		t.Error("regex TitleOnly=false: g1 (Finance in path only) must match — regex leaves are broadened to name-OR-path")
+	}
+	if resp.Total != 3 {
+		t.Errorf("regex TitleOnly=false: want 3 results (g1, g2, g3), got %d: %v", resp.Total, resultIDs(resp.Results))
+	}
+}
+
 func TestSearch_EmptyQueryError(t *testing.T) {
 	idx := index.NewMemIndexer(testCorpus, protocol.Capabilities{})
 	req := protocol.SearchRequest{

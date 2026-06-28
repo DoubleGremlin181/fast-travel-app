@@ -147,7 +147,19 @@ See [`fixtures/query-parsing.json`](./fixtures/query-parsing.json) for the full 
 
 ---
 
-## 3. Capabilities matrix
+## 3. Matching semantics (normative)
+
+A query matches a file when the parsed AST matches the file's **name OR path** by default.
+The `titleOnly` filter restricts matching to the file **name** only (under `titleOnly`, all
+leaves — including `path:`-scoped ones — are evaluated against the name).
+A `path:`-scoped term matches the path.
+Ranking favors name matches over path-only matches.
+All implementations (the Go companion and the Android app) MUST follow these semantics so
+results are consistent across platforms.
+
+---
+
+## 4. Capabilities matrix
 
 See [`fixtures/capabilities.json`](./fixtures/capabilities.json) for the four documented
 platform scenarios:

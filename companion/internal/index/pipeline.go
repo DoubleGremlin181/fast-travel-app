@@ -84,7 +84,7 @@ func Search(ctx context.Context, idx Indexer, req protocol.SearchRequest) (proto
 			if hi > total {
 				hi = total
 			}
-			pageSlice = filtered[lo:hi]
+			pageSlice = append([]protocol.FileResult(nil), filtered[lo:hi]...)
 		}
 	}
 	if pageSlice == nil {
@@ -165,8 +165,10 @@ func coerceFieldsToName(n query.Node) query.Node {
 	}
 }
 
-// collectTerms recursively collects the Value of every term/phrase leaf in the
-// AST. Regex nodes are excluded — they don't contribute to name-bucket scoring.
+// collectTerms recursively collects the Value of every positive term/phrase leaf
+// in the AST. Regex nodes are excluded (they don't contribute to name-bucket
+// scoring). NOT subtrees are also skipped so negative terms like "-spam" in
+// "report -spam" never inflate a score.
 func collectTerms(n query.Node) []string {
 	var terms []string
 	var walk func(query.Node)
@@ -176,10 +178,7 @@ func collectTerms(n query.Node) []string {
 			for _, child := range n.Nodes {
 				walk(child)
 			}
-		case "not":
-			if n.Node != nil {
-				walk(*n.Node)
-			}
+		// "not": intentionally skipped — negative terms must not influence scoring.
 		case "term", "phrase":
 			terms = append(terms, n.Value)
 		// "regex": intentionally excluded from scoring
