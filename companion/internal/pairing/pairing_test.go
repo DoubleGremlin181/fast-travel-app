@@ -189,6 +189,10 @@ func TestAllowlistOriginPairsWithoutWindow(t *testing.T) {
 	if !m.Paired() {
 		t.Error("must be paired after successful auto-pair")
 	}
+	// End-to-end: allowlist-pair → authorize must work.
+	if !m.Authorize(allowed, tok) {
+		t.Error("expected Authorize true for allowlisted origin after pairing")
+	}
 }
 
 func TestUnknownOriginFailsWithAllowlistPresent(t *testing.T) {
@@ -332,19 +336,32 @@ func TestPersistenceRoundTrip(t *testing.T) {
 }
 
 func TestPersistenceFileMode(t *testing.T) {
-	dir := t.TempDir()
+	// Use a subdirectory that does not yet exist so that save() creates it via
+	// MkdirAll and we can verify the permissions our code sets, not the OS default.
+	dir := filepath.Join(t.TempDir(), "configdir")
 	m := newManager(t, dir, nil)
 	m.OpenPairingWindow(time.Minute)
 	_, err := m.Pair("chrome-extension://abc", "Browser A")
 	if err != nil {
 		t.Fatalf("Pair: %v", err)
 	}
+
+	// File must be 0600.
 	info, err := os.Stat(filepath.Join(dir, "pairing.json"))
 	if err != nil {
 		t.Fatalf("stat pairing.json: %v", err)
 	}
 	if mode := info.Mode().Perm(); mode != 0600 {
 		t.Errorf("expected file mode 0600, got %04o", mode)
+	}
+
+	// Config dir must be 0700.
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("stat config dir: %v", err)
+	}
+	if mode := dirInfo.Mode().Perm(); mode != 0700 {
+		t.Errorf("expected dir mode 0700, got %04o", mode)
 	}
 }
 
@@ -407,5 +424,44 @@ func TestUnpairIdempotent(t *testing.T) {
 	// Unpair when already unpaired must not error.
 	if err := m.Unpair(); err != nil {
 		t.Errorf("Unpair on unpaired Manager must not error: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Rollback on save failure
+// ---------------------------------------------------------------------------
+
+// TestPairRollsBackStateOnSaveFailure verifies that a Pair call that succeeds
+// in-memory but fails to persist leaves the Manager exactly as it was before
+// the call: the pairing window is not consumed and Paired() remains false.
+//
+// The save failure is forced by pre-creating pairing.json as a directory so
+// that os.WriteFile returns an error (is a directory).
+func TestPairRollsBackStateOnSaveFailure(t *testing.T) {
+	dir := t.TempDir()
+	m, err := pairing.NewWithClock(dir, nil, time.Now)
+	if err != nil {
+		t.Fatalf("NewWithClock: %v", err)
+	}
+	m.OpenPairingWindow(time.Minute)
+
+	// Pre-create pairing.json as a directory so WriteFile will fail.
+	pairingPath := filepath.Join(dir, "pairing.json")
+	if err := os.Mkdir(pairingPath, 0700); err != nil {
+		t.Fatalf("setup mkdir pairing.json: %v", err)
+	}
+
+	_, pairErr := m.Pair("chrome-extension://abc", "Browser A")
+	if pairErr == nil {
+		t.Fatal("expected Pair to return an error when save fails")
+	}
+
+	// Pairing window must NOT have been consumed — state rolled back.
+	if !m.PairingOpen() {
+		t.Error("PairingOpen() must still be true after save failure (window not consumed)")
+	}
+	// Token must NOT have been set — no in-memory token without persistence.
+	if m.Paired() {
+		t.Error("Paired() must be false after save failure (rollback)")
 	}
 }

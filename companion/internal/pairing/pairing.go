@@ -134,6 +134,14 @@ func (m *Manager) Pair(origin, clientName string) (string, error) {
 		return "", ErrPairingClosed
 	}
 
+	// Snapshot mutable fields so we can restore them atomically if save fails.
+	// This ensures a disk error cannot silently consume the pairing window or
+	// leave an in-memory token that was never persisted.
+	snapToken := m.token
+	snapClientName := m.clientName
+	snapOrigins := m.pairedOrigins
+	snapWindowExpiry := m.windowExpiry
+
 	// Mint a token on first pair; reuse the existing one thereafter so that
 	// multiple browsers share the same token and re-pairing is idempotent.
 	if m.token == "" {
@@ -154,6 +162,12 @@ func (m *Manager) Pair(origin, clientName string) (string, error) {
 	m.windowExpiry = time.Time{}
 
 	if err := m.save(); err != nil {
+		// Roll back all mutations so the Manager is exactly as it was before
+		// this call: PairingOpen()/Paired()/Authorize() must be unchanged.
+		m.token = snapToken
+		m.clientName = snapClientName
+		m.pairedOrigins = snapOrigins
+		m.windowExpiry = snapWindowExpiry
 		return "", err
 	}
 	return m.token, nil
