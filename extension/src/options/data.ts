@@ -21,18 +21,6 @@ export async function setConfig(cfg: FastTravelConfig): Promise<RefreshResult> {
   return result ?? { ok: false, reason: "No response from background" };
 }
 
-export async function getIgnoreList(): Promise<string[]> {
-  return (await chrome.runtime.sendMessage({ type: "getIgnoreList" })) ?? [];
-}
-
-export async function addToIgnoreList(value: string): Promise<string[]> {
-  return await chrome.runtime.sendMessage({ type: "addToIgnoreList", value });
-}
-
-export async function removeFromIgnoreList(value: string): Promise<string[]> {
-  return await chrome.runtime.sendMessage({ type: "removeFromIgnoreList", value });
-}
-
 export interface HistoryEntry {
   query: string;
   commandId: string | null;

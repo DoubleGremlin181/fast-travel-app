@@ -493,28 +493,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
   if (message.type === "getIgnoreList") {
+    // The config's BASELINE ignoreList only (normally empty). The user's own
+    // ignore additions live device-local in local-ignore-store and are merged
+    // at parse time — adding one must never write/dirty the config.
     getConfig().then((cfg) => sendResponse(cfg.ignoreList));
-    return true;
-  }
-  if (message.type === "addToIgnoreList") {
-    getConfig().then(async (cfg) => {
-      if (cfg.ignoreList.some((w: string) => w.toLowerCase() === message.value.trim().toLowerCase())) {
-        sendResponse(cfg.ignoreList); return;
-      }
-      const trimmed = message.value.trim().toLowerCase();
-      const next = { ...cfg, ignoreList: [...cfg.ignoreList, trimmed] };
-      await setConfig(next);
-      sendResponse(next.ignoreList);
-    });
-    return true;
-  }
-  if (message.type === "removeFromIgnoreList") {
-    getConfig().then(async (cfg) => {
-      const lower = message.value.trim().toLowerCase();
-      const next = { ...cfg, ignoreList: cfg.ignoreList.filter((w: string) => w.toLowerCase() !== lower) };
-      await setConfig(next);
-      sendResponse(next.ignoreList);
-    });
     return true;
   }
   if (message.type === "addHistory") {

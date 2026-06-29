@@ -21,6 +21,7 @@ import {
   type AutoIgnoreStore,
 } from "../core/auto-ignore-store.js";
 import { effectiveIgnoreList } from "../core/effective-ignore-list.js";
+import { addLocalIgnore, loadLocalIgnores } from "../core/local-ignore-store.js";
 import { rankByFrecency } from "../core/frecency.js";
 
 interface HistoryEntry {
@@ -89,19 +90,23 @@ let config: FastTravelConfig | null = null;
 // empty-input quick chips.
 let topChipHistory: HistoryEntry[] = [];
 let permanentIgnoreList: string[] = [];
+let localIgnores: string[] = [];
 let candidates: AutoIgnoreStore = {};
 let threshold = 3;
 let currentTypo: TypoResult | null = null;
 const device = detectDevice();
 
 async function refreshIgnoreState(): Promise<void> {
+  // Baseline ignoreList shipped in the config (normally empty) …
   permanentIgnoreList = (await chrome.runtime.sendMessage({ type: "getIgnoreList" })) ?? [];
+  // … plus the user's device-local additions (never written to the config).
+  localIgnores = await loadLocalIgnores();
   candidates = await loadCandidates();
   threshold = await getAutoIgnoreThreshold();
 }
 
 function currentEffectiveIgnoreList(): string[] {
-  return effectiveIgnoreList(permanentIgnoreList, candidates, threshold);
+  return effectiveIgnoreList(permanentIgnoreList, localIgnores, candidates, threshold);
 }
 
 // DOM
@@ -406,7 +411,11 @@ async function defaultSearch(): Promise<void> {
 async function ignoreTypo(): Promise<void> {
   if (!currentTypo) return;
   const trigger = currentTypo.originalQuery.split(/\s+/)[0].toLowerCase();
-  permanentIgnoreList = await chrome.runtime.sendMessage({ type: "addToIgnoreList", value: trigger });
+  // Add to the DEVICE-LOCAL ignore list (not the config) so a permanent ignore
+  // never dirties the config or pauses remote auto-refresh. Drop any auto-ignore
+  // candidate so the manual add wins.
+  await addLocalIgnore(trigger);
+  localIgnores = await loadLocalIgnores();
   await removeCandidate(trigger);
   candidates = await loadCandidates();
   hideTypo();

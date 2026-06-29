@@ -127,6 +127,7 @@ import sh.kavi.fasttravel.data.ConfigRefreshScheduler
 import sh.kavi.fasttravel.data.ConfigRepository
 import sh.kavi.fasttravel.data.ConfigValidator
 import sh.kavi.fasttravel.data.EditableConfigStore
+import sh.kavi.fasttravel.data.LocalIgnoreStore
 import sh.kavi.fasttravel.data.SearchHistory
 import sh.kavi.fasttravel.data.ThemePreferences
 import sh.kavi.fasttravel.data.allGroupIds
@@ -138,8 +139,6 @@ import sh.kavi.fasttravel.data.withGroupAdded
 import sh.kavi.fasttravel.data.withGroupDeleted
 import sh.kavi.fasttravel.data.withGroupMoved
 import sh.kavi.fasttravel.data.withGroupUpdated
-import sh.kavi.fasttravel.data.withIgnoreAdded
-import sh.kavi.fasttravel.data.withIgnoreRemoved
 import sh.kavi.fasttravel.ui.appearance.AppearanceMode
 import sh.kavi.fasttravel.ui.appearance.AppearanceShape
 import sh.kavi.fasttravel.ui.appearance.AppearanceVariant
@@ -307,7 +306,6 @@ fun SettingsNavHost(
             SettingsHomeScreen(
                 navController = navController,
                 onBack = onFinish,
-                config = config,
             )
         }
         composable(SettingsRoute.Appearance.route) {
@@ -427,9 +425,6 @@ fun SettingsNavHost(
         composable(SettingsRoute.IgnoreList.route) {
             IgnoreListScreen(
                 navController = navController,
-                config = config,
-                editableStore = editableStore,
-                onConfigChanged = refreshConfig,
                 snackbarHostState = snackbarHostState,
             )
         }
@@ -550,8 +545,10 @@ fun NavigableListItem(
 fun SettingsHomeScreen(
     navController: NavHostController,
     onBack: () -> Unit,
-    config: FastTravelConfig?,
 ) {
+    // The ignore-list count reflects the user's device-local list (read fresh each
+    // composition, so it updates when returning from the Ignore List screen).
+    val ignoreCount = LocalIgnoreStore(LocalContext.current).all().size
     Scaffold(
         topBar = { SettingsTopBar(title = "Settings", onBack = onBack) },
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
@@ -584,7 +581,7 @@ fun SettingsHomeScreen(
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 NavigableListItem(
                     headlineText = "Ignore list",
-                    supportingText = pluralize(config?.ignoreList?.size ?: 0, "item"),
+                    supportingText = pluralize(ignoreCount, "item"),
                     onClick = { navController.navigate(SettingsRoute.IgnoreList.route) },
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -1324,13 +1321,11 @@ private data class CandidateRow(
 @Composable
 fun IgnoreListScreen(
     navController: NavHostController,
-    config: FastTravelConfig?,
-    editableStore: EditableConfigStore,
-    onConfigChanged: () -> Unit,
     snackbarHostState: SnackbarHostState,
 ) {
     val context = LocalContext.current
     val autoIgnoreStore = remember { AutoIgnoreStore(context) }
+    val localIgnoreStore = remember { LocalIgnoreStore(context) }
     val themePrefs = remember { ThemePreferences(context) }
 
     var newItem by remember { mutableStateOf("") }
@@ -1344,9 +1339,12 @@ fun IgnoreListScreen(
     var candidateSheetFor by remember { mutableStateOf<CandidateRow?>(null) }
     var showResetDialog by remember { mutableStateOf(false) }
 
-    // Derived data
-    val permanentList: List<String> = remember(config, refreshTick) {
-        (config?.ignoreList.orEmpty()).map { it.lowercase() }.distinct().sorted()
+    // Derived data — the user's DEVICE-LOCAL ignore list (not the config baseline).
+    // Adding/removing here only touches the local store, so it never dirties the
+    // config or pauses remote auto-refresh. Common-words typo suppression is a
+    // separate, hidden mechanism and is intentionally not surfaced here.
+    val permanentList: List<String> = remember(refreshTick) {
+        localIgnoreStore.all().map { it.lowercase() }.distinct().sorted()
     }
     val candidateList: List<CandidateRow> = remember(refreshTick, threshold) {
         autoIgnoreStore.all().map { (trigger, c) ->
@@ -1361,38 +1359,25 @@ fun IgnoreListScreen(
 
     fun submitAdd() {
         if (newItem.isBlank()) return
-        val cfg = config ?: return
-        val trimmed = newItem.trim()
-        if (cfg.ignoreList.none { it.equals(trimmed, ignoreCase = true) }) {
-            editableStore.saveLocalConfig(cfg.withIgnoreAdded(trimmed))
-            markDirtyAndCancelRefresh(context, themePrefs)
-        }
+        // Device-local only — no config write, no dirty flag.
+        localIgnoreStore.add(newItem)
         // If the trigger was a candidate (possibly red-flagged), delete it so
         // manual add wins cleanly. Matches the design doc's "manual add
         // overrides red flag" rule.
-        autoIgnoreStore.remove(trimmed)
+        autoIgnoreStore.remove(newItem.trim())
         newItem = ""
-        onConfigChanged()
         refreshTick++
     }
 
     fun removePermanent(trigger: String) {
-        val cfg = config ?: return
-        editableStore.saveLocalConfig(cfg.withIgnoreRemoved(trigger))
-        markDirtyAndCancelRefresh(context, themePrefs)
+        localIgnoreStore.remove(trigger)
         // No counter side-effect: permanent entries never had active counters.
-        onConfigChanged()
         refreshTick++
     }
 
     fun confirmCandidate(trigger: String) {
-        val cfg = config ?: return
-        if (cfg.ignoreList.none { it.equals(trigger, ignoreCase = true) }) {
-            editableStore.saveLocalConfig(cfg.withIgnoreAdded(trigger))
-            markDirtyAndCancelRefresh(context, themePrefs)
-        }
+        localIgnoreStore.add(trigger)
         autoIgnoreStore.remove(trigger)
-        onConfigChanged()
         refreshTick++
     }
 
