@@ -107,6 +107,22 @@
               "searchUrl": "https://chat.openai.com/?q={query}"
             }
           ]
+        },
+        {
+          "id": "qq2",
+          "triggers": [
+            "qq2"
+          ],
+          "name": "Claude",
+          "type": "standard",
+          "iconUrl": "https://www.google.com/s2/favicons?domain=claude.ai&sz=128",
+          "routes": [
+            {
+              "devices": "*",
+              "defaultUrl": "https://claude.ai",
+              "searchUrl": "https://claude.ai/new?q={query}"
+            }
+          ]
         }
       ]
     },
