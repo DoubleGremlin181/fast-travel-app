@@ -24,9 +24,9 @@ import sh.kavi.fasttravel.core.parseInstalledAppId
 import sh.kavi.fasttravel.core.resolveIconUrl
 import sh.kavi.fasttravel.data.AutoIgnoreStore
 import sh.kavi.fasttravel.data.ConfigRepository
+import sh.kavi.fasttravel.data.LocalIgnoreStore
 import sh.kavi.fasttravel.data.SearchHistory
 import sh.kavi.fasttravel.data.ThemePreferences
-import sh.kavi.fasttravel.data.withIgnoreAdded
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -94,6 +94,10 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     // Auto-ignore tracking for false positive typos
     private val autoIgnoreStore = AutoIgnoreStore(application)
 
+    // User's device-local permanent ignore list (kept out of the config so it
+    // never dirties it / pauses remote auto-refresh).
+    private val localIgnoreStore = LocalIgnoreStore(application)
+
     init {
         loadCommonWords(application)
         themePrefs.registerListener(prefsListener)
@@ -136,6 +140,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private fun effectiveConfig(cfg: FastTravelConfig): FastTravelConfig {
         val effective = sh.kavi.fasttravel.core.effectiveIgnoreList(
             permanent = cfg.ignoreList,
+            local = localIgnoreStore.all(),
             candidates = autoIgnoreStore.all(),
             threshold = themePrefs.autoIgnoreThreshold,
         )
@@ -432,18 +437,12 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         if (state is SearchState.TypoSuggestion) {
             val trigger = state.typo.originalQuery.split(Regex("\\s+"))[0]
 
-            // Promote to permanent list + delete the candidate record (count + DNI).
-            viewModelScope.launch {
-                val store = sh.kavi.fasttravel.data.EditableConfigStore(getApplication())
-                val current = configRepository.getConfig()
-                if (current.ignoreList.none { it.equals(trigger, ignoreCase = true) }) {
-                    val updated = current.withIgnoreAdded(trigger)
-                    store.saveLocalConfigAndAwait(updated)
-                    config = configRepository.getConfig()
-                    config?.let { _groupColorMap.value = buildGroupColorMap(it.groups) }
-                }
-                autoIgnoreStore.remove(trigger)
-            }
+            // Add to the DEVICE-LOCAL ignore list — deliberately NOT the config, so
+            // a permanent ignore never dirties the config or pauses remote
+            // auto-refresh. It's merged back in by effectiveConfig/effectiveIgnoreList
+            // at parse time. Drop any auto-ignore candidate so the manual add wins.
+            localIgnoreStore.add(trigger)
+            autoIgnoreStore.remove(trigger)
 
             // Execute the search as if the trigger were ignored (one-shot override).
             val cfg = config ?: return

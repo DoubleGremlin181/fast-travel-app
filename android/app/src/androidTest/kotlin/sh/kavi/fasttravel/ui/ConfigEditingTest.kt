@@ -13,6 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import sh.kavi.fasttravel.data.ConfigRefreshInterval
+import sh.kavi.fasttravel.data.LocalIgnoreStore
 import sh.kavi.fasttravel.data.ThemePreferences
 
 @RunWith(AndroidJUnit4::class)
@@ -29,6 +30,8 @@ class ConfigEditingTest {
         themePrefs = ThemePreferences(ctx)
         themePrefs.configSourceDirty = false
         themePrefs.configRefreshInterval = ConfigRefreshInterval.DAILY
+        // Ensure a clean slate for the device-local ignore test across runs.
+        LocalIgnoreStore(ctx).remove("testword")
     }
 
     @Test
@@ -54,11 +57,19 @@ class ConfigEditingTest {
     }
 
     @Test
-    fun addIgnoreWord_setsDirtyFlag() {
+    fun addIgnoreWord_storesLocallyWithoutDirtyingConfig() {
         composeTestRule.onNodeWithText("Ignore list").performClick()
         composeTestRule.onNodeWithText("Add a term…").performTextInput("testword")
         composeTestRule.onNodeWithContentDescription("Add").performClick()
         composeTestRule.waitForIdle()
-        assert(themePrefs.configSourceDirty) { "Expected dirty flag to be true after adding ignore word" }
+        val ctx = InstrumentationRegistry.getInstrumentation().targetContext
+        // The ignore list is now device-local: the word is stored there…
+        assert(LocalIgnoreStore(ctx).contains("testword")) {
+            "Expected 'testword' in the device-local ignore store after adding"
+        }
+        // …and the config is NOT dirtied, so remote auto-refresh stays active.
+        assert(!themePrefs.configSourceDirty) {
+            "Adding an ignore word must NOT dirty the config (it is device-local now)"
+        }
     }
 }
