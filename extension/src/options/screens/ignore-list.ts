@@ -1,5 +1,9 @@
 import { el, screenHeader, emptyState } from "../dom.js";
-import { addToIgnoreList, getIgnoreList, removeFromIgnoreList } from "../data.js";
+import {
+  addLocalIgnore,
+  loadLocalIgnores,
+  removeLocalIgnore,
+} from "../../core/local-ignore-store.js";
 import {
   AUTO_IGNORE_THRESHOLD_MAX,
   AUTO_IGNORE_THRESHOLD_MIN,
@@ -145,7 +149,8 @@ export async function renderIgnoreList(main: HTMLElement): Promise<void> {
   async function submitAdd(): Promise<void> {
     const v = newItemInput.value.trim();
     if (!v) return;
-    await addToIgnoreList(v);
+    // Device-local only — adding an ignore never dirties the config.
+    await addLocalIgnore(v);
     // Manual add wins over any red flag / pending count — delete the candidate.
     await removeCandidate(v);
     newItemInput.value = "";
@@ -160,7 +165,10 @@ export async function renderIgnoreList(main: HTMLElement): Promise<void> {
   });
 
   async function refresh(): Promise<void> {
-    const [list, candidates] = await Promise.all([getIgnoreList(), loadCandidates()]);
+    // The "Permanent" section shows ONLY the user's device-local ignore list —
+    // the config baseline and the hidden common-words suppression are not
+    // surfaced here.
+    const [list, candidates] = await Promise.all([loadLocalIgnores(), loadCandidates()]);
 
     // ----- Permanent list -----
     const permanentSorted = [...list].map((s) => s.toLowerCase()).sort();
@@ -176,7 +184,7 @@ export async function renderIgnoreList(main: HTMLElement): Promise<void> {
       for (const trigger of permanentSorted) {
         permanentList.appendChild(
           renderPermanentRow(trigger, async () => {
-            await removeFromIgnoreList(trigger);
+            await removeLocalIgnore(trigger);
             refresh();
           }),
         );
@@ -212,7 +220,7 @@ export async function renderIgnoreList(main: HTMLElement): Promise<void> {
         autoList.appendChild(
           renderCandidateRow(entry, {
             onConfirm: async () => {
-              await addToIgnoreList(entry.trigger);
+              await addLocalIgnore(entry.trigger);
               await removeCandidate(entry.trigger);
               refresh();
             },
