@@ -105,6 +105,24 @@ func TestSave_FilePermissions(t *testing.T) {
 	}
 }
 
+// TestSave_DirPermissions verifies that Save creates the config directory with
+// mode 0700 when it does not already exist.
+func TestSave_DirPermissions(t *testing.T) {
+	// Use a non-existent subdir so MkdirAll must create it.
+	dir := filepath.Join(t.TempDir(), "new-config-subdir")
+	if err := config.Save(dir, config.Config{Port: 7333}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("Stat dir: %v", err)
+	}
+	got := info.Mode().Perm()
+	if got != 0700 {
+		t.Errorf("dir permissions: got %o, want 0700", got)
+	}
+}
+
 // TestSave_ValidJSON verifies the written file is valid JSON.
 func TestSave_ValidJSON(t *testing.T) {
 	dir := t.TempDir()

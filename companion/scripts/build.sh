@@ -24,8 +24,7 @@ cd "$COMPANION_DIR"
 # Determine VERSION.
 if [ -n "${1:-}" ]; then
     VERSION="$1"
-elif git describe --tags --always >/dev/null 2>&1; then
-    VERSION="$(git describe --tags --always)"
+elif VERSION="$(git describe --tags --always 2>/dev/null)"; then :
 else
     VERSION="dev"
 fi

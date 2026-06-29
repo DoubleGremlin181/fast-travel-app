@@ -75,7 +75,9 @@ func main() {
 	// --- 7. XDG autostart (best-effort) ---
 	autostartDir := filepath.Join(userCfgDir, "autostart")
 	selfPath := selfExecPath()
-	if !autostart.IsInstalled(autostartDir) {
+	if selfPath == "" {
+		log.Printf("fast-travel-companion: warn: could not determine executable path; skipping autostart")
+	} else {
 		if err := autostart.Install(autostartDir, selfPath); err != nil {
 			log.Printf("fast-travel-companion: warn: could not install autostart entry: %v", err)
 		}

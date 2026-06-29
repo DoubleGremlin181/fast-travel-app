@@ -67,6 +67,24 @@ func TestInstall_FilePermissions(t *testing.T) {
 	}
 }
 
+// TestInstall_DirPermissions verifies that Install creates autostartDir with
+// mode 0700 when it does not already exist.
+func TestInstall_DirPermissions(t *testing.T) {
+	// Use a non-existent subdir so MkdirAll inside Install must create it.
+	dir := filepath.Join(t.TempDir(), "new-autostart-subdir")
+	if err := autostart.Install(dir, "/usr/local/bin/fast-travel-companion"); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("Stat dir: %v", err)
+	}
+	got := info.Mode().Perm()
+	if got != 0700 {
+		t.Errorf("dir permissions: got %o, want 0700", got)
+	}
+}
+
 // TestInstall_Idempotent verifies that calling Install twice does not error
 // and the file still reflects the latest exec path.
 func TestInstall_Idempotent(t *testing.T) {
