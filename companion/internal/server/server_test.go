@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,13 +44,15 @@ func (f *fakeSearch) Infos() []protocol.IndexerInfo {
 func (f *fakeSearch) Default() index.Indexer { return f.dflt }
 
 // fakeOpener implements server.Opener and records calls.
+// If err is non-nil, Open and Reveal return it instead of succeeding.
 type fakeOpener struct {
 	openCalled   string
 	revealCalled string
+	err          error
 }
 
-func (f *fakeOpener) Open(path string) error   { f.openCalled = path; return nil }
-func (f *fakeOpener) Reveal(path string) error { f.revealCalled = path; return nil }
+func (f *fakeOpener) Open(path string) error   { f.openCalled = path; return f.err }
+func (f *fakeOpener) Reveal(path string) error { f.revealCalled = path; return f.err }
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -475,5 +479,112 @@ func TestPairingOpen_SetsWindowOpen(t *testing.T) {
 	}
 	if !m.PairingOpen() {
 		t.Error("PairingOpen: should be true after POST /v1/pairing/open")
+	}
+}
+
+func TestPairingOpen_CrossSite_Returns403(t *testing.T) {
+	h, m := newTestServer(t, &fakeSearch{}, &fakeOpener{})
+
+	rec := doRequest(h, "POST", "/v1/pairing/open", nil, map[string]string{
+		"Sec-Fetch-Site": "cross-site",
+	})
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("pairing/open cross-site: got %d, want 403", rec.Code)
+	}
+	var errResp protocol.ErrorResponse
+	mustUnmarshal(t, rec.Body.Bytes(), &errResp)
+	if errResp.Error != protocol.ErrUnauthorized {
+		t.Errorf("error code: got %q, want %q", errResp.Error, protocol.ErrUnauthorized)
+	}
+	// Window must NOT have been opened.
+	if m.PairingOpen() {
+		t.Error("PairingOpen: must remain closed when request is cross-site")
+	}
+}
+
+func TestPairingOpen_SameOrigin_Returns200(t *testing.T) {
+	h, m := newTestServer(t, &fakeSearch{}, &fakeOpener{})
+
+	rec := doRequest(h, "POST", "/v1/pairing/open", nil, map[string]string{
+		"Sec-Fetch-Site": "same-origin",
+	})
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pairing/open same-origin: got %d, want 200", rec.Code)
+	}
+	if !m.PairingOpen() {
+		t.Error("PairingOpen: should be true after same-origin POST")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// GET /setup
+// ---------------------------------------------------------------------------
+
+func TestSetup_Returns200HTML(t *testing.T) {
+	h, _ := newTestServer(t, &fakeSearch{}, &fakeOpener{})
+
+	rec := doRequest(h, "GET", "/setup", nil, nil)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("setup: got %d, want 200", rec.Code)
+	}
+	ct := rec.Header().Get("Content-Type")
+	if !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("Content-Type: got %q, want prefix text/html", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "<html") {
+		t.Error("setup: response body does not contain <html>")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// POST /v1/search — generic provider error
+// ---------------------------------------------------------------------------
+
+func TestSearch_GenericError_Returns500(t *testing.T) {
+	fs := &fakeSearch{err: errors.New("boom")}
+	h, m := newTestServer(t, fs, &fakeOpener{})
+	token, origin := pairAndGetToken(t, h, m)
+
+	body := mustMarshal(t, protocol.SearchRequest{Query: "anything", QueryMode: "simple"})
+	rec := doRequest(h, "POST", "/v1/search", body, authHeaders(token, origin))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("search generic error: got %d, want 500", rec.Code)
+	}
+	var errResp protocol.ErrorResponse
+	mustUnmarshal(t, rec.Body.Bytes(), &errResp)
+	if errResp.Error != protocol.ErrInternal {
+		t.Errorf("error code: got %q, want %q", errResp.Error, protocol.ErrInternal)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// POST /v1/open — opener failure
+// ---------------------------------------------------------------------------
+
+func TestOpen_OpenerError_Returns500(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "ftc-test-*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	fo := &fakeOpener{err: errors.New("xdg-open: no application found")}
+	h, m := newTestServer(t, &fakeSearch{}, fo)
+	token, origin := pairAndGetToken(t, h, m)
+
+	body := mustMarshal(t, protocol.OpenRequest{Path: f.Name(), Reveal: false})
+	rec := doRequest(h, "POST", "/v1/open", body, authHeaders(token, origin))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("open opener error: got %d, want 500", rec.Code)
+	}
+	var errResp protocol.ErrorResponse
+	mustUnmarshal(t, rec.Body.Bytes(), &errResp)
+	if errResp.Error != protocol.ErrInternal {
+		t.Errorf("error code: got %q, want %q", errResp.Error, protocol.ErrInternal)
 	}
 }

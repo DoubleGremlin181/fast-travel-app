@@ -73,7 +73,19 @@ func (s *Server) handlePair(w http.ResponseWriter, r *http.Request) {
 // Security note: opening the window alone grants nothing. A deliberate POST
 // /v1/pair from the browser extension (with its Origin) is still required to
 // obtain a token.
+//
+// Cross-origin guard (defense-in-depth): when Sec-Fetch-Site is present and
+// is neither "same-origin" nor "none", reject with 403. This prevents
+// arbitrary web pages from silently triggering the pairing UI via a
+// cross-origin POST. Non-browser callers (curl, first-run setup flow) omit
+// Sec-Fetch-Site entirely and are allowed through for compatibility. The
+// /setup page's own fetch('/v1/pairing/open') is same-origin (both served
+// from 127.0.0.1) so it is unaffected.
 func (s *Server) handlePairingOpen(w http.ResponseWriter, r *http.Request) {
+	if sfs := r.Header.Get("Sec-Fetch-Site"); sfs != "" && sfs != "same-origin" && sfs != "none" {
+		writeErr(w, http.StatusForbidden, protocol.ErrUnauthorized, "cross-site requests are not allowed")
+		return
+	}
 	s.deps.Pairing.OpenPairingWindow(5 * time.Minute)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
