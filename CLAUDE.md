@@ -17,6 +17,19 @@ fast-travel-app/
 │       ├── main/       # Application source
 │       ├── test/       # JUnit5 unit tests
 │       └── androidTest/# Compose instrumented tests
+├── companion/          # Go desktop companion daemon (localhost HTTP, OS indexer backends, pairing)
+│   ├── cmd/
+│   │   └── fast-travel-companion/ # main entrypoint
+│   ├── internal/
+│   │   ├── autostart/  # XDG autostart install/uninstall
+│   │   ├── config/     # companion-local JSON config (port, preferred indexer, allowed origins)
+│   │   ├── index/      # Baloo/Tracker/plocate backends + Registry
+│   │   ├── pairing/    # bearer-token security, pairing window
+│   │   ├── protocol/   # wire types (PingResponse, SearchRequest, …)
+│   │   ├── query/      # query parser (simple, glob, regex modes)
+│   │   └── server/     # loopback HTTP server + XDG opener
+│   └── scripts/
+│       └── build.sh    # cross-compile to companion/dist/ (linux-amd64, linux-arm64, windows-amd64)
 ├── shared/
 │   ├── config/         # default-config.json + config.schema.json
 │   └── test-fixtures/  # JSON fixtures shared by extension and Android tests
@@ -43,6 +56,12 @@ cd android && ./gradlew assembleDebug   # Debug APK
 cd android && ./gradlew bundleRelease   # Release AAB (requires signing env vars)
 ```
 
+### Companion (Go daemon)
+```bash
+companion/scripts/build.sh             # Cross-compile → companion/dist/ (linux-amd64, linux-arm64, windows-amd64.exe)
+companion/scripts/build.sh 1.2.3       # Pin a specific version string
+```
+
 ## Running Tests
 
 ### Extension unit tests
@@ -63,6 +82,11 @@ cd android && ./gradlew test
 ### Android instrumented tests (needs device or emulator)
 ```bash
 cd android && ./gradlew connectedAndroidTest
+```
+
+### Companion unit tests
+```bash
+cd companion && go test ./...
 ```
 
 ### Config validation

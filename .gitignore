@@ -62,6 +62,9 @@ extension/dev-harness/
 # Root-level build output
 build/
 
+# Companion daemon build outputs
+companion/dist/
+
 # Root-level dev/debug test scripts (local-path-dependent, not real tests)
 /test-*.mjs
 
