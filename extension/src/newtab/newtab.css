@@ -941,6 +941,13 @@ body:hover #settings-link {
   user-select: none;
 }
 
+/* Greyed-out state, e.g. "Exact phrase" while query mode is Regex. */
+.ls-filter-toggle.ls-filter-toggle-disabled {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}
+
 .ls-filter-toggle input[type="checkbox"] {
   accent-color: var(--primary);
   cursor: pointer;
@@ -1051,6 +1058,15 @@ body:hover #settings-link {
 .ls-status p {
   margin: 0;
   line-height: 1.5;
+}
+
+.ls-status-heading {
+  font-weight: 600;
+}
+
+.ls-status-detail {
+  color: var(--text-secondary);
+  font-size: 13px;
 }
 
 .ls-status-hint a {
@@ -1258,15 +1274,6 @@ body:hover #settings-link {
 
 .ls-footer-count {
   flex: 1;
-}
-
-.ls-degraded-badge {
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--tint-amber-fill);
-  color: var(--tint-amber-fg);
-  font-size: 10px;
-  font-weight: 600;
 }
 
 /* ── Grid view ─────────────────────────────────────────────────────────────── */
