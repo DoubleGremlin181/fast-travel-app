@@ -75,6 +75,8 @@ func Detect(runner Runner, preferred string) *Registry {
 		NewBalooIndexer(runner),
 		NewTrackerIndexer(runner),
 		NewPlocateIndexer(runner),
+		NewEverythingIndexer(runner),
+		NewWindowsSearchIndexer(runner),
 	}, preferred)
 }
 
