@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -62,23 +63,23 @@ func main() {
 	}
 
 	// --- 6. Build server ---
+	opener := server.NewOpener()
 	srv := server.New(server.Deps{
 		Registry: reg,
 		Pairing:  pm,
-		Opener:   &server.XDGOpener{},
+		Opener:   opener,
 		Name:     "fast-travel-companion",
 		Version:  version,
-		OS:       protocol.OSLinux,
+		OS:       protocolOS(runtime.GOOS),
 		Port:     port,
 	})
 
-	// --- 7. XDG autostart (best-effort) ---
-	autostartDir := filepath.Join(userCfgDir, "autostart")
+	// --- 7. OS autostart (best-effort) ---
 	selfPath := selfExecPath()
 	if selfPath == "" {
 		log.Printf("fast-travel-companion: warn: could not determine executable path; skipping autostart")
 	} else {
-		if err := autostart.Install(autostartDir, selfPath); err != nil {
+		if err := autostart.Install(selfPath); err != nil {
 			log.Printf("fast-travel-companion: warn: could not install autostart entry: %v", err)
 		}
 	}
@@ -86,7 +87,6 @@ func main() {
 	// --- 8. First-run: open pairing window + setup page ---
 	if !pm.Paired() {
 		pm.OpenPairingWindow(5 * time.Minute)
-		opener := &server.XDGOpener{}
 		setupURL := fmt.Sprintf("http://127.0.0.1:%d/setup", port)
 		if err := opener.Open(setupURL); err != nil {
 			log.Printf("fast-travel-companion: warn: could not open setup page (%v)", err)
@@ -114,6 +114,15 @@ func main() {
 		log.Fatalf("fast-travel-companion: serve error: %v", err)
 	}
 	log.Printf("fast-travel-companion: stopped")
+}
+
+// protocolOS maps runtime.GOOS to the protocol.OS value reported in /v1/ping.
+// darwin → "macos"; all others pass through ("linux", "windows", …).
+func protocolOS(goos string) protocol.OS {
+	if goos == "darwin" {
+		return protocol.OSMacOS
+	}
+	return protocol.OS(goos)
 }
 
 // selfExecPath returns the path to the running executable.

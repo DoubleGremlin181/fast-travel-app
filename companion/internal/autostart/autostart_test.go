@@ -1,24 +1,28 @@
-package autostart_test
+// Tests are in package autostart (not autostart_test) so they can exercise
+// the unexported installLinux / uninstallLinux / isInstalledLinux helpers
+// and the pure builders (buildRegAddArgs, buildLaunchAgentPlist, etc.) that
+// are testable on any platform without spawning real processes.
+package autostart
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/DoubleGremlin181/fast-travel-app/companion/internal/autostart"
 )
 
-const desktopFilename = "fast-travel-companion.desktop"
+// ---------------------------------------------------------------------------
+// Linux installLinux / isInstalledLinux / uninstallLinux (via t.TempDir)
+// ---------------------------------------------------------------------------
 
-// TestInstall_WritesFile verifies Install creates the .desktop file containing
-// the exec path.
-func TestInstall_WritesFile(t *testing.T) {
+// TestInstallLinux_WritesFile verifies installLinux creates the .desktop file
+// containing the exec path and all required fields.
+func TestInstallLinux_WritesFile(t *testing.T) {
 	dir := t.TempDir()
 	execPath := "/usr/local/bin/fast-travel-companion"
 
-	if err := autostart.Install(dir, execPath); err != nil {
-		t.Fatalf("Install: %v", err)
+	if err := installLinux(dir, execPath); err != nil {
+		t.Fatalf("installLinux: %v", err)
 	}
 
 	path := filepath.Join(dir, desktopFilename)
@@ -51,11 +55,11 @@ func TestInstall_WritesFile(t *testing.T) {
 	}
 }
 
-// TestInstall_FilePermissions checks that the .desktop file is 0644.
-func TestInstall_FilePermissions(t *testing.T) {
+// TestInstallLinux_FilePermissions checks that the .desktop file is 0644.
+func TestInstallLinux_FilePermissions(t *testing.T) {
 	dir := t.TempDir()
-	if err := autostart.Install(dir, "/bin/ftc"); err != nil {
-		t.Fatalf("Install: %v", err)
+	if err := installLinux(dir, "/bin/ftc"); err != nil {
+		t.Fatalf("installLinux: %v", err)
 	}
 	info, err := os.Stat(filepath.Join(dir, desktopFilename))
 	if err != nil {
@@ -67,13 +71,12 @@ func TestInstall_FilePermissions(t *testing.T) {
 	}
 }
 
-// TestInstall_DirPermissions verifies that Install creates autostartDir with
-// mode 0700 when it does not already exist.
-func TestInstall_DirPermissions(t *testing.T) {
-	// Use a non-existent subdir so MkdirAll inside Install must create it.
+// TestInstallLinux_DirPermissions verifies that installLinux creates
+// autostartDir with mode 0700 when it does not already exist.
+func TestInstallLinux_DirPermissions(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "new-autostart-subdir")
-	if err := autostart.Install(dir, "/usr/local/bin/fast-travel-companion"); err != nil {
-		t.Fatalf("Install: %v", err)
+	if err := installLinux(dir, "/usr/local/bin/fast-travel-companion"); err != nil {
+		t.Fatalf("installLinux: %v", err)
 	}
 	info, err := os.Stat(dir)
 	if err != nil {
@@ -85,18 +88,18 @@ func TestInstall_DirPermissions(t *testing.T) {
 	}
 }
 
-// TestInstall_Idempotent verifies that calling Install twice does not error
-// and the file still reflects the latest exec path.
-func TestInstall_Idempotent(t *testing.T) {
+// TestInstallLinux_Idempotent verifies that calling installLinux twice does not
+// error and the file reflects the latest exec path.
+func TestInstallLinux_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	first := "/usr/bin/ftc-old"
 	second := "/usr/bin/ftc-new"
 
-	if err := autostart.Install(dir, first); err != nil {
-		t.Fatalf("first Install: %v", err)
+	if err := installLinux(dir, first); err != nil {
+		t.Fatalf("first installLinux: %v", err)
 	}
-	if err := autostart.Install(dir, second); err != nil {
-		t.Fatalf("second Install: %v", err)
+	if err := installLinux(dir, second); err != nil {
+		t.Fatalf("second installLinux: %v", err)
 	}
 
 	data, err := os.ReadFile(filepath.Join(dir, desktopFilename))
@@ -104,43 +107,155 @@ func TestInstall_Idempotent(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 	if !strings.Contains(string(data), "Exec="+second) {
-		t.Errorf("expected Exec=%q after second Install; got:\n%s", second, data)
+		t.Errorf("expected Exec=%q after second installLinux; got:\n%s", second, data)
 	}
 }
 
-// TestIsInstalled_TrueAfterInstall verifies IsInstalled returns true after Install.
-func TestIsInstalled_TrueAfterInstall(t *testing.T) {
+// TestIsInstalledLinux_TrueAfterInstall verifies isInstalledLinux returns true
+// after installLinux and false before.
+func TestIsInstalledLinux_TrueAfterInstall(t *testing.T) {
 	dir := t.TempDir()
-	if autostart.IsInstalled(dir) {
-		t.Fatal("IsInstalled: expected false before Install")
+	if isInstalledLinux(dir) {
+		t.Fatal("isInstalledLinux: expected false before installLinux")
 	}
-	if err := autostart.Install(dir, "/bin/ftc"); err != nil {
-		t.Fatalf("Install: %v", err)
+	if err := installLinux(dir, "/bin/ftc"); err != nil {
+		t.Fatalf("installLinux: %v", err)
 	}
-	if !autostart.IsInstalled(dir) {
-		t.Error("IsInstalled: expected true after Install")
+	if !isInstalledLinux(dir) {
+		t.Error("isInstalledLinux: expected true after installLinux")
 	}
 }
 
-// TestUninstall_RemovesFile verifies Uninstall removes the .desktop file.
-func TestUninstall_RemovesFile(t *testing.T) {
+// TestUninstallLinux_RemovesFile verifies uninstallLinux removes the .desktop file.
+func TestUninstallLinux_RemovesFile(t *testing.T) {
 	dir := t.TempDir()
-	if err := autostart.Install(dir, "/bin/ftc"); err != nil {
-		t.Fatalf("Install: %v", err)
+	if err := installLinux(dir, "/bin/ftc"); err != nil {
+		t.Fatalf("installLinux: %v", err)
 	}
-	if err := autostart.Uninstall(dir); err != nil {
-		t.Fatalf("Uninstall: %v", err)
+	if err := uninstallLinux(dir); err != nil {
+		t.Fatalf("uninstallLinux: %v", err)
 	}
-	if autostart.IsInstalled(dir) {
-		t.Error("IsInstalled: expected false after Uninstall")
+	if isInstalledLinux(dir) {
+		t.Error("isInstalledLinux: expected false after uninstallLinux")
 	}
 }
 
-// TestUninstall_NotInstalled verifies Uninstall is a no-op (no error) when
-// the file does not exist.
-func TestUninstall_NotInstalled(t *testing.T) {
+// TestUninstallLinux_NotInstalled verifies uninstallLinux is a no-op (no error)
+// when the file does not exist.
+func TestUninstallLinux_NotInstalled(t *testing.T) {
 	dir := t.TempDir()
-	if err := autostart.Uninstall(dir); err != nil {
-		t.Fatalf("Uninstall on missing file: unexpected error: %v", err)
+	if err := uninstallLinux(dir); err != nil {
+		t.Fatalf("uninstallLinux on missing file: unexpected error: %v", err)
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Windows registry pure builders
+// ---------------------------------------------------------------------------
+
+func TestBuildRegAddArgs(t *testing.T) {
+	execPath := `C:\Program Files\FastTravel\fast-travel-companion.exe`
+	args := buildRegAddArgs(execPath)
+
+	// Must start with "add" and reference the Run key.
+	if len(args) == 0 || args[0] != "add" {
+		t.Errorf("first arg: got %v, want \"add\"", args)
+	}
+	if !containsStr(args, regKeyPath) {
+		t.Errorf("args missing Run key path %q; got %v", regKeyPath, args)
+	}
+	if !containsStr(args, regValueName) {
+		t.Errorf("args missing value name %q; got %v", regValueName, args)
+	}
+	if !containsStr(args, "REG_SZ") {
+		t.Errorf("args missing REG_SZ; got %v", args)
+	}
+	if !containsStr(args, execPath) {
+		t.Errorf("args missing execPath %q; got %v", execPath, args)
+	}
+	if !containsStr(args, "/f") {
+		t.Errorf("args missing /f (force flag); got %v", args)
+	}
+}
+
+func TestBuildRegQueryArgs(t *testing.T) {
+	args := buildRegQueryArgs()
+
+	if len(args) == 0 || args[0] != "query" {
+		t.Errorf("first arg: got %v, want \"query\"", args)
+	}
+	if !containsStr(args, regKeyPath) {
+		t.Errorf("args missing Run key path %q; got %v", regKeyPath, args)
+	}
+	if !containsStr(args, regValueName) {
+		t.Errorf("args missing value name %q; got %v", regValueName, args)
+	}
+}
+
+func TestBuildRegDeleteArgs(t *testing.T) {
+	args := buildRegDeleteArgs()
+
+	if len(args) == 0 || args[0] != "delete" {
+		t.Errorf("first arg: got %v, want \"delete\"", args)
+	}
+	if !containsStr(args, regKeyPath) {
+		t.Errorf("args missing Run key path %q; got %v", regKeyPath, args)
+	}
+	if !containsStr(args, regValueName) {
+		t.Errorf("args missing value name %q; got %v", regValueName, args)
+	}
+	if !containsStr(args, "/f") {
+		t.Errorf("args missing /f (force flag); got %v", args)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// macOS LaunchAgent plist pure builder
+// ---------------------------------------------------------------------------
+
+func TestBuildLaunchAgentPlist(t *testing.T) {
+	execPath := "/usr/local/bin/fast-travel-companion"
+	plist := buildLaunchAgentPlist(execPath)
+
+	if !strings.Contains(plist, "RunAtLoad") {
+		t.Error("plist missing RunAtLoad key")
+	}
+	if !strings.Contains(plist, "<true/>") {
+		t.Error("plist missing <true/> for RunAtLoad")
+	}
+	if !strings.Contains(plist, execPath) {
+		t.Errorf("plist missing execPath %q", execPath)
+	}
+	if !strings.Contains(plist, "ProgramArguments") {
+		t.Error("plist missing ProgramArguments key")
+	}
+	if !strings.Contains(plist, "sh.kavi.fasttravel.companion") {
+		t.Error("plist missing Label / bundle ID")
+	}
+	if !strings.Contains(plist, "<?xml") {
+		t.Error("plist missing XML declaration")
+	}
+}
+
+// TestBuildLaunchAgentPlist_EmbedExecPath verifies the exec path is correctly
+// embedded even when it contains path separators.
+func TestBuildLaunchAgentPlist_EmbedExecPath(t *testing.T) {
+	execPath := "/opt/homebrew/bin/fast-travel-companion"
+	plist := buildLaunchAgentPlist(execPath)
+	if !strings.Contains(plist, "<string>"+execPath+"</string>") {
+		t.Errorf("plist does not embed execPath as <string> element; plist:\n%s", plist)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Helper
+// ---------------------------------------------------------------------------
+
+func containsStr(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
