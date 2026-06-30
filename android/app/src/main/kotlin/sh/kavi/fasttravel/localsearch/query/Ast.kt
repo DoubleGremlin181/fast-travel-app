@@ -71,8 +71,8 @@ private fun parseRegex(query: String): Node {
     }
     try {
         Regex(value)
-    } catch (_: Exception) {
-        throw QueryParseException("invalid regular expression: $value")
+    } catch (e: Exception) {
+        throw QueryParseException("invalid regular expression: ${e.message ?: value}")
     }
     return Node(op = "regex", field = field, value = value)
 }
