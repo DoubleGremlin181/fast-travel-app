@@ -69,18 +69,27 @@ export async function getLocalSearchPrefs(): Promise<LocalSearchPrefs> {
 
 /**
  * Merge `partial` into the current prefs and persist. Nested `sort` and
- * `filters` are shallow-merged so callers can update one sub-field at a time.
+ * `filters` are shallow-merged so callers can update one sub-field at a time
+ * (e.g. `{ sort: { field } }` without supplying `dir`).
  * Returns the merged result.
  */
 export async function setLocalSearchPrefs(
-  partial: Partial<LocalSearchPrefs>,
+  partial: Partial<Omit<LocalSearchPrefs, "sort" | "filters">> & {
+    sort?: Partial<LocalSearchPrefs["sort"]>;
+    filters?: Partial<LocalSearchPrefs["filters"]>;
+  },
 ): Promise<LocalSearchPrefs> {
   const current = await getLocalSearchPrefs();
+  // Destructure sort/filters before spreading so the rest is fully type-safe.
+  const { sort: partialSort, filters: partialFilters, ...rest } = partial;
   const next: LocalSearchPrefs = {
     ...current,
-    ...partial,
-    sort: { ...current.sort, ...(partial.sort ?? {}) },
-    filters: { ...current.filters, ...(partial.filters ?? {}) },
+    ...rest,
+    sort: {
+      field: partialSort?.field ?? current.sort.field,
+      dir: partialSort?.dir ?? current.sort.dir,
+    },
+    filters: { ...current.filters, ...(partialFilters ?? {}) },
   };
   await chrome.storage.local.set({ [STORE_KEY]: next });
   return next;

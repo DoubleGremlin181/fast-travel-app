@@ -152,7 +152,7 @@ function buildLoadingCard(): HTMLElement {
 function buildStatusCard(
   status: CompanionStatus,
   result: { port: number; ping: PingResponse } | null,
-  prefs: { token?: string; port?: number },
+  _prefs: { token?: string; port?: number },
   os: "windows" | "macos" | "linux",
   onRetry: () => void,
 ): HTMLElement {

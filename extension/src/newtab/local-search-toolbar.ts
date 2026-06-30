@@ -363,9 +363,6 @@ export function mountToolbar(
 
   container.appendChild(filterRow);
 
-  // Toolbar is now populated — remove the placeholder aria-hidden.
-  container.removeAttribute("aria-hidden");
-
   // ── sync function ─────────────────────────────────────────────────────────
 
   function sync(prefs: LocalSearchPrefs, ping: PingResponse | null): void {
