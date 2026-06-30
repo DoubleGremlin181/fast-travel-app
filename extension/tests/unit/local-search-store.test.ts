@@ -3,35 +3,10 @@ import {
   getLocalSearchPrefs,
   setLocalSearchPrefs,
 } from "../../src/core/local-search-store.js";
-
-// ── Storage mock (same pattern as auto-ignore-store.test.ts) ─────────────────
-
-function mockStorage(initial: Record<string, unknown> = {}) {
-  const backing: Record<string, unknown> = { ...initial };
-  return {
-    get: async (keys: string | string[]) => {
-      const want = Array.isArray(keys) ? keys : [keys];
-      const out: Record<string, unknown> = {};
-      for (const k of want) if (k in backing) out[k] = backing[k];
-      return out;
-    },
-    set: async (obj: Record<string, unknown>) => {
-      Object.assign(backing, obj);
-    },
-    remove: async (k: string | string[]) => {
-      for (const key of Array.isArray(k) ? k : [k]) delete backing[key];
-    },
-    _backing: backing,
-  };
-}
-
-type MockStorage = ReturnType<typeof mockStorage>;
-
-function install(initial: Record<string, unknown> = {}): MockStorage {
-  const storage = mockStorage(initial);
-  (globalThis as unknown as { chrome: unknown }).chrome = { storage: { local: storage } };
-  return storage;
-}
+import {
+  installMockStorage as install,
+  type MockStorage,
+} from "./helpers/mock-storage.js";
 
 const STORE_KEY = "fast-travel-local-search-prefs";
 

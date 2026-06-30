@@ -109,8 +109,10 @@ export async function discover(): Promise<{ port: number; ping: PingResponse } |
     }
   }
 
-  // Full scan: try every port in order.
-  for (const port of DISCOVERY_PORTS) {
+  // Full scan: try every port in order, skipping the cached port we already tried.
+  const portsToScan =
+    prefs.port !== undefined ? DISCOVERY_PORTS.filter((p) => p !== prefs.port) : DISCOVERY_PORTS;
+  for (const port of portsToScan) {
     const ping = await pingPort(port);
     if (ping !== null) {
       await setLocalSearchPrefs({ port });
@@ -243,6 +245,11 @@ export async function openFile(
     });
   } catch (e) {
     throw new CompanionError("network", (e as Error).message);
+  }
+
+  if (res.status === 401) {
+    const errBody = await parseErrorBody(res);
+    throw new CompanionError("unauthorized", errBody?.message ?? "Unauthorized", errBody);
   }
 
   if (!res.ok) {

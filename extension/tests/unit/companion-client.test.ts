@@ -10,7 +10,7 @@
  * that discover()'s prefs read/write does not require a real extension context.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   discover,
   pair,
@@ -21,33 +21,10 @@ import {
   DISCOVERY_PORTS,
 } from "../../src/core/companion-client.js";
 import type { PingResponse, SearchRequest } from "../../src/core/companion-types.js";
-
-// ── Storage mock ─────────────────────────────────────────────────────────────
-
-function mockStorage(initial: Record<string, unknown> = {}) {
-  const backing: Record<string, unknown> = { ...initial };
-  return {
-    get: async (keys: string | string[]) => {
-      const want = Array.isArray(keys) ? keys : [keys];
-      const out: Record<string, unknown> = {};
-      for (const k of want) if (k in backing) out[k] = backing[k];
-      return out;
-    },
-    set: async (obj: Record<string, unknown>) => {
-      Object.assign(backing, obj);
-    },
-    remove: async (k: string | string[]) => {
-      for (const key of Array.isArray(k) ? k : [k]) delete backing[key];
-    },
-    _backing: backing,
-  };
-}
-
-function installStorage(initial: Record<string, unknown> = {}) {
-  const storage = mockStorage(initial);
-  (globalThis as unknown as { chrome: unknown }).chrome = { storage: { local: storage } };
-  return storage;
-}
+import {
+  installMockStorage as installStorage,
+  type MockStorage,
+} from "./helpers/mock-storage.js";
 
 // ── Fetch stub helpers ───────────────────────────────────────────────────────
 
@@ -383,12 +360,38 @@ describe("search", () => {
     expect(capturedBody).toEqual(SEARCH_REQ);
   });
 
-  it("token is sent only in Authorization header, not logged or thrown", async () => {
-    // Structural: verify token does not appear in any thrown error message
-    // on an ordinary 200 response. The body test above confirms the header path.
-    stubFetch(async () => new Response(JSON.stringify(SEARCH_RESP), { status: 200 }));
-    // No assertions needed — test passes if no error is thrown with token in it.
-    await search(7333, "secret-token", SEARCH_REQ);
+  it("token is never logged or leaked into error messages", async () => {
+    const SECRET = "super-secret-bearer-token";
+
+    // Spy on every console method to capture any logged output.
+    const consoleMethods = ["log", "error", "warn", "info", "debug"] as const;
+    const spies = consoleMethods.map((m) => vi.spyOn(console, m).mockImplementation(() => {}));
+
+    try {
+      // Happy path: 200 — token must not appear in any console output.
+      stubFetch(async () => new Response(JSON.stringify(SEARCH_RESP), { status: 200 }));
+      await search(7333, SECRET, SEARCH_REQ);
+
+      // Error path: 401 — token must not appear in the thrown error message.
+      stubFetch(async () => new Response(null, { status: 401 }));
+      let thrownMessage = "";
+      try {
+        await search(7333, SECRET, SEARCH_REQ);
+      } catch (e) {
+        thrownMessage = (e as Error).message;
+      }
+      expect(thrownMessage).not.toContain(SECRET);
+
+      // Verify no console call contained the token.
+      const allCalls = spies.flatMap((spy) =>
+        (spy.mock.calls as unknown[][]).map((args) => args.join(" ")),
+      );
+      for (const call of allCalls) {
+        expect(call).not.toContain(SECRET);
+      }
+    } finally {
+      spies.forEach((spy) => spy.mockRestore());
+    }
   });
 
   it("401 → CompanionError with code unauthorized", async () => {
@@ -528,6 +531,19 @@ describe("openFile", () => {
     } catch (e) {
       expect(e).toBeInstanceOf(CompanionError);
       expect((e as CompanionError).code).toBe("unauthorized");
+    }
+  });
+
+  it("401 without body → CompanionError with code unauthorized (fallback)", async () => {
+    stubFetch(async () => new Response(null, { status: 401 }));
+
+    try {
+      await openFile(7333, "bad", "/path");
+      expect.fail("Should have thrown");
+    } catch (e) {
+      expect(e).toBeInstanceOf(CompanionError);
+      expect((e as CompanionError).code).toBe("unauthorized");
+      expect((e as CompanionError).message).toBe("Unauthorized");
     }
   });
 });
