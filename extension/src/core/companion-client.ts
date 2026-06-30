@@ -28,6 +28,14 @@ export const DISCOVERY_PORTS: readonly number[] = [
 /** Per-port timeout for ping probes during discovery. */
 export const PING_TIMEOUT_MS = 500;
 
+/**
+ * Minimum protocolVersion accepted from the companion daemon.
+ * Companions advertising a lower version are treated as not found so that the
+ * settings UI shows "not connected / needs update" rather than silently
+ * operating against an incompatible protocol.
+ */
+export const MIN_PROTOCOL_VERSION = 1;
+
 // ── Error class ──────────────────────────────────────────────────────────────
 
 /**
@@ -104,7 +112,7 @@ export async function discover(): Promise<{ port: number; ping: PingResponse } |
   // Fast path: try the cached port first.
   if (prefs.port !== undefined) {
     const ping = await pingPort(prefs.port);
-    if (ping !== null) {
+    if (ping !== null && ping.protocolVersion >= MIN_PROTOCOL_VERSION) {
       return { port: prefs.port, ping };
     }
   }
@@ -114,7 +122,7 @@ export async function discover(): Promise<{ port: number; ping: PingResponse } |
     prefs.port !== undefined ? DISCOVERY_PORTS.filter((p) => p !== prefs.port) : DISCOVERY_PORTS;
   for (const port of portsToScan) {
     const ping = await pingPort(port);
-    if (ping !== null) {
+    if (ping !== null && ping.protocolVersion >= MIN_PROTOCOL_VERSION) {
       await setLocalSearchPrefs({ port });
       return { port, ping };
     }

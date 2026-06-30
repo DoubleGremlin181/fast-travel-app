@@ -19,6 +19,7 @@ import {
   openFile,
   CompanionError,
   DISCOVERY_PORTS,
+  MIN_PROTOCOL_VERSION,
 } from "../../src/core/companion-client.js";
 import type { PingResponse, SearchRequest } from "../../src/core/companion-types.js";
 import {
@@ -193,6 +194,38 @@ describe("discover", () => {
 
     const result = await discover();
 
+    expect(result!.port).toBe(7333);
+  });
+
+  it("returns null when companion protocolVersion is below MIN_PROTOCOL_VERSION", async () => {
+    // Companion responds with a protocolVersion below the minimum — even though
+    // the HTTP call succeeded, discover() must treat it as not usable (returns null).
+    const oldPing: PingResponse = { ...PING, protocolVersion: MIN_PROTOCOL_VERSION - 1 };
+    stubFetch(async (url) => {
+      if (url.includes(":7333/")) {
+        return new Response(JSON.stringify(oldPing), { status: 200 });
+      }
+      throw new Error("port unreachable");
+    });
+
+    const result = await discover();
+
+    expect(result).toBeNull();
+  });
+
+  it("accepts companion with exactly MIN_PROTOCOL_VERSION", async () => {
+    // Companion at exactly the minimum version must be accepted.
+    const minPing: PingResponse = { ...PING, protocolVersion: MIN_PROTOCOL_VERSION };
+    stubFetch(async (url) => {
+      if (url.includes(":7333/")) {
+        return new Response(JSON.stringify(minPing), { status: 200 });
+      }
+      throw new Error("port unreachable");
+    });
+
+    const result = await discover();
+
+    expect(result).not.toBeNull();
     expect(result!.port).toBe(7333);
   });
 });

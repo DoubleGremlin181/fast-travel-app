@@ -117,12 +117,46 @@ class MediaStoreQueryTest {
     }
 
     @Test
-    fun `buildSelection pureNegation returns null selection`() {
-        // "-foo" → NOT{term:foo} → positiveSeed=false → no branches → null
+    fun `buildSelection pureNegation returns match-nothing selection`() {
+        // "-foo" → NOT{term:foo} → positiveSeed=false for every branch → no seeds.
+        // Must return a match-nothing selection (not null/broad), matching the Go
+        // companion's 0-result behaviour for all-no-seed queries.
         val node = parse("-foo", QueryMode.SIMPLE)
         val sel = buildSelection(node, QueryMode.SIMPLE)
-        assertNull(sel.selection, "pure negation should produce null selection")
-        assertNull(sel.selectionArgs, "pure negation should produce null selectionArgs")
+        assertEquals("0", sel.selection, "all-no-seed simple query must produce match-nothing selection")
+        assertArrayEquals(emptyArray<String>(), sel.selectionArgs)
+    }
+
+    @Test
+    fun `buildSelection allNoSeed single negation dash-draft`() {
+        // "-draft" → single NOT branch, no positive literal → match-nothing (not broad)
+        val node = parse("-draft", QueryMode.SIMPLE)
+        val sel = buildSelection(node, QueryMode.SIMPLE)
+        assertEquals("0", sel.selection, "all-no-seed query must not fall back to broad scan")
+        assertArrayEquals(emptyArray<String>(), sel.selectionArgs)
+    }
+
+    @Test
+    fun `buildSelection allNoSeed multiple negations`() {
+        // "-a -b" → AND of two negations → no positive seed on any branch → match-nothing
+        val node = parse("-a -b", QueryMode.SIMPLE)
+        val sel = buildSelection(node, QueryMode.SIMPLE)
+        assertEquals("0", sel.selection, "multi-negation query must produce match-nothing selection")
+        assertArrayEquals(emptyArray<String>(), sel.selectionArgs)
+    }
+
+    @Test
+    fun `buildSelection mixedOR seededBranchKept`() {
+        // "invoice | -pdf" → OR{invoice, NOT{pdf}} → invoice branch seeded, -pdf branch skipped.
+        // Must produce a WHERE for the invoice branch only, not a broad or null scan.
+        val node = parse("invoice | -pdf", QueryMode.SIMPLE)
+        val sel = buildSelection(node, QueryMode.SIMPLE)
+        assertEquals(
+            "(_display_name LIKE ? OR _data LIKE ?)",
+            sel.selection,
+            "mixed OR with one seeded branch must produce seeded WHERE for that branch only",
+        )
+        assertArrayEquals(arrayOf("%invoice%", "%invoice%"), sel.selectionArgs)
     }
 
     // ── requiredPermissions ──────────────────────────────────────────────────────

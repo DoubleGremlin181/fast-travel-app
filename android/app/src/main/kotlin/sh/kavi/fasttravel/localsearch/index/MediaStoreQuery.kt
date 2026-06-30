@@ -98,7 +98,12 @@ fun buildSelection(node: Node, mode: QueryMode): Selection {
         args.add("%$seed%")
         args.add("%$seed%")
     }
-    if (clauses.isEmpty()) return Selection(null, null)
+    // No branch produced a positive seed → all branches are negation-only.
+    // Return a match-nothing selection so MediaStore yields 0 candidates, which
+    // matches the Go companion's 0-result behaviour for all-no-seed queries.
+    // (Contrast: regex broad-case keeps Selection(null,null) because the regex
+    //  matcher provides precision over the full candidate set.)
+    if (clauses.isEmpty()) return Selection("0", emptyArray())
     return Selection(clauses.joinToString(" OR "), args.toTypedArray())
 }
 
