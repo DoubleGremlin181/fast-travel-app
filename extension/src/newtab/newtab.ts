@@ -262,7 +262,13 @@ function focusSearchInput(): void {
     // and clearing currentTypo before the typo handler ever sees the key, which
     // is why the typo shortcuts appeared dead.
     if (currentTypo) return;
-    if (e.target === searchInput) return;
+    // Don't hijack keystrokes when ANY text field is focused — including the
+    // local-search results input (#ls-input). Previously this only exempted the
+    // main search box, so typing in the results input was stolen back to here.
+    {
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key.length !== 1) return;
     e.preventDefault();
@@ -504,6 +510,15 @@ async function showHistory(): Promise<void> {
   renderSuggestions(items, true);
 }
 
+// Synthetic command used to surface the local-search `s` entry in the
+// suggestions dropdown (`s` is a submit-intercept, not a real config command).
+const LOCAL_SEARCH_SUGGESTION_CMD = {
+  id: "__local-search__",
+  name: "Local search",
+  triggers: ["s"],
+  type: "standard",
+} as unknown as Command;
+
 function showSuggestions(query: string): void {
   updateLeadingIcon(query);
   if (suggestionTimer) {
@@ -525,6 +540,23 @@ function showSuggestions(query: string): void {
   const commandItems: SuggestionItem[] = [];
 
   if (parts.length === 1) {
+    // Surface the local-search `s` command (a submit-intercept, not a config
+    // command) so typing `s` shows it in the dropdown like any other command.
+    if (
+      localSearchPrefs?.enabled &&
+      localSearchPrefs.token &&
+      !triggerMap.has("s") &&
+      "s".startsWith(partial)
+    ) {
+      commandItems.push({
+        text: "s ",
+        display: "s — Local search",
+        kind: "command",
+        command: LOCAL_SEARCH_SUGGESTION_CMD,
+        matchedTrigger: "s",
+        groupColor: "#34a853",
+      });
+    }
     for (const [trigger, cmd] of triggerMap) {
       if (cmd.type === "prefix") continue;
       if (trigger.startsWith(partial) && trigger !== partial) {
