@@ -157,6 +157,24 @@ Ranking favors name matches over path-only matches.
 All implementations (the Go companion and the Android app) MUST follow these semantics so
 results are consistent across platforms.
 
+### `caseSensitive` (optional, default `false`)
+
+When `caseSensitive` is `false` (the default), term and phrase comparisons are
+**case-insensitive**: `"Report"` matches `"report.pdf"`.  When `true`, comparisons are
+**case-sensitive**: `"Report"` does NOT match `"report.pdf"`.
+
+`regex` nodes are **unaffected** by `caseSensitive` — the regular expression pattern's own
+inline flags (e.g. `(?i)`) control case for regex queries.
+
+### `exactPhrase` (optional, default `false`)
+
+When `exactPhrase` is `false` (the default), a multi-word query is **AND'd**: each word
+must appear somewhere in the file's name or path, in any order.  When `true`, the **whole
+query string** is treated as a single ordered phrase: the words must appear contiguous and
+in order (e.g. `"annual report"` matches `annual report.pdf` but NOT `annual_report.pdf`).
+
+`exactPhrase` is **ignored** in `regex` mode — the pattern is already the entire query.
+
 ---
 
 ## 4. Capabilities matrix

@@ -9,13 +9,15 @@ import (
 )
 
 // Matches reports whether r satisfies the AST node n.
+// caseSensitive controls whether term and phrase comparisons are case-sensitive.
+// Regex nodes are unaffected by caseSensitive — the pattern's own flags control case.
 // mode is passed for completeness; the node shapes already encode
 // wildcard/regex semantics, so branching on mode is rarely needed.
-func Matches(r protocol.FileResult, n query.Node, mode query.Mode) bool {
+func Matches(r protocol.FileResult, n query.Node, mode query.Mode, caseSensitive bool) bool {
 	switch n.Op {
 	case "and":
 		for _, child := range n.Nodes {
-			if !Matches(r, child, mode) {
+			if !Matches(r, child, mode, caseSensitive) {
 				return false
 			}
 		}
@@ -23,7 +25,7 @@ func Matches(r protocol.FileResult, n query.Node, mode query.Mode) bool {
 
 	case "or":
 		for _, child := range n.Nodes {
-			if Matches(r, child, mode) {
+			if Matches(r, child, mode, caseSensitive) {
 				return true
 			}
 		}
@@ -33,20 +35,27 @@ func Matches(r protocol.FileResult, n query.Node, mode query.Mode) bool {
 		if n.Node == nil {
 			return true
 		}
-		return !Matches(r, *n.Node, mode)
+		return !Matches(r, *n.Node, mode, caseSensitive)
 
 	case "term":
 		field := resolveField(r, n.Field)
 		if n.Wildcard != nil && *n.Wildcard {
-			return globMatch(n.Value, field)
+			return globMatch(n.Value, field, caseSensitive)
+		}
+		if caseSensitive {
+			return strings.Contains(field, n.Value)
 		}
 		return strings.Contains(strings.ToLower(field), strings.ToLower(n.Value))
 
 	case "phrase":
 		field := resolveField(r, n.Field)
+		if caseSensitive {
+			return strings.Contains(field, n.Value)
+		}
 		return strings.Contains(strings.ToLower(field), strings.ToLower(n.Value))
 
 	case "regex":
+		// Regex is unaffected by caseSensitive; the pattern controls its own flags.
 		field := resolveField(r, n.Field)
 		re, err := regexp.Compile(n.Value)
 		if err != nil {
@@ -68,13 +77,18 @@ func resolveField(r protocol.FileResult, field string) string {
 	return r.Name
 }
 
-// globMatch performs an anchored case-insensitive glob match of pattern against s.
+// globMatch performs an anchored glob match of pattern against s.
 // Only * (match any sequence) and ? (match any single character) are wildcards;
 // all other regex metacharacters in pattern are escaped.
-func globMatch(pattern, s string) bool {
+// When caseSensitive is false (default) the match is case-insensitive via (?i).
+func globMatch(pattern, s string, caseSensitive bool) bool {
 	// Build an anchored regex from the glob pattern.
 	var sb strings.Builder
-	sb.WriteString("(?i)^")
+	if caseSensitive {
+		sb.WriteString("^")
+	} else {
+		sb.WriteString("(?i)^")
+	}
 	for _, ch := range pattern {
 		switch ch {
 		case '*':

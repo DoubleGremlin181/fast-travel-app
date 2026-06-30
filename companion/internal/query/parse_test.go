@@ -39,6 +39,16 @@ type fixtureCase struct {
 	AST       json.RawMessage `json:"ast"`
 }
 
+// TestParse_InvalidRegex_Error verifies that an invalid regex pattern returns a
+// descriptive error rather than silently producing empty results (Bug A).
+func TestParse_InvalidRegex_Error(t *testing.T) {
+	// "[" is an unclosed character class — invalid in RE2.
+	_, err := query.Parse("[", query.ModeRegex)
+	if err == nil {
+		t.Fatal("expected error for invalid regex pattern '[', got nil")
+	}
+}
+
 func TestParse_Fixtures(t *testing.T) {
 	path := fixtureFile(t)
 	data, err := os.ReadFile(path)

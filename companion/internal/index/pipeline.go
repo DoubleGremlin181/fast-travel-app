@@ -29,6 +29,12 @@ func Search(ctx context.Context, idx Indexer, req protocol.SearchRequest) (proto
 		return protocol.SearchResponse{}, err
 	}
 
+	// ExactPhrase: treat the whole query as one ordered phrase (non-regex only).
+	// Regex mode ignores ExactPhrase; the pattern is already the entire query.
+	if req.ExactPhrase && req.QueryMode != query.ModeRegex {
+		ast = query.Node{Op: "phrase", Field: "name", Value: strings.TrimSpace(req.Query)}
+	}
+
 	raw, degraded, err := idx.Query(ctx, ast, req.QueryMode, req)
 	if err != nil {
 		return protocol.SearchResponse{}, err
@@ -45,7 +51,7 @@ func Search(ctx context.Context, idx Indexer, req protocol.SearchRequest) (proto
 	// Post-filter: guarantee correctness via the matcher.
 	filtered := make([]protocol.FileResult, 0, len(raw))
 	for _, r := range raw {
-		if Matches(r, matchAst, req.QueryMode) {
+		if Matches(r, matchAst, req.QueryMode, req.CaseSensitive) {
 			filtered = append(filtered, r)
 		}
 	}

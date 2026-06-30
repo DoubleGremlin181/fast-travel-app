@@ -20,6 +20,29 @@ func makeResult(name, path string) protocol.FileResult {
 	}
 }
 
+// TestMatches_CaseSensitive verifies that the caseSensitive flag is threaded
+// through Matches correctly: a query that matches case-insensitively should
+// not match when caseSensitive=true and the case differs.
+func TestMatches_CaseSensitive(t *testing.T) {
+	r := makeResult("report.pdf", "/home/alice/docs/report.pdf")
+
+	// "Report" has a capital R; the file name is all-lowercase.
+	n, err := query.Parse("Report", query.ModeSimple)
+	if err != nil {
+		t.Fatalf("query.Parse: %v", err)
+	}
+
+	// caseSensitive=false (default): case-insensitive comparison should match.
+	if !index.Matches(r, n, query.ModeSimple, false) {
+		t.Error("caseSensitive=false: 'Report' should match 'report.pdf' (case-insensitive)")
+	}
+
+	// caseSensitive=true: 'R' != 'r' so it must NOT match.
+	if index.Matches(r, n, query.ModeSimple, true) {
+		t.Error("caseSensitive=true: 'Report' should NOT match 'report.pdf'")
+	}
+}
+
 func TestMatches(t *testing.T) {
 	type tc struct {
 		name    string
@@ -184,7 +207,7 @@ func TestMatches(t *testing.T) {
 			if err != nil {
 				t.Fatalf("query.Parse(%q, %q): %v", c.queryS, c.mode, err)
 			}
-			got := index.Matches(c.result, n, c.mode)
+			got := index.Matches(c.result, n, c.mode, false) // default caseSensitive=false
 			if got != c.want {
 				t.Errorf("Matches(%q, %q) = %v, want %v", c.queryS, c.result.Name, got, c.want)
 			}

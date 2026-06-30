@@ -8,7 +8,8 @@
         "sort": { "field": "relevance", "dir": "desc" },
         "filters": { "types": ["document", "image"] },
         "page": 0,
-        "pageSize": 10
+        "pageSize": 10,
+        "caseSensitive": true
       },
       "response": {
         "results": [
@@ -102,7 +103,8 @@
         "pageSize": 50,
         "history": [
           "/home/bob/Invoices/invoice_2024_003.pdf"
-        ]
+        ],
+        "exactPhrase": false
       },
       "response": {
         "results": [

@@ -236,6 +236,14 @@
             "type": "string"
           },
           "description": "Optional list of recently opened result ids (FileResult.id). The companion may boost these for recency re-ranking."
+        },
+        "caseSensitive": {
+          "type": "boolean",
+          "description": "Optional. When true, term and phrase matching is case-sensitive. Default false (case-insensitive). Regex nodes are unaffected — the pattern's own flags control case."
+        },
+        "exactPhrase": {
+          "type": "boolean",
+          "description": "Optional. When true, the whole query string is treated as one ordered phrase (ignored in regex mode). Default false (AND of individual terms)."
         }
       },
       "additionalProperties": false

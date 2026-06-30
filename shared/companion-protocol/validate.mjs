@@ -216,7 +216,7 @@ function validateFilters(filters, path, errors) {
 }
 
 // --- SearchRequest validator ---
-const SEARCH_REQUEST_KEYS = new Set(["query", "queryMode", "sort", "filters", "page", "pageSize", "history"]);
+const SEARCH_REQUEST_KEYS = new Set(["query", "queryMode", "sort", "filters", "page", "pageSize", "history", "caseSensitive", "exactPhrase"]);
 
 function validateSearchRequest(req, path, errors) {
   if (!isObject(req)) { errors.push(`${path}: must be an object`); return; }
@@ -245,6 +245,12 @@ function validateSearchRequest(req, path, errors) {
         if (!isString(s)) errors.push(`${path}.history[${i}]: must be a string`);
       });
     }
+  }
+  if (req.caseSensitive !== undefined && !isBool(req.caseSensitive)) {
+    errors.push(`${path}.caseSensitive: must be a boolean if present`);
+  }
+  if (req.exactPhrase !== undefined && !isBool(req.exactPhrase)) {
+    errors.push(`${path}.exactPhrase: must be a boolean if present`);
   }
 }
 

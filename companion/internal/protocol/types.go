@@ -72,13 +72,15 @@ type Filters struct {
 
 // SearchRequest is the body of POST /v1/search.
 type SearchRequest struct {
-	Query     string      `json:"query"`
-	QueryMode query.Mode  `json:"queryMode"`
-	Sort      Sort        `json:"sort"`
-	Filters   Filters     `json:"filters"`
-	Page      int         `json:"page"`
-	PageSize  int         `json:"pageSize"`
-	History   []string    `json:"history,omitempty"`
+	Query         string      `json:"query"`
+	QueryMode     query.Mode  `json:"queryMode"`
+	Sort          Sort        `json:"sort"`
+	Filters       Filters     `json:"filters"`
+	Page          int         `json:"page"`
+	PageSize      int         `json:"pageSize"`
+	History       []string    `json:"history,omitempty"`
+	CaseSensitive bool        `json:"caseSensitive,omitempty"`
+	ExactPhrase   bool        `json:"exactPhrase,omitempty"`
 }
 
 // SearchResponse is the successful response from POST /v1/search.

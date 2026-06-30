@@ -10,8 +10,12 @@ import (
 	"github.com/DoubleGremlin181/fast-travel-app/companion/internal/query"
 )
 
-// balooLimit caps the number of index candidates requested per baloosearch call.
-const balooLimit = "500"
+// balooLimit is the candidate cap passed to baloosearch as a CLI argument.
+// balooLimitN is the numeric equivalent used to detect a cap hit (Bug C).
+const (
+	balooLimit  = "500"
+	balooLimitN = 500
+)
 
 // BalooIndexer queries the KDE Baloo file index via the baloosearch CLI.
 type BalooIndexer struct {
@@ -72,6 +76,7 @@ func (b *BalooIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode, 
 	}
 
 	var all []string
+	degraded := false
 	for _, branch := range ORBranches(ast) {
 		seed, ok := PositiveSeed(branch)
 		if !ok {
@@ -82,9 +87,15 @@ func (b *BalooIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode, 
 		if err != nil {
 			continue
 		}
-		all = append(all, parseBalooOutput(out)...)
+		paths := parseBalooOutput(out)
+		if len(paths) >= balooLimitN {
+			// Cap hit: the index returned exactly the limit, so results may be
+			// incomplete. Signal degraded so the count is not presented as exact.
+			degraded = true
+		}
+		all = append(all, paths...)
 	}
-	return normalizeAndDedupe(all), false, nil
+	return normalizeAndDedupe(all), degraded, nil
 }
 
 // parseBalooOutput reads baloosearch stdout. baloosearch prints one absolute

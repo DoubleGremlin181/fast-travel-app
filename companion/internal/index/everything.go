@@ -7,8 +7,12 @@ import (
 	"github.com/DoubleGremlin181/fast-travel-app/companion/internal/query"
 )
 
-// everythingLimit caps the number of index candidates requested per invocation.
-const everythingLimit = "500"
+// everythingLimit is the candidate cap passed to es as a CLI argument.
+// everythingLimitN is the numeric equivalent used to detect a cap hit (Bug C).
+const (
+	everythingLimit  = "500"
+	everythingLimitN = 500
+)
 
 // EverythingIndexer queries Voidtools Everything via the es CLI (Everything
 // Search). It supports native regex via es -r, making it the preferred
@@ -79,11 +83,14 @@ func (e *EverythingIndexer) Query(ctx context.Context, ast query.Node, _ query.M
 		if err != nil {
 			return normalizeAndDedupe(nil), false, err
 		}
-		return normalizeAndDedupe(parseWinPaths(out)), false, nil
+		paths := parseWinPaths(out)
+		degraded := len(paths) >= everythingLimitN
+		return normalizeAndDedupe(paths), degraded, nil
 	}
 
 	// Substring mode: one invocation per OR branch with a resolvable seed.
 	var all []string
+	degraded := false
 	for _, branch := range ORBranches(ast) {
 		seed, ok := PositiveSeed(branch)
 		if !ok {
@@ -94,7 +101,13 @@ func (e *EverythingIndexer) Query(ctx context.Context, ast query.Node, _ query.M
 		if err != nil {
 			continue
 		}
-		all = append(all, parseWinPaths(out)...)
+		paths := parseWinPaths(out)
+		if len(paths) >= everythingLimitN {
+			// Cap hit: the index returned exactly the limit, so results may be
+			// incomplete. Signal degraded so the count is not presented as exact.
+			degraded = true
+		}
+		all = append(all, paths...)
 	}
-	return normalizeAndDedupe(all), false, nil
+	return normalizeAndDedupe(all), degraded, nil
 }

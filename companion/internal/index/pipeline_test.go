@@ -516,6 +516,44 @@ func TestSearch_RegexPathBroadening(t *testing.T) {
 	}
 }
 
+// TestSearch_ExactPhrase verifies the ExactPhrase option: a 2-word query
+// matches both results as AND'd terms (default), but only the file whose
+// name contains the exact contiguous phrase when ExactPhrase=true.
+func TestSearch_ExactPhrase(t *testing.T) {
+	// p1: both words present but joined with underscore (not a space).
+	// p2: both words present as a contiguous phrase with a space.
+	phraseCorpus := []protocol.FileResult{
+		{ID: "p1", Name: "annual_report.pdf", Path: "/docs/annual_report.pdf", Dir: "/docs", Ext: "pdf", Type: protocol.FileTypeDocument, ModifiedAt: ts1, CreatedAt: ts1},
+		{ID: "p2", Name: "annual report.pdf", Path: "/docs/annual report.pdf", Dir: "/docs", Ext: "pdf", Type: protocol.FileTypeDocument, ModifiedAt: ts1, CreatedAt: ts1},
+	}
+	idx := index.NewMemIndexer(phraseCorpus, protocol.Capabilities{})
+
+	// ExactPhrase=false (default): "annual report" is AND'd; both p1 and p2 match.
+	req := newSearch("annual report")
+	req.ExactPhrase = false
+	resp, err := index.Search(context.Background(), idx, req)
+	if err != nil {
+		t.Fatalf("Search (ExactPhrase=false): %v", err)
+	}
+	if resp.Total != 2 {
+		t.Errorf("ExactPhrase=false: want 2 results (AND match), got %d: %v", resp.Total, resultIDs(resp.Results))
+	}
+
+	// ExactPhrase=true: the whole query is one ordered phrase; only p2 matches
+	// ("annual report" is a contiguous substring of its name; p1 has an underscore).
+	req.ExactPhrase = true
+	resp, err = index.Search(context.Background(), idx, req)
+	if err != nil {
+		t.Fatalf("Search (ExactPhrase=true): %v", err)
+	}
+	if resp.Total != 1 {
+		t.Errorf("ExactPhrase=true: want 1 result (phrase match only), got %d: %v", resp.Total, resultIDs(resp.Results))
+	}
+	if resp.Total == 1 && resp.Results[0].ID != "p2" {
+		t.Errorf("ExactPhrase=true: want p2 (phrase match), got %q", resp.Results[0].ID)
+	}
+}
+
 func TestSearch_EmptyQueryError(t *testing.T) {
 	idx := index.NewMemIndexer(testCorpus, protocol.Capabilities{})
 	req := protocol.SearchRequest{

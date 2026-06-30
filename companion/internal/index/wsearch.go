@@ -119,6 +119,7 @@ func (w *WindowsSearchIndexer) Query(ctx context.Context, ast query.Node, _ quer
 	}
 
 	var all []string
+	degraded := false
 	for _, branch := range ORBranches(ast) {
 		seed, ok := PositiveSeed(branch)
 		if !ok {
@@ -130,9 +131,15 @@ func (w *WindowsSearchIndexer) Query(ctx context.Context, ast query.Node, _ quer
 		if err != nil {
 			continue
 		}
-		all = append(all, parseWinPaths(out)...)
+		paths := parseWinPaths(out)
+		if len(paths) >= wsearchLimit {
+			// Cap hit: the index returned exactly the limit, so results may be
+			// incomplete. Signal degraded so the count is not presented as exact.
+			degraded = true
+		}
+		all = append(all, paths...)
 	}
-	return normalizeAndDedupe(all), false, nil
+	return normalizeAndDedupe(all), degraded, nil
 }
 
 // parseWinPaths reads one-path-per-line stdout (Windows Search ADO or es).

@@ -10,9 +10,13 @@ import (
 	"github.com/DoubleGremlin181/fast-travel-app/companion/internal/query"
 )
 
-// plocateLimit caps the number of index candidates requested per invocation.
+// plocateLimit is the candidate cap passed to plocate as a CLI argument.
 // The pipeline paginates the final result set, so 500 is a reasonable ceiling.
-const plocateLimit = "500"
+// plocateLimitN is the numeric equivalent used to detect a cap hit (Bug C).
+const (
+	plocateLimit  = "500"
+	plocateLimitN = 500
+)
 
 // PlocateIndexer queries the plocate (or locate) mlocate-compatible database.
 // It prefers the plocate binary and falls back to locate.
@@ -110,6 +114,7 @@ func (p *PlocateIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode
 
 	// Substring mode: one invocation per OR branch with a resolvable seed.
 	var all []string
+	degraded := false
 	for _, branch := range ORBranches(ast) {
 		seed, ok := PositiveSeed(branch)
 		if !ok {
@@ -120,9 +125,15 @@ func (p *PlocateIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode
 		if err != nil {
 			continue
 		}
-		all = append(all, parsePlocatePaths(out)...)
+		paths := parsePlocatePaths(out)
+		if len(paths) >= plocateLimitN {
+			// Cap hit: the index returned exactly the limit, so results may be
+			// incomplete. Signal degraded so the count is not presented as exact.
+			degraded = true
+		}
+		all = append(all, paths...)
 	}
-	return normalizeAndDedupe(all), false, nil
+	return normalizeAndDedupe(all), degraded, nil
 }
 
 // parsePlocatePaths reads plocate stdout: one absolute path per line.

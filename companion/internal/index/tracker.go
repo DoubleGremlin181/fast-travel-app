@@ -11,8 +11,12 @@ import (
 	"github.com/DoubleGremlin181/fast-travel-app/companion/internal/query"
 )
 
-// trackerLimit caps the number of index candidates requested per invocation.
-const trackerLimit = "500"
+// trackerLimit is the candidate cap passed to tracker as a CLI argument.
+// trackerLimitN is the numeric equivalent used to detect a cap hit (Bug C).
+const (
+	trackerLimit  = "500"
+	trackerLimitN = 500
+)
 
 // TrackerIndexer queries the GNOME Tracker (TinySPARQL) file index via the
 // tracker3 or tracker CLI. tracker3 is preferred; tracker is the legacy fallback.
@@ -85,6 +89,7 @@ func (t *TrackerIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode
 	}
 
 	var all []string
+	degraded := false
 	for _, branch := range ORBranches(ast) {
 		seed, ok := PositiveSeed(branch)
 		if !ok {
@@ -95,9 +100,15 @@ func (t *TrackerIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode
 		if err != nil {
 			continue
 		}
-		all = append(all, parseTrackerOutput(out)...)
+		paths := parseTrackerOutput(out)
+		if len(paths) >= trackerLimitN {
+			// Cap hit: the index returned exactly the limit, so results may be
+			// incomplete. Signal degraded so the count is not presented as exact.
+			degraded = true
+		}
+		all = append(all, paths...)
 	}
-	return normalizeAndDedupe(all), false, nil
+	return normalizeAndDedupe(all), degraded, nil
 }
 
 // parseTrackerOutput extracts filesystem paths from tracker search --files stdout.

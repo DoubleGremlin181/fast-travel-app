@@ -2,6 +2,8 @@ package query
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -13,7 +15,11 @@ func Parse(query string, mode Mode) (Node, error) {
 	}
 
 	if mode == ModeRegex {
-		return parseRegex(query), nil
+		n, err := parseRegex(query)
+		if err != nil {
+			return Node{}, err
+		}
+		return n, nil
 	}
 
 	tokens := tokenize(query, mode)
@@ -22,14 +28,20 @@ func Parse(query string, mode Mode) (Node, error) {
 
 // --- regex mode -----------------------------------------------------------
 
-func parseRegex(query string) Node {
+// parseRegex builds a regex AST node, validating the pattern compiles as RE2.
+// Returns an error (Bug A) when the pattern is invalid so callers can surface
+// a useful 400 bad_request to the client.
+func parseRegex(query string) (Node, error) {
 	field := "name"
 	value := query
 	if strings.HasPrefix(query, "path:") {
 		field = "path"
 		value = query[len("path:"):]
 	}
-	return Node{Op: "regex", Field: field, Value: value}
+	if _, err := regexp.Compile(value); err != nil {
+		return Node{}, fmt.Errorf("invalid regular expression: %w", err)
+	}
+	return Node{Op: "regex", Field: field, Value: value}, nil
 }
 
 // --- tokenizer ------------------------------------------------------------

@@ -3,8 +3,10 @@ package index_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/DoubleGremlin181/fast-travel-app/companion/internal/index"
@@ -438,5 +440,30 @@ func TestPlocate_RunnerError_SubstringMode(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Errorf("expected 0 results when runner errors; got %d", len(results))
+	}
+}
+
+// TestPlocate_CapHit_Degraded verifies Bug C: when plocate returns exactly the
+// candidate cap (500 lines), degraded is set to true because the result set may
+// be incomplete. Paths are non-existent on disk (stale entries silently skipped
+// by Normalize), but degraded must still be true.
+func TestPlocate_CapHit_Degraded(t *testing.T) {
+	// Build a stdout with exactly 500 non-existent path lines.
+	var sb strings.Builder
+	for i := range 500 {
+		fmt.Fprintf(&sb, "/nonexistent/cap_test/file%04d.txt\n", i)
+	}
+
+	fr := &fakeRunner{stdouts: []string{sb.String()}}
+	idx := index.NewPlocateIndexer(fr)
+	idx.Bin = "plocate"
+
+	ast, _ := query.Parse("file", query.ModeSimple)
+	_, degraded, err := idx.Query(context.Background(), ast, query.ModeSimple, protocol.SearchRequest{})
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if !degraded {
+		t.Error("expected degraded=true when backend returns exactly the candidate cap (500 paths)")
 	}
 }
