@@ -110,6 +110,17 @@ Releases are fully automated via GitHub Actions. After merging to `main`:
 
 Do NOT manually edit version numbers in source files.
 
+### Companion releases
+
+The companion daemon versions **independently** of the extension/Android app and is **not** included in the main Release workflow. It is built and published by `.github/workflows/companion-release.yml` via two triggers:
+
+- **Manual:** Actions → Companion Release → Run workflow → enter a version (e.g. `1.0.0`).
+- **Tag push:** push a `companion-v*` tag (e.g. `git tag companion-v1.0.0 && git push --tags`); the workflow derives the version from the tag.
+
+Both paths cross-compile all targets on a single `ubuntu-latest` runner (`linux-amd64`, `linux-arm64`, `windows-amd64.exe`), generate a `SHA256SUMS` file, and publish a GitHub Release with all four files attached. Uses only `GITHUB_TOKEN` — no additional secrets required.
+
+Distribution is **GitHub Releases only** (no store submission). AppImage packaging is a future enhancement.
+
 ## CI Secrets (for maintainers)
 
 All secrets live in **GitHub → Settings → Secrets and variables → Actions**.
