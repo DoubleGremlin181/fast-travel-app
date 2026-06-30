@@ -22,6 +22,11 @@ export interface LocalSearchPrefs {
   filters: { types?: string[]; titleOnly?: boolean; content?: boolean };
   /** Results display style. Default "list". */
   view: "list" | "grid";
+  /**
+   * Capped list of recently-opened file ids (most-recent first, max 30).
+   * Passed as SearchRequest.history so the companion can recency-boost them.
+   */
+  recentlyOpened?: string[];
 }
 
 const STORE_KEY = "fast-travel-local-search-prefs";

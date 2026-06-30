@@ -8,6 +8,13 @@ import type {
   Command,
   Group,
 } from "../core/types.js";
+import { getLocalSearchPrefs } from "../core/local-search-store.js";
+import type { LocalSearchPrefs } from "../core/local-search-store.js";
+import {
+  shouldInterceptLocalSearch,
+  openLocalSearch,
+  initLocalSearch,
+} from "./local-search-results.js";
 import type { Suggestion } from "../core/suggestions.js";
 import { resolveGroupTint } from "../ui/group-colors.js";
 import { renderFavicon } from "../ui/favicon.js";
@@ -85,6 +92,7 @@ function findResolvedByTrigger(cfg: FastTravelConfig, trigger: string): Resolved
 
 // State
 let config: FastTravelConfig | null = null;
+let localSearchPrefs: LocalSearchPrefs | null = null;
 // Recent usage history, fetched once at load and used to frecency-rank the
 // empty-input quick chips.
 let topChipHistory: HistoryEntry[] = [];
@@ -167,6 +175,8 @@ async function init(): Promise<void> {
     config = await chrome.runtime.sendMessage({ type: "getConfig" });
     await refreshIgnoreState();
     topChipHistory = (await chrome.runtime.sendMessage({ type: "getHistory" })) ?? [];
+    localSearchPrefs = await getLocalSearchPrefs();
+    initLocalSearch();
 
     // Omnibox search-provider path: ?q=<query> → resolve + navigate immediately.
     // The presence of ?q= proves Fast Travel is the active default search engine.
@@ -324,6 +334,17 @@ function handleSearch(): void {
   if (!config) return;
   const query = searchInput.value.trim();
   if (!query) return;
+
+  // Local-search intercept: `s <query>` when enabled + paired + config has no `s` trigger.
+  // Returns { intercept: false } for all other input — strict no-op guard.
+  if (localSearchPrefs) {
+    const intercept = shouldInterceptLocalSearch(query, localSearchPrefs, config);
+    if (intercept.intercept) {
+      hideSuggestions();
+      void openLocalSearch(intercept.query);
+      return;
+    }
+  }
 
   const result = parseCommand({
     rawQuery: query,

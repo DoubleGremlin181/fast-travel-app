@@ -652,3 +652,331 @@ body:hover #settings-link {
     padding: 10px 16px;
   }
 }
+
+/* ── Local-search results view ─────────────────────────────────────────────── */
+
+/* Hide hero elements while local search is active.
+ * Uses a class (not display:none on the elements themselves) so transitions
+ * don't flash. */
+.ls-hidden {
+  display: none !important;
+}
+
+#ls-container {
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 60vh;
+  animation: dropdown-in var(--duration-short) var(--ease);
+}
+
+#ls-container.hidden {
+  display: none;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
+#ls-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+#ls-back {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-short) var(--ease), color var(--duration-short) var(--ease);
+}
+
+#ls-back:hover,
+#ls-back:focus-visible {
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+
+#ls-input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+#ls-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  font-size: 15px;
+  font-family: var(--font);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color var(--duration-short) var(--ease), box-shadow var(--duration-short) var(--ease);
+}
+
+#ls-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+#ls-input::placeholder {
+  color: var(--text-placeholder);
+}
+
+/* ── Toolbar placeholder ─────────────────────────────────────────────────────── */
+/* 3b drops the Drive-style toolbar (query-mode control, sort, filter chips,
+ * list/grid toggle) here. Empty in 3a — no height so it doesn't shift layout. */
+
+#ls-toolbar {
+  /* intentionally empty */
+}
+
+/* ── Status area (loading / empty / error / disconnected) ─────────────────── */
+
+.ls-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+  animation: dropdown-in var(--duration-short) var(--ease);
+}
+
+.ls-status.hidden {
+  display: none;
+}
+
+.ls-status p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.ls-status-hint a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.ls-status-hint a:hover {
+  text-decoration: underline;
+}
+
+.ls-status-error {
+  color: var(--danger);
+}
+
+.ls-status-disconnected {
+  color: var(--text-secondary);
+}
+
+/* Spinner */
+.ls-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: ls-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ls-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Retry button */
+.ls-retry-btn {
+  padding: 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--duration-short) var(--ease),
+              background var(--duration-short) var(--ease);
+}
+
+.ls-retry-btn:hover {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+
+/* ── Results list ─────────────────────────────────────────────────────────── */
+
+#ls-list {
+  display: flex;
+  flex-direction: column;
+  /* No extra padding — rows carry their own vertical padding */
+}
+
+/* Each result row is a horizontal flex container:
+ *   [icon] [text-block (name + path)] [meta (date + size)] [reveal-btn]
+ * 3b extends this layout by swapping to a grid when view=grid.
+ * The toolbar above the list + the row structure here are the two extension
+ * points for 3b to hook into. */
+.ls-result-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  min-height: 52px;
+  transition: background var(--duration-short) var(--ease);
+}
+
+.ls-result-row:hover,
+.ls-result-row.active {
+  background: var(--surface-hover);
+}
+
+.ls-result-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ls-result-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ls-result-icon.monogram {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ls-result-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ls-result-primary {
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ls-result-secondary {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Ellipsis on the left (tail-visible) so the filename is always readable */
+  direction: rtl;
+  text-align: left;
+}
+
+.ls-result-meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-placeholder);
+  white-space: nowrap;
+}
+
+/* Reveal-in-file-manager affordance. Hidden until row hover/active,
+ * so it doesn't crowd the meta column. */
+.ls-reveal-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-placeholder);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-short) var(--ease),
+              background var(--duration-short) var(--ease),
+              color var(--duration-short) var(--ease);
+}
+
+.ls-result-row:hover .ls-reveal-btn,
+.ls-result-row.active .ls-reveal-btn {
+  opacity: 1;
+}
+
+.ls-reveal-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────────── */
+
+.ls-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px 4px;
+  font-size: 11px;
+  color: var(--text-placeholder);
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+
+.ls-footer.hidden {
+  display: none;
+}
+
+.ls-footer-count {
+  flex: 1;
+}
+
+.ls-degraded-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--tint-amber-fill);
+  color: var(--tint-amber-fg);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .ls-result-meta {
+    display: none;
+  }
+}
+
