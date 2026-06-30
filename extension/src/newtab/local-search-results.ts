@@ -167,7 +167,7 @@ function ensureContainer(): void {
   // ── Status area: loading / empty / error / disconnected ─────────────────
   lsStatus = document.createElement("div");
   lsStatus.id = "ls-status";
-  lsStatus.className = "hidden";
+  lsStatus.className = "ls-status hidden";
   lsStatus.setAttribute("role", "status");
   lsStatus.setAttribute("aria-live", "polite");
   lsContainer.appendChild(lsStatus);
@@ -182,7 +182,7 @@ function ensureContainer(): void {
   // ── Footer: total + indexer + degraded note ──────────────────────────────
   lsFooter = document.createElement("div");
   lsFooter.id = "ls-footer";
-  lsFooter.className = "hidden";
+  lsFooter.className = "ls-footer hidden";
   lsContainer.appendChild(lsFooter);
 
   app.appendChild(lsContainer);
@@ -328,17 +328,17 @@ async function runSearch(query: string): Promise<void> {
 
 function clearStatusAndList(): void {
   if (lsStatus) {
-    lsStatus.className = "hidden";
+    lsStatus.className = "ls-status hidden";
     lsStatus.replaceChildren();
   }
   lsList?.replaceChildren();
-  if (lsFooter) lsFooter.className = "hidden";
+  if (lsFooter) lsFooter.className = "ls-footer hidden";
 }
 
 function showLoading(): void {
   if (!lsStatus || !lsList || !lsFooter) return;
   lsList.replaceChildren();
-  lsFooter.className = "hidden";
+  lsFooter.className = "ls-footer hidden";
   lsStatus.className = "ls-status ls-status-loading";
   lsStatus.replaceChildren();
   const spinner = document.createElement("div");
@@ -353,7 +353,7 @@ function showLoading(): void {
 function showEmptyQueryState(): void {
   if (!lsStatus || !lsList || !lsFooter) return;
   lsList.replaceChildren();
-  lsFooter.className = "hidden";
+  lsFooter.className = "ls-footer hidden";
   lsStatus.className = "ls-status ls-status-empty";
   lsStatus.textContent = "Type a query to search your local files.";
 }
@@ -361,7 +361,7 @@ function showEmptyQueryState(): void {
 function showDisconnected(): void {
   if (!lsStatus || !lsList || !lsFooter) return;
   lsList.replaceChildren();
-  lsFooter.className = "hidden";
+  lsFooter.className = "ls-footer hidden";
   lsStatus.className = "ls-status ls-status-disconnected";
   lsStatus.replaceChildren();
   const msg = document.createElement("p");
@@ -373,7 +373,7 @@ function showDisconnected(): void {
 function showUnauthorized(): void {
   if (!lsStatus || !lsList || !lsFooter) return;
   lsList.replaceChildren();
-  lsFooter.className = "hidden";
+  lsFooter.className = "ls-footer hidden";
   lsStatus.className = "ls-status ls-status-disconnected";
   lsStatus.replaceChildren();
   const msg = document.createElement("p");
@@ -385,7 +385,7 @@ function showUnauthorized(): void {
 function showError(message: string, query: string): void {
   if (!lsStatus || !lsList || !lsFooter) return;
   lsList.replaceChildren();
-  lsFooter.className = "hidden";
+  lsFooter.className = "ls-footer hidden";
   lsStatus.className = "ls-status ls-status-error";
   lsStatus.replaceChildren();
   const msg = document.createElement("p");
@@ -431,11 +431,11 @@ function renderResults(
       ? `No files match “${query}”.`
       : "No files found.";
     lsList.replaceChildren();
-    lsFooter.className = "hidden";
+    lsFooter.className = "ls-footer hidden";
     return;
   }
 
-  lsStatus.className = "hidden";
+  lsStatus.className = "ls-status hidden";
   lsStatus.replaceChildren();
 
   lsList.replaceChildren();
@@ -603,11 +603,13 @@ function formatSize(bytes: number): string {
 }
 
 /**
- * Format a Unix-epoch-seconds timestamp as a human-readable relative time.
+ * Format an epoch-milliseconds timestamp as a human-readable relative time.
  * Falls back to locale date string for dates older than a week.
+ * Returns "—" when ts is 0 (unknown timestamp per protocol spec).
  */
-function formatDate(ts: number): string {
-  const date = new Date(ts * 1_000); // companion sends seconds
+export function formatDate(ts: number): string {
+  if (ts === 0) return "—";
+  const date = new Date(ts);
   const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000);
   if (diffMin < 1) return "just now";
   if (diffMin < 60) return `${diffMin}m ago`;

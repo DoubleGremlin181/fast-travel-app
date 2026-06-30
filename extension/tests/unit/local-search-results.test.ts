@@ -16,6 +16,7 @@ import {
   buildSearchRequest,
   navDown,
   navUp,
+  formatDate,
 } from "../../src/newtab/local-search-results.js";
 import type { LocalSearchPrefs } from "../../src/core/local-search-store.js";
 import type { FastTravelConfig } from "../../src/core/types.js";
@@ -305,5 +306,36 @@ describe("navUp", () => {
   it("works correctly with total=1", () => {
     expect(navUp(0, 1)).toBe(-1);
     expect(navUp(-1, 1)).toBe(-1);
+  });
+});
+
+// ── formatDate ────────────────────────────────────────────────────────────────
+
+describe("formatDate", () => {
+  it("returns '—' for ts=0 (unknown timestamp)", () => {
+    expect(formatDate(0)).toBe("—");
+  });
+
+  it("returns 'just now' for a timestamp 30 seconds ago (ms)", () => {
+    const ts = Date.now() - 30_000;
+    expect(formatDate(ts)).toBe("just now");
+  });
+
+  it("returns 'Xd ago' for a timestamp a few days ago (ms) — not a 1970 date", () => {
+    const threeDaysAgoMs = Date.now() - 3 * 24 * 60 * 60 * 1_000;
+    const result = formatDate(threeDaysAgoMs);
+    expect(result).toBe("3d ago");
+  });
+
+  it("returns a locale date string (not 1/1/1970) for a timestamp older than 7 days (ms)", () => {
+    const tenDaysAgoMs = Date.now() - 10 * 24 * 60 * 60 * 1_000;
+    const result = formatDate(tenDaysAgoMs);
+    expect(result).not.toBe("1/1/1970");
+    // Must contain the current year (or last year near year boundaries)
+    const currentYear = new Date().getFullYear();
+    const containsYear =
+      result.includes(String(currentYear)) ||
+      result.includes(String(currentYear - 1));
+    expect(containsYear).toBe(true);
   });
 });
