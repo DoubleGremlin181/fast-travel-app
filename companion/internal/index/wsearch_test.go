@@ -74,8 +74,8 @@ func TestWSearch_RegexMode_DegradedNoCall(t *testing.T) {
 	if !degraded {
 		t.Error("expected degraded=true for regex mode (WSearch has no native regex)")
 	}
-	if len(results) != 0 {
-		t.Errorf("expected 0 results for degraded regex, got %d", len(results))
+	if results != nil {
+		t.Errorf("expected nil results for degraded regex (contract: nil, true, nil), got %v", results)
 	}
 	if len(fr.calls) != 0 {
 		t.Errorf("expected no runner calls for regex mode, got %d", len(fr.calls))
@@ -169,9 +169,11 @@ func TestWSearch_BuildCommand_SQLEscape(t *testing.T) {
 	if strings.Contains(script, "$q = 'O'Brien'") {
 		t.Error("seed single-quote must be escaped; unescaped form found in $q assignment")
 	}
-	// There must be doubled single-quotes representing the escaped seed.
-	if !strings.Contains(script, "''") {
-		t.Error("expected escaped single-quotes ('') in generated script")
+	// For "O'Brien": layer-1 SQL escape gives O''Brien; layer-2 PS escape doubles
+	// each of those quotes giving O''''Brien. The four-quote sequence '''' must
+	// appear in the generated script.
+	if !strings.Contains(script, "''''") {
+		t.Error("expected four-quote escaped form ('''' ) in generated script for single-quote input")
 	}
 }
 

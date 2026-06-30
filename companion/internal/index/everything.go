@@ -56,21 +56,26 @@ func (e *EverythingIndexer) Capabilities() protocol.Capabilities {
 
 // Query returns candidate FileResults from the Everything index.
 //
-// Regex mode: Everything natively supports regex via es -r. The raw RE2
-// pattern is forwarded directly as: es -r -n <LIMIT> -- <pattern>.
+// Regex mode: Everything natively supports regex via es -r.
+// es uses ECMAScript regex, not RE2. The common subset (\d \w . * + ? {n} [...])
+// is compatible; RE2-only constructs ((?i), (?P<name>...), \p{...}) may cause
+// es to fail/return empty — under-return for those inputs. The RE2 matcher
+// post-filters for precision but cannot recover missing candidates.
 // degraded=false because results are a true regex index match.
 //
 // Substring mode: for each OR branch with a positive literal seed, issues
-// one `es -n <LIMIT> -- <seed>` call (substring/glob match on path/name).
+// one `es -full-path-and-name -n <LIMIT> -- <seed>` call.
 // Results across branches are unioned.
 //
-// es prints one full absolute path per line by default. normalizeAndDedupe
-// stats each path and silently drops stale entries (path no longer exists).
+// -full-path-and-name forces es to emit full paths even on non-default
+// Everything configurations; normalizeAndDedupe stats each path and silently
+// drops stale entries (path no longer exists).
 func (e *EverythingIndexer) Query(ctx context.Context, ast query.Node, _ query.Mode, _ protocol.SearchRequest) ([]protocol.FileResult, bool, error) {
 	if pat, ok := RegexPattern(ast); ok {
 		// Everything natively supports regex; forward the raw pattern with -r.
+		// -full-path-and-name ensures full paths regardless of es configuration.
 		// degraded=false: the index itself performs regex filtering.
-		out, err := e.runner.Run(ctx, e.Bin, "-r", "-n", everythingLimit, "--", pat)
+		out, err := e.runner.Run(ctx, e.Bin, "-r", "-full-path-and-name", "-n", everythingLimit, "--", pat)
 		if err != nil {
 			return normalizeAndDedupe(nil), false, err
 		}
@@ -85,7 +90,7 @@ func (e *EverythingIndexer) Query(ctx context.Context, ast query.Node, _ query.M
 			// No positive literal anchor (e.g. pure negation); skip this branch.
 			continue
 		}
-		out, err := e.runner.Run(ctx, e.Bin, "-n", everythingLimit, "--", seed)
+		out, err := e.runner.Run(ctx, e.Bin, "-full-path-and-name", "-n", everythingLimit, "--", seed)
 		if err != nil {
 			continue
 		}

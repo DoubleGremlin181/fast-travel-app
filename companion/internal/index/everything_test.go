@@ -16,8 +16,8 @@ import (
 // On Linux (CI), es is absent so Available()=false. All tests use a fakeRunner
 // so no real es binary is invoked.
 //
-// Regex invocation:  es -r -n 500 -- <pattern>   (native regex; degraded=false)
-// Substring invocation: es -n 500 -- <seed>       (per OR branch; degraded=false)
+// Regex invocation:  es -r -full-path-and-name -n 500 -- <pattern>   (native regex; degraded=false)
+// Substring invocation: es -full-path-and-name -n 500 -- <seed>       (per OR branch; degraded=false)
 
 func TestEverything_Capabilities(t *testing.T) {
 	idx := index.NewEverythingIndexer(&fakeRunner{})
@@ -88,6 +88,9 @@ func TestEverything_RegexMode_UsesMinusR(t *testing.T) {
 	if !argsContain(call.args, "-r") {
 		t.Error("regex mode must pass -r to es")
 	}
+	if !argsContain(call.args, "-full-path-and-name") {
+		t.Error("regex mode must pass -full-path-and-name to es")
+	}
 	if !argsContain(call.args, "-n") {
 		t.Error("expected -n flag for limit")
 	}
@@ -141,6 +144,9 @@ func TestEverything_SubstringMode_Command(t *testing.T) {
 	}
 	if argsContain(call.args, "-r") {
 		t.Error("substring mode must NOT pass -r to es")
+	}
+	if !argsContain(call.args, "-full-path-and-name") {
+		t.Error("substring mode must pass -full-path-and-name to es")
 	}
 	if !argsContain(call.args, "-n") {
 		t.Error("expected -n flag for limit")
