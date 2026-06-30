@@ -30,6 +30,8 @@ describe("local-search-store", () => {
     expect(prefs.view).toBe("list");
     expect(prefs.token).toBeUndefined();
     expect(prefs.port).toBeUndefined();
+    expect(prefs.caseSensitive).toBe(false);
+    expect(prefs.exactPhrase).toBe(false);
   });
 
   it("enabled defaults to false (opt-in)", async () => {
@@ -119,6 +121,44 @@ describe("local-search-store", () => {
     expect(prefs.token).toBe("tok-xyz");
     expect(prefs.port).toBe(7333);
     expect(prefs.enabled).toBe(true);
+  });
+
+  // ── caseSensitive + exactPhrase (Phase 6b) ────────────────────────────────
+
+  it("caseSensitive defaults to false", async () => {
+    const prefs = await getLocalSearchPrefs();
+    expect(prefs.caseSensitive).toBe(false);
+  });
+
+  it("exactPhrase defaults to false", async () => {
+    const prefs = await getLocalSearchPrefs();
+    expect(prefs.exactPhrase).toBe(false);
+  });
+
+  it("caseSensitive round-trips through set/get", async () => {
+    await setLocalSearchPrefs({ caseSensitive: true });
+    const prefs = await getLocalSearchPrefs();
+    expect(prefs.caseSensitive).toBe(true);
+  });
+
+  it("exactPhrase round-trips through set/get", async () => {
+    await setLocalSearchPrefs({ exactPhrase: true });
+    const prefs = await getLocalSearchPrefs();
+    expect(prefs.exactPhrase).toBe(true);
+  });
+
+  it("caseSensitive survives a subsequent unrelated partial update", async () => {
+    await setLocalSearchPrefs({ caseSensitive: true });
+    await setLocalSearchPrefs({ view: "grid" });
+    const prefs = await getLocalSearchPrefs();
+    expect(prefs.caseSensitive).toBe(true);
+  });
+
+  it("exactPhrase survives a subsequent unrelated partial update", async () => {
+    await setLocalSearchPrefs({ exactPhrase: true });
+    await setLocalSearchPrefs({ enabled: true });
+    const prefs = await getLocalSearchPrefs();
+    expect(prefs.exactPhrase).toBe(true);
   });
 
   // ── Storage key ───────────────────────────────────────────────────────────

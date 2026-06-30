@@ -67,6 +67,8 @@ export function buildSearchRequest(
     page,
     pageSize: 50,
     ...(recentlyOpened.length > 0 ? { history: recentlyOpened } : {}),
+    caseSensitive: prefs.caseSensitive,
+    exactPhrase: prefs.exactPhrase,
   };
 }
 
@@ -493,9 +495,15 @@ function showError(message: string, query: string): void {
   lsFooter.className = "ls-footer hidden";
   lsStatus.className = "ls-status ls-status-error";
   lsStatus.replaceChildren();
-  const msg = document.createElement("p");
-  msg.textContent = `Search error: ${message}`;
-  lsStatus.appendChild(msg);
+  // Bug A: show a friendly heading plus the companion's exact error message
+  const heading = document.createElement("p");
+  heading.className = "ls-status-heading";
+  heading.textContent = "Couldn't run that search";
+  lsStatus.appendChild(heading);
+  const detail = document.createElement("p");
+  detail.className = "ls-status-detail";
+  detail.textContent = message;
+  lsStatus.appendChild(detail);
   const retryBtn = document.createElement("button");
   retryBtn.type = "button";
   retryBtn.className = "ls-retry-btn";
@@ -602,15 +610,14 @@ function updateFooter(total: number, indexer: string, degraded: boolean): void {
   lsFooter.replaceChildren();
   const countEl = document.createElement("span");
   countEl.className = "ls-footer-count";
-  countEl.textContent = `${total.toLocaleString()} result${total !== 1 ? "s" : ""} · ${indexer}`;
-  lsFooter.appendChild(countEl);
   if (degraded) {
-    const badge = document.createElement("span");
-    badge.className = "ls-degraded-badge";
-    badge.title = "Index may be incomplete — results are best-effort";
-    badge.textContent = "best-effort";
-    lsFooter.appendChild(badge);
+    // Bug C: show lower-bound count when results are capped
+    countEl.textContent = `${total.toLocaleString()}+ results · ${indexer} · best-effort`;
+    countEl.title = "Index may be incomplete — count is a lower bound";
+  } else {
+    countEl.textContent = `${total.toLocaleString()} result${total !== 1 ? "s" : ""} · ${indexer}`;
   }
+  lsFooter.appendChild(countEl);
 }
 
 /**

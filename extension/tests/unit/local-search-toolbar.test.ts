@@ -13,6 +13,7 @@ import { describe, it, expect } from "vitest";
 import {
   datePresetToRange,
   toggleType,
+  SORT_FIELDS,
 } from "../../src/newtab/local-search-toolbar.js";
 
 // ── datePresetToRange ─────────────────────────────────────────────────────────
@@ -65,6 +66,29 @@ describe("datePresetToRange", () => {
     expect(r1.from).toBe(t1 - 30 * DAY);
     expect(r2.from).toBe(t2 - 30 * DAY);
     expect(r1.from).not.toBe(r2.from);
+  });
+});
+
+// ── SORT_FIELDS (Bug B — no "created") ───────────────────────────────────────
+
+describe("SORT_FIELDS", () => {
+  it("does not include 'created' (Bug B: Date created removed)", () => {
+    const values = SORT_FIELDS.map((f) => f.value);
+    expect(values).not.toContain("created");
+  });
+
+  it("includes 'relevance'", () => {
+    const values = SORT_FIELDS.map((f) => f.value);
+    expect(values).toContain("relevance");
+  });
+
+  it("includes 'modified'", () => {
+    const values = SORT_FIELDS.map((f) => f.value);
+    expect(values).toContain("modified");
+  });
+
+  it("contains exactly two entries (relevance + modified)", () => {
+    expect(SORT_FIELDS).toHaveLength(2);
   });
 });
 

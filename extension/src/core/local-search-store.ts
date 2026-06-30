@@ -32,6 +32,13 @@ export interface LocalSearchPrefs {
   };
   /** Results display style. Default "list". */
   view: "list" | "grid";
+  /** When true, matching is case-sensitive. Default false. */
+  caseSensitive: boolean;
+  /**
+   * When true, the whole query string is treated as one ordered phrase
+   * (ignored in regex mode). Default false (AND of individual terms).
+   */
+  exactPhrase: boolean;
   /**
    * Capped list of recently-opened file ids (most-recent first, max 30).
    * Passed as SearchRequest.history so the companion can recency-boost them.
@@ -47,6 +54,8 @@ const DEFAULTS: LocalSearchPrefs = {
   sort: { field: "relevance", dir: "desc" },
   filters: {},
   view: "list",
+  caseSensitive: false,
+  exactPhrase: false,
 };
 
 /**

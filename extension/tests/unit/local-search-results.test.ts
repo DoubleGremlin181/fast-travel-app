@@ -305,6 +305,39 @@ describe("buildSearchRequest", () => {
     expect(req.filters.createdRange).toEqual(crRange);
     expect(req.filters.titleOnly).toBe(true);
   });
+
+  // caseSensitive + exactPhrase (Phase 6b)
+
+  it("includes caseSensitive: false when prefs use the default", () => {
+    const prefs: LocalSearchPrefs = { ...PREFS_ENABLED, caseSensitive: false, exactPhrase: false };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.caseSensitive).toBe(false);
+  });
+
+  it("includes exactPhrase: false when prefs use the default", () => {
+    const prefs: LocalSearchPrefs = { ...PREFS_ENABLED, caseSensitive: false, exactPhrase: false };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.exactPhrase).toBe(false);
+  });
+
+  it("passes caseSensitive: true from prefs", () => {
+    const prefs: LocalSearchPrefs = { ...PREFS_ENABLED, caseSensitive: true, exactPhrase: false };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.caseSensitive).toBe(true);
+  });
+
+  it("passes exactPhrase: true from prefs", () => {
+    const prefs: LocalSearchPrefs = { ...PREFS_ENABLED, caseSensitive: false, exactPhrase: true };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.exactPhrase).toBe(true);
+  });
+
+  it("passes both caseSensitive and exactPhrase simultaneously", () => {
+    const prefs: LocalSearchPrefs = { ...PREFS_ENABLED, caseSensitive: true, exactPhrase: true };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.caseSensitive).toBe(true);
+    expect(req.exactPhrase).toBe(true);
+  });
 });
 
 // ── navDown ───────────────────────────────────────────────────────────────────

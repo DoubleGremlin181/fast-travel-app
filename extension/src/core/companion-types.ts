@@ -99,6 +99,13 @@ export interface SearchRequest {
   page: number;
   pageSize: number;
   history?: string[];
+  /** When true, matching is case-sensitive. Default false (case-insensitive). */
+  caseSensitive?: boolean;
+  /**
+   * When true, the whole query string is treated as one ordered phrase.
+   * Ignored in regex mode. Default false (AND of individual terms).
+   */
+  exactPhrase?: boolean;
 }
 
 export interface FileResult {

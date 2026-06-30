@@ -131,6 +131,22 @@ function mkEl<K extends keyof HTMLElementTagNameMap>(
   return e;
 }
 
+// ── Sort field definitions (exported for unit tests) ─────────────────────────
+
+/**
+ * Available sort fields in the toolbar dropdown.
+ * "created" is intentionally absent — it was non-functional and has been
+ * removed (Bug B). Any stored pref with field "created" is treated as
+ * "relevance" in sync().
+ */
+export const SORT_FIELDS: Array<{
+  value: "relevance" | "modified";
+  label: string;
+}> = [
+  { value: "relevance", label: "Relevance" },
+  { value: "modified", label: "Date modified" },
+];
+
 // ── Toolbar mount ─────────────────────────────────────────────────────────────
 
 /**
@@ -151,6 +167,20 @@ export function mountToolbar(
   let _types: string[] = [];
   let _sortDir: "asc" | "desc" = "desc";
   let _view: "list" | "grid" = "list";
+  let _queryMode: "simple" | "wildcard" | "regex" = "simple";
+
+  // Forward-declared toggle elements (assigned in filterRow build below)
+  let exactPhraseCheck: HTMLInputElement | null = null;
+  let exactPhraseLabel: HTMLElement | null = null;
+
+  /** Update the exact-phrase toggle's disabled state based on current _queryMode. */
+  function syncExactPhraseEnabled(): void {
+    if (!exactPhraseCheck || !exactPhraseLabel) return;
+    const dis = _queryMode === "regex";
+    exactPhraseCheck.disabled = dis;
+    exactPhraseLabel.title = dis ? "Regex ignores phrase matching" : "";
+    exactPhraseLabel.classList.toggle("ls-filter-toggle-disabled", dis);
+  }
 
   // ── Row 1: query-mode segmented control + sort ──────────────────────────
 
@@ -182,6 +212,8 @@ export function mountToolbar(
       btn.title = "Not supported by your indexer";
     }
     btn.addEventListener("click", () => {
+      _queryMode = value;
+      syncExactPhraseEnabled();
       void setLocalSearchPrefs({ queryMode: value }).then(onReSearch);
     });
     modeSeg.appendChild(btn);
@@ -198,20 +230,12 @@ export function mountToolbar(
     "aria-label": "Sort by",
   }) as HTMLSelectElement;
 
-  const SORT_FIELD_DEFS: Array<{
-    value: "relevance" | "created" | "modified";
-    label: string;
-  }> = [
-    { value: "relevance", label: "Relevance" },
-    { value: "created", label: "Date created" },
-    { value: "modified", label: "Date modified" },
-  ];
-  for (const { value, label } of SORT_FIELD_DEFS) {
+  for (const { value, label } of SORT_FIELDS) {
     sortFieldSel.appendChild(mkEl("option", { value }, label));
   }
   sortFieldSel.addEventListener("change", () => {
     void setLocalSearchPrefs({
-      sort: { field: sortFieldSel.value as "relevance" | "created" | "modified" },
+      sort: { field: sortFieldSel.value as "relevance" | "modified" },
     }).then(onReSearch);
   });
   sortWrap.appendChild(sortFieldSel);
@@ -370,6 +394,41 @@ export function mountToolbar(
   });
   filterRow.appendChild(pathInput);
 
+  // -- Exact phrase toggle (disabled in Regex mode) --
+
+  exactPhraseCheck = mkEl("input", {
+    type: "checkbox",
+    id: "ls-exact-phrase",
+  }) as HTMLInputElement;
+  exactPhraseCheck.addEventListener("change", () => {
+    void setLocalSearchPrefs({ exactPhrase: (exactPhraseCheck as HTMLInputElement).checked })
+      .then(onReSearch);
+  });
+  exactPhraseLabel = mkEl("label", {
+    class: "ls-filter-toggle",
+    for: "ls-exact-phrase",
+  });
+  exactPhraseLabel.appendChild(exactPhraseCheck);
+  exactPhraseLabel.appendChild(document.createTextNode(" Exact phrase"));
+  filterRow.appendChild(exactPhraseLabel);
+
+  // -- Match case toggle --
+
+  const matchCaseCheck = mkEl("input", {
+    type: "checkbox",
+    id: "ls-match-case",
+  }) as HTMLInputElement;
+  matchCaseCheck.addEventListener("change", () => {
+    void setLocalSearchPrefs({ caseSensitive: matchCaseCheck.checked }).then(onReSearch);
+  });
+  const matchCaseLabel = mkEl("label", {
+    class: "ls-filter-toggle",
+    for: "ls-match-case",
+  });
+  matchCaseLabel.appendChild(matchCaseCheck);
+  matchCaseLabel.appendChild(document.createTextNode(" Match case"));
+  filterRow.appendChild(matchCaseLabel);
+
   // -- Title-only checkbox --
 
   const titleCheck = mkEl("input", {
@@ -445,6 +504,7 @@ export function mountToolbar(
     const now = Date.now();
 
     // Query mode
+    _queryMode = prefs.queryMode;
     for (const { value } of MODE_DEFS) {
       const btn = modeBtns[value];
       if (!btn) continue;
@@ -456,8 +516,9 @@ export function mountToolbar(
       }
     }
 
-    // Sort field
-    sortFieldSel.value = prefs.sort.field;
+    // Sort field — treat legacy "created" value as "relevance" (Bug B fallback)
+    const sortField = prefs.sort.field === "created" ? "relevance" : prefs.sort.field;
+    sortFieldSel.value = sortField;
 
     // Sort direction
     _sortDir = prefs.sort.dir;
@@ -475,6 +536,11 @@ export function mountToolbar(
 
     // Path prefix
     pathInput.value = prefs.filters.pathPrefix ?? "";
+
+    // Exact phrase + match case toggles
+    if (exactPhraseCheck) exactPhraseCheck.checked = prefs.exactPhrase;
+    matchCaseCheck.checked = prefs.caseSensitive;
+    syncExactPhraseEnabled();
 
     // Title only
     titleCheck.checked = prefs.filters.titleOnly === true;
