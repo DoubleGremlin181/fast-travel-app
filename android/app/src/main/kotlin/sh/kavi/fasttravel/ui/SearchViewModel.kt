@@ -27,6 +27,12 @@ import sh.kavi.fasttravel.data.ConfigRepository
 import sh.kavi.fasttravel.data.SearchHistory
 import sh.kavi.fasttravel.data.ThemePreferences
 import sh.kavi.fasttravel.data.withIgnoreAdded
+import sh.kavi.fasttravel.localsearch.buildLocalSearchRequest
+import sh.kavi.fasttravel.localsearch.shouldInterceptLocalSearch
+import sh.kavi.fasttravel.localsearch.index.FileResult
+import sh.kavi.fasttravel.localsearch.index.MediaStoreSearcher
+import sh.kavi.fasttravel.localsearch.index.hasLocalSearchPermission
+import sh.kavi.fasttravel.localsearch.settings.configHasSTrigger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,6 +47,14 @@ sealed class SearchState {
     data object Idle : SearchState()
     data class TypoSuggestion(val typo: ParseOutput.TypoResult) : SearchState()
     data class Navigate(val url: String) : SearchState()
+    data class LocalSearchResults(
+        val query: String,
+        val results: List<FileResult> = emptyList(),
+        val total: Int = 0,
+        val isLoading: Boolean = true,
+        val error: String? = null,
+        val needsPermission: Boolean = false,
+    ) : SearchState()
 }
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
@@ -62,6 +76,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private var suggestionJob: Job? = null
     private var installedAppsJob: Job? = null
     private var chipJob: Job? = null
+    private var localSearchJob: Job? = null
+    private var lastLocalSearchQuery: String = ""
 
     private val _chipItems = MutableStateFlow<List<ChipItem>>(emptyList())
     val chipItems: StateFlow<List<ChipItem>> = _chipItems.asStateFlow()
@@ -287,6 +303,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     fun onQueryChanged(newQuery: String) {
         _query.value = newQuery
         _searchState.value = SearchState.Idle
+        localSearchJob?.cancel()
 
         val cfg = config
         // When user commits to a command ("trigger "), stale Google suggestions from
@@ -391,6 +408,20 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         val cfg = config ?: return
         _suggestions.value = emptyList()
 
+        // ── Local search intercept ────────────────────────────────────────────
+        // Must run BEFORE CommandParser so "s <query>" never reaches typo-detection.
+        // configHasSTrigger is checked here (independent of localSearchEnabled) so
+        // the guard is correct even when the pref was set before a config collision.
+        val intercept = shouldInterceptLocalSearch(
+            input = searchQuery,
+            enabled = themePrefs.localSearchEnabled,
+            configHasS = configHasSTrigger(cfg),
+        )
+        if (intercept.intercept) {
+            handleLocalSearch(intercept.query)
+            return
+        }
+
         val input = ParseInput(
             rawQuery = searchQuery,
             device = DeviceType.Android,
@@ -408,6 +439,86 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 _searchState.value = SearchState.TypoSuggestion(result)
             }
         }
+    }
+
+    /**
+     * Runs a local-file search for [query] and emits [SearchState.LocalSearchResults].
+     *
+     * Permission is checked independently here — [themePrefs.localSearchEnabled] is
+     * necessary but not sufficient (the pref is not cleared on permission revocation).
+     */
+    private fun handleLocalSearch(query: String) {
+        lastLocalSearchQuery = query
+
+        // Blank query (bare "s") — show the results screen without running a search.
+        if (query.isBlank()) {
+            _searchState.value = SearchState.LocalSearchResults(
+                query = query,
+                isLoading = false,
+            )
+            return
+        }
+
+        // Independent permission check — do NOT attempt the search without it.
+        if (!hasLocalSearchPermission(getApplication())) {
+            _searchState.value = SearchState.LocalSearchResults(
+                query = query,
+                isLoading = false,
+                needsPermission = true,
+            )
+            return
+        }
+
+        _searchState.value = SearchState.LocalSearchResults(query = query, isLoading = true)
+
+        localSearchJob?.cancel()
+        localSearchJob = viewModelScope.launch {
+            try {
+                val req = buildLocalSearchRequest(
+                    query = query,
+                    queryMode = themePrefs.localSearchQueryMode,
+                    sortField = themePrefs.localSearchSortField,
+                    sortDir = themePrefs.localSearchSortDir,
+                    history = themePrefs.recentlyOpened,
+                )
+                val result = withContext(Dispatchers.IO) {
+                    MediaStoreSearcher(getApplication<Application>().contentResolver).search(req)
+                }
+                _searchState.value = SearchState.LocalSearchResults(
+                    query = query,
+                    results = result.results,
+                    total = result.total,
+                    isLoading = false,
+                )
+            } catch (e: Exception) {
+                _searchState.value = SearchState.LocalSearchResults(
+                    query = query,
+                    isLoading = false,
+                    error = e.message ?: "Search failed",
+                )
+            }
+        }
+    }
+
+    /** Dismiss the local-search results screen and return to [SearchState.Idle]. */
+    fun dismissLocalSearch() {
+        localSearchJob?.cancel()
+        if (_searchState.value is SearchState.LocalSearchResults) {
+            _searchState.value = SearchState.Idle
+        }
+    }
+
+    /** Re-run the last local search (e.g. after a permission grant). */
+    fun retryLocalSearch() {
+        handleLocalSearch(lastLocalSearchQuery)
+    }
+
+    /**
+     * Records a file open so it scores higher on subsequent local searches.
+     * Called from the UI after a successful [Intent.ACTION_VIEW] launch.
+     */
+    fun recordFileOpen(fileId: String) {
+        themePrefs.addRecentlyOpened(fileId)
     }
 
     fun acceptTypo() {

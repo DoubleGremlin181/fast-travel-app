@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    FileProvider path configuration for local-search file opens.
+
+    MediaStore returns absolute paths under /storage/emulated/0/ (primary external
+    storage). <external-path path="." /> covers all subdirectories there.
+
+    <external-cache-path> and <files-path> are included for completeness;
+    they are unlikely to be needed for file-search results but are harmless.
+
+    If FileProvider.getUriForFile throws IllegalArgumentException (path not covered),
+    the Compose layer catches it and falls back to a toast.
+-->
+<paths>
+    <!-- Primary external storage: /storage/emulated/0/... -->
+    <external-path name="external" path="." />
+    <!-- App-private external files: /sdcard/Android/data/<pkg>/files/... -->
+    <external-files-path name="external_files" path="." />
+    <!-- App-private external cache: /sdcard/Android/data/<pkg>/cache/... -->
+    <external-cache-path name="external_cache" path="." />
+    <!-- App-private internal files: /data/data/<pkg>/files/... -->
+    <files-path name="internal_files" path="." />
+</paths>

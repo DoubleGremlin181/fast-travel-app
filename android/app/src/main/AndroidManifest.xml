@@ -75,6 +75,21 @@
             android:exported="false"
             android:theme="@style/Theme.FastTravel" />
 
+        <!--
+            FileProvider for opening local files (local-search results).
+            Content URIs keep the app from needing MANAGE_EXTERNAL_STORAGE;
+            FLAG_GRANT_READ_URI_PERMISSION is set per-intent at open time.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
+
         <!-- Search widget -->
         <receiver
             android:name=".ui.SearchWidgetProvider"

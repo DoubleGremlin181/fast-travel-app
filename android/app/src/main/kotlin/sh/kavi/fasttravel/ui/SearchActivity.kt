@@ -7,7 +7,10 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -54,14 +57,24 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.ArrowOutward
+import androidx.compose.material.icons.filled.AudioFile
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.VideoCameraBack
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,6 +91,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -136,6 +150,11 @@ import sh.kavi.fasttravel.core.Suggestion
 import sh.kavi.fasttravel.core.resolveIconUrl
 import sh.kavi.fasttravel.data.ThemePreferences
 import sh.kavi.fasttravel.deeplink.DeepLinkResolver
+import sh.kavi.fasttravel.localsearch.LocalFileIcon
+import sh.kavi.fasttravel.localsearch.fileTypeIcon
+import sh.kavi.fasttravel.localsearch.formatFileSize
+import sh.kavi.fasttravel.localsearch.formatModifiedDate
+import sh.kavi.fasttravel.localsearch.index.FileResult
 import sh.kavi.fasttravel.ui.appearance.resolveFromPrefs
 import sh.kavi.fasttravel.ui.theme.DividerDark
 import sh.kavi.fasttravel.ui.theme.DividerLight
@@ -439,20 +458,28 @@ fun SearchScreen(
     }
 
     LaunchedEffect(searchState) {
-        if (searchState is SearchState.Navigate) {
-            val url = (searchState as SearchState.Navigate).url
-            val intent = DeepLinkResolver.resolve(context, url)
-            if (intent != null) {
-                context.startActivity(intent)
-            } else {
-                android.widget.Toast.makeText(
-                    context,
-                    "Blocked unsupported URL scheme",
-                    android.widget.Toast.LENGTH_SHORT,
-                ).show()
+        when (searchState) {
+            is SearchState.Navigate -> {
+                val url = (searchState as SearchState.Navigate).url
+                val intent = DeepLinkResolver.resolve(context, url)
+                if (intent != null) {
+                    context.startActivity(intent)
+                } else {
+                    android.widget.Toast.makeText(
+                        context,
+                        "Blocked unsupported URL scheme",
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+                keyboardController?.hide()
+                viewModel.onNavigationHandled()
             }
-            keyboardController?.hide()
-            viewModel.onNavigationHandled()
+            is SearchState.LocalSearchResults -> {
+                // Hide keyboard when the results screen appears.
+                // Focus is naturally cleared as the TextField loses it.
+                keyboardController?.hide()
+            }
+            else -> Unit
         }
     }
 
@@ -471,6 +498,12 @@ fun SearchScreen(
         enabled = searchState is SearchState.TypoSuggestion,
     ) {
         viewModel.dismissTypo()
+    }
+    // BACK from the local-search results screen returns to the launcher.
+    androidx.activity.compose.BackHandler(
+        enabled = searchState is SearchState.LocalSearchResults,
+    ) {
+        viewModel.dismissLocalSearch()
     }
 
     // When a variant provides a surfaceBrush (AMOLED, Glass, gradients), the
@@ -598,46 +631,67 @@ fun SearchScreen(
                 }
             }
 
-            if (imeVisible) {
-                FocusedContent(
-                    viewModel = viewModel,
-                    query = query,
-                    suggestions = suggestions,
-                    installedApps = installedApps,
-                    groupColorMap = groupColorMap,
-                    onSuggestionClick = { s ->
-                        viewModel.onQueryChanged(s.text)
-                        viewModel.onSearch(s.text)
-                    },
-                    onSuggestionPopulate = { s -> viewModel.onQueryChanged(s.text) },
-                    onHistoryRemove = { q -> viewModel.removeHistoryEntry(q) },
-                    onAppLaunch = launchApp,
-                    onCommandAutocompletePick = { cmd ->
-                        val trig = cmd.triggers.firstOrNull() ?: return@FocusedContent
-                        if (cmd.type == CommandType.Redirect) {
-                            viewModel.onSearch(trig)
-                        } else {
-                            viewModel.onQueryChanged("$trig ")
-                        }
-                    },
-                )
-            } else {
-                UnfocusedContent(
-                    chipItems = chipItems,
-                    groupColorMap = groupColorMap,
-                    shortcutRows = shortcutRows,
-                    onCommandClick = { command ->
-                        val trigger = command.triggers.firstOrNull() ?: return@UnfocusedContent
-                        if (command.type == CommandType.Redirect) {
-                            viewModel.onSearch(trigger)
-                        } else {
-                            viewModel.onQueryChanged("$trigger ")
-                            focusRequester.requestFocus()
-                            keyboardController?.show()
-                        }
-                    },
-                    onAppClick = launchApp,
-                )
+            when {
+                searchState is SearchState.LocalSearchResults -> {
+                    LocalSearchResultsScreen(
+                        state = searchState as SearchState.LocalSearchResults,
+                        onOpenFile = { file ->
+                            openFileResult(context, file) { fileId ->
+                                viewModel.recordFileOpen(fileId)
+                            }
+                        },
+                        onRetry = { viewModel.retryLocalSearch() },
+                        onOpenPermissionSettings = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = android.net.Uri.fromParts("package", context.packageName, null)
+                                }
+                            )
+                        },
+                    )
+                }
+                imeVisible -> {
+                    FocusedContent(
+                        viewModel = viewModel,
+                        query = query,
+                        suggestions = suggestions,
+                        installedApps = installedApps,
+                        groupColorMap = groupColorMap,
+                        onSuggestionClick = { s ->
+                            viewModel.onQueryChanged(s.text)
+                            viewModel.onSearch(s.text)
+                        },
+                        onSuggestionPopulate = { s -> viewModel.onQueryChanged(s.text) },
+                        onHistoryRemove = { q -> viewModel.removeHistoryEntry(q) },
+                        onAppLaunch = launchApp,
+                        onCommandAutocompletePick = { cmd ->
+                            val trig = cmd.triggers.firstOrNull() ?: return@FocusedContent
+                            if (cmd.type == CommandType.Redirect) {
+                                viewModel.onSearch(trig)
+                            } else {
+                                viewModel.onQueryChanged("$trig ")
+                            }
+                        },
+                    )
+                }
+                else -> {
+                    UnfocusedContent(
+                        chipItems = chipItems,
+                        groupColorMap = groupColorMap,
+                        shortcutRows = shortcutRows,
+                        onCommandClick = { command ->
+                            val trigger = command.triggers.firstOrNull() ?: return@UnfocusedContent
+                            if (command.type == CommandType.Redirect) {
+                                viewModel.onSearch(trigger)
+                            } else {
+                                viewModel.onQueryChanged("$trigger ")
+                                focusRequester.requestFocus()
+                                keyboardController?.show()
+                            }
+                        },
+                        onAppClick = launchApp,
+                    )
+                }
             }
         }
     }
@@ -1314,6 +1368,294 @@ private fun CommandChip(
             fontSize = 16.sp,
             color = textColor,
         )
+    }
+}
+
+// ── Local Search Results ──────────────────────────────────────────────────────
+
+/**
+ * Opens [file] via [Intent.ACTION_VIEW] using a [FileProvider] content URI so the
+ * receiving app gets read permission without us needing MANAGE_EXTERNAL_STORAGE.
+ * Catches all failure modes and shows a toast rather than crashing.
+ * On success, [onRecordOpen] is called to record the file id for frecency scoring.
+ */
+private fun openFileResult(
+    context: Context,
+    file: FileResult,
+    onRecordOpen: (String) -> Unit,
+) {
+    try {
+        val f = File(file.path)
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.provider",
+            f,
+        )
+        val mime = file.mime.ifEmpty { "*/*" }
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mime)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(intent)
+        onRecordOpen(file.id)
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, "No app found to open this file", Toast.LENGTH_SHORT).show()
+    } catch (e: IllegalArgumentException) {
+        // FileProvider path not covered — fall back to direct file URI.
+        try {
+            val fallbackUri = android.net.Uri.fromFile(File(file.path))
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(fallbackUri, file.mime.ifEmpty { "*/*" })
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(intent)
+            onRecordOpen(file.id)
+        } catch (_: Exception) {
+            Toast.makeText(context, "Cannot open: ${file.name}", Toast.LENGTH_SHORT).show()
+        }
+    } catch (_: Exception) {
+        Toast.makeText(context, "Cannot open: ${file.name}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+/**
+ * Resolves [LocalFileIcon] to the matching Material icon vector and a theme color.
+ * Called in the Compose layer; [fileTypeIcon] provides the pure category enum.
+ */
+@Composable
+private fun fileTypeIconVector(icon: LocalFileIcon): Pair<ImageVector, Color> = when (icon) {
+    LocalFileIcon.FOLDER   -> Icons.Default.Folder       to Color(0xFF4CAF50)
+    LocalFileIcon.IMAGE    -> Icons.Default.Image         to Color(0xFF9C27B0)
+    LocalFileIcon.VIDEO    -> Icons.Default.VideoCameraBack to Color(0xFFE91E63)
+    LocalFileIcon.AUDIO    -> Icons.Default.MusicNote     to Color(0xFFFF9800)
+    LocalFileIcon.ARCHIVE  -> Icons.Default.Archive       to Color(0xFF795548)
+    LocalFileIcon.CODE     -> Icons.Default.Code          to Color(0xFF009688)
+    LocalFileIcon.DOCUMENT -> Icons.Default.Description   to Color(0xFF2196F3)
+    LocalFileIcon.OTHER    -> Icons.AutoMirrored.Filled.InsertDriveFile to Color(0xFF9E9E9E)
+}
+
+/**
+ * Full-screen results list, loading/empty/error/permission states.
+ * Structured so 5e can add a toolbar + grid view above the [LazyColumn].
+ */
+@Composable
+private fun LocalSearchResultsScreen(
+    state: SearchState.LocalSearchResults,
+    onOpenFile: (FileResult) -> Unit,
+    onRetry: () -> Unit,
+    onOpenPermissionSettings: () -> Unit,
+) {
+    val dividerColor = MaterialTheme.colorScheme.outlineVariant
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // ── Toolbar placeholder — 5e will add query-mode control, sort, filter chips ──
+        // Count + source line (shown when results are available).
+        if (!state.isLoading && state.error == null && !state.needsPermission && state.query.isNotBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp, bottom = 4.dp, start = 4.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (state.total == 1) "1 file" else "${state.total} files",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "On-device files",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+            }
+            HorizontalDivider(color = dividerColor)
+        }
+
+        when {
+            state.isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            state.needsPermission -> {
+                LocalSearchPermissionNeeded(onOpenSettings = onOpenPermissionSettings)
+            }
+            state.error != null -> {
+                LocalSearchError(message = state.error, onRetry = onRetry)
+            }
+            state.query.isBlank() -> {
+                // Bare "s" with no query — prompt the user.
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "Type a search term after 's' to search your files",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            state.results.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "No files match \"${state.query}\"",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            else -> {
+                // ── Results list — 5e adds a grid variant beside this ──
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(state.results) { file ->
+                        FileResultRow(file = file, onClick = { onOpenFile(file) })
+                        HorizontalDivider(color = dividerColor)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocalSearchPermissionNeeded(onOpenSettings: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = null,
+            modifier = Modifier.size(48.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Storage permission needed",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Grant media access in Settings → Local Search to search your files.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onOpenSettings) {
+            Text("Open Settings")
+        }
+    }
+}
+
+@Composable
+private fun LocalSearchError(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "Search failed",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.error,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        OutlinedButton(onClick = onRetry) {
+            Text("Retry")
+        }
+    }
+}
+
+@Composable
+private fun FileResultRow(file: FileResult, onClick: () -> Unit) {
+    val iconInfo = fileTypeIcon(file.type)
+    val (iconVector, iconColor) = fileTypeIconVector(iconInfo)
+    val sizeText = formatFileSize(file.size)
+    val dateText = formatModifiedDate(file.modifiedAt)
+    val meta = listOfNotNull(dateText.takeIf { it.isNotEmpty() }, sizeText.takeIf { it.isNotEmpty() })
+        .joinToString(" · ")
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 10.dp)
+            .semantics {
+                contentDescription = "File: ${file.name}"
+            },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Per-type icon in a tinted circle, matching CommandFavicon visual weight.
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(iconColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = iconVector,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = iconColor,
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = file.name,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (file.dir.isNotEmpty()) {
+                TailText(
+                    text = file.dir,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            if (meta.isNotEmpty()) {
+                Text(
+                    text = meta,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                )
+            }
+        }
     }
 }
 

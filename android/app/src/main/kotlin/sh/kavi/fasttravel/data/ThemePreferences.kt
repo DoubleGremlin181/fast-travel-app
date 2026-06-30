@@ -39,6 +39,8 @@ class ThemePreferences(private val prefs: SharedPreferences) {
         private const val KEY_LOCAL_SEARCH_QUERY_MODE = "local_search_query_mode"
         private const val KEY_LOCAL_SEARCH_SORT_FIELD = "local_search_sort_field"
         private const val KEY_LOCAL_SEARCH_SORT_DIR = "local_search_sort_dir"
+        private const val KEY_RECENTLY_OPENED = "local_search_recently_opened"
+        private const val RECENTLY_OPENED_MAX = 50
         const val DEFAULT_AUTO_IGNORE_THRESHOLD = 3
         const val AUTO_IGNORE_THRESHOLD_MIN = 1
         const val AUTO_IGNORE_THRESHOLD_MAX = 20
@@ -120,6 +122,32 @@ class ThemePreferences(private val prefs: SharedPreferences) {
     var localSearchSortDir: String
         get() = prefs.getString(KEY_LOCAL_SEARCH_SORT_DIR, "") ?: ""
         set(value) { prefs.edit().putString(KEY_LOCAL_SEARCH_SORT_DIR, value).apply() }
+
+    /**
+     * Ordered list of recently-opened local-file ids (paths), most-recent first.
+     * Capped at [RECENTLY_OPENED_MAX]. Used as the `history` param in [SearchRequest]
+     * to boost recently-opened files in scoring.
+     */
+    val recentlyOpened: List<String>
+        get() {
+            val json = prefs.getString(KEY_RECENTLY_OPENED, null) ?: return emptyList()
+            return try {
+                val arr = org.json.JSONArray(json)
+                (0 until arr.length()).map { arr.getString(it) }
+            } catch (_: Exception) { emptyList() }
+        }
+
+    /**
+     * Records [id] as the most-recently-opened file. Deduplicates (moves to front on
+     * re-open) and caps the list at [RECENTLY_OPENED_MAX].
+     */
+    fun addRecentlyOpened(id: String) {
+        val current = recentlyOpened.toMutableList()
+        current.remove(id)
+        current.add(0, id)
+        val trimmed = current.take(RECENTLY_OPENED_MAX)
+        prefs.edit().putString(KEY_RECENTLY_OPENED, org.json.JSONArray(trimmed).toString()).apply()
+    }
 
     var shortcutRows: Int
         get() = prefs.getInt(KEY_SHORTCUT_ROWS, 2)
