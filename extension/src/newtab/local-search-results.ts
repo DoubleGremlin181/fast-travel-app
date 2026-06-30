@@ -8,13 +8,20 @@
  */
 
 import type { FastTravelConfig } from "../core/types.js";
-import type { SearchRequest, Filters, FileResult } from "../core/companion-types.js";
+import type { SearchRequest, Filters, FileResult, PingResponse } from "../core/companion-types.js";
 import type { LocalSearchPrefs } from "../core/local-search-store.js";
 import { getLocalSearchPrefs, setLocalSearchPrefs } from "../core/local-search-store.js";
 import { buildTriggerMap } from "../core/parser.js";
-import { search as companionSearch, openFile as companionOpenFile, CompanionError } from "../core/companion-client.js";
+import {
+  discover,
+  search as companionSearch,
+  openFile as companionOpenFile,
+  CompanionError,
+} from "../core/companion-client.js";
 import { renderFavicon } from "../ui/favicon.js";
 import { showSnackbar } from "../ui/snackbar.js";
+import { mountToolbar } from "./local-search-toolbar.js";
+import type { ToolbarControls } from "./local-search-toolbar.js";
 
 // ── Pure functions (exported + unit-tested) ───────────────────────────────────
 
@@ -89,6 +96,12 @@ let currentResults: FileResult[] = [];
 let searchGeneration = 0;
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Last-known ping response; null until discover() resolves on open. */
+let currentPing: PingResponse | null = null;
+
+/** Toolbar controls handle, set in ensureContainer (lazy, once). */
+let toolbarControls: ToolbarControls | null = null;
+
 // DOM refs — null until ensureContainer() runs
 let lsContainer: HTMLElement | null = null;
 let lsInput: HTMLInputElement | null = null;
@@ -158,11 +171,13 @@ function ensureContainer(): void {
 
   lsContainer.appendChild(header);
 
-  // ── Toolbar placeholder — 3b drops the Drive-style toolbar here ─────────
+  // ── Toolbar: Drive-style query-mode, sort, and filter controls ──────────
   const toolbar = document.createElement("div");
   toolbar.id = "ls-toolbar";
-  toolbar.setAttribute("aria-hidden", "true");
   lsContainer.appendChild(toolbar);
+  toolbarControls = mountToolbar(toolbar, () => {
+    if (lsInput) void runSearch(lsInput.value);
+  });
 
   // ── Status area: loading / empty / error / disconnected ─────────────────
   lsStatus = document.createElement("div");
@@ -254,6 +269,21 @@ export async function openLocalSearch(query: string): Promise<void> {
   lsInput.focus();
   lsInput.select();
 
+  // Sync toolbar to current prefs (reflects persisted selections on open).
+  // currentPing may be null on first open — toolbar shows safe defaults.
+  const prefs = await getLocalSearchPrefs();
+  if (!isOpen) return;
+  toolbarControls?.sync(prefs, currentPing);
+
+  // Fire discover in the background; update capability gating when it resolves.
+  void discover().then((result) => {
+    if (!isOpen) return;
+    currentPing = result?.ping ?? null;
+    void getLocalSearchPrefs().then((p) => {
+      if (isOpen) toolbarControls?.sync(p, currentPing);
+    });
+  });
+
   if (query) {
     await runSearch(query);
   } else {
@@ -268,6 +298,7 @@ export async function openLocalSearch(query: string): Promise<void> {
 export function closeLocalSearch(): void {
   if (!isOpen) return;
   isOpen = false;
+  currentPing = null;
   searchGeneration++;
 
   if (debounceTimer !== null) {

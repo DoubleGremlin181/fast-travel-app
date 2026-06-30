@@ -734,12 +734,259 @@ body:hover #settings-link {
   color: var(--text-placeholder);
 }
 
-/* ── Toolbar placeholder ─────────────────────────────────────────────────────── */
-/* 3b drops the Drive-style toolbar (query-mode control, sort, filter chips,
- * list/grid toggle) here. Empty in 3a — no height so it doesn't shift layout. */
+/* ── Toolbar (Drive-style query-mode, sort, filters) ─────────────────────────── */
 
 #ls-toolbar {
-  /* intentionally empty */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ls-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Query-mode segmented control */
+.ls-mode-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ls-mode-btn {
+  padding: 5px 11px;
+  font: inherit;
+  font-size: 12px;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.4;
+  transition: background var(--duration-short) var(--ease),
+              color var(--duration-short) var(--ease);
+}
+
+.ls-mode-btn:last-child {
+  border-right: none;
+}
+
+.ls-mode-btn.active {
+  background: var(--primary);
+  color: var(--primary-contrast);
+}
+
+.ls-mode-btn:hover:not(.active):not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.ls-mode-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Sort controls */
+.ls-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.ls-sort-field {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-short) var(--ease);
+}
+
+.ls-sort-field:focus-visible {
+  border-color: var(--primary);
+}
+
+.ls-sort-dir {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-short) var(--ease),
+              color var(--duration-short) var(--ease);
+  flex-shrink: 0;
+}
+
+.ls-sort-dir:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.ls-sort-dir svg {
+  transition: transform var(--duration-short) var(--ease);
+}
+
+.ls-sort-dir.asc svg {
+  transform: rotate(180deg);
+}
+
+/* Filter row */
+.ls-filter-row {
+  gap: 6px;
+}
+
+/* Type chips */
+.ls-type-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ls-type-chip {
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.5;
+  transition: background var(--duration-short) var(--ease),
+              color var(--duration-short) var(--ease),
+              border-color var(--duration-short) var(--ease);
+}
+
+.ls-type-chip.active {
+  background: var(--tint-blue-fill);
+  color: var(--tint-blue-fg);
+  border-color: var(--tint-blue-fg);
+}
+
+.ls-type-chip:hover:not(.active) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Date modified preset select */
+.ls-date-sel {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+  transition: border-color var(--duration-short) var(--ease);
+}
+
+.ls-date-sel:focus-visible {
+  border-color: var(--primary);
+}
+
+/* Path prefix input */
+.ls-path-input {
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  width: 110px;
+  outline: none;
+  transition: border-color var(--duration-short) var(--ease),
+              box-shadow var(--duration-short) var(--ease);
+}
+
+.ls-path-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.ls-path-input::placeholder {
+  color: var(--text-placeholder);
+}
+
+/* Inline filter toggles (Title only / Contents) */
+.ls-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.ls-filter-toggle input[type="checkbox"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+  width: 13px;
+  height: 13px;
+}
+
+.ls-filter-toggle.hidden {
+  display: none;
+}
+
+/* Clear filters button */
+.ls-clear-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-short) var(--ease),
+              color var(--duration-short) var(--ease),
+              border-color var(--duration-short) var(--ease);
+}
+
+.ls-clear-btn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--surface-hover);
+}
+
+@media (max-width: 560px) {
+  .ls-toolbar-main {
+    flex-wrap: wrap;
+  }
+
+  .ls-sort {
+    margin-left: 0;
+  }
+
+  .ls-path-input {
+    width: 80px;
+  }
 }
 
 /* ── Status area (loading / empty / error / disconnected) ─────────────────── */

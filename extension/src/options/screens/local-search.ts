@@ -20,6 +20,14 @@ import { getLocalSearchPrefs, setLocalSearchPrefs } from "../../core/local-searc
 import { buildTriggerMap } from "../../core/parser.js";
 import type { FastTravelConfig } from "../../core/types.js";
 import type { PingResponse } from "../../core/companion-types.js";
+import {
+  regexAvailable,
+  contentAvailable,
+} from "../../core/local-search-capabilities.js";
+
+// Re-export so the existing test surface (tests/unit/local-search-screen.test.ts)
+// continues to import from this module without changes.
+export { regexAvailable, contentAvailable };
 
 // ── Status type ────────────────────────────────────────────────────────────────
 
@@ -45,23 +53,6 @@ export function detectOS(ua: string): "windows" | "macos" | "linux" {
  */
 export function configHasSTrigger(config: FastTravelConfig): boolean {
   return buildTriggerMap(config).has("s");
-}
-
-/**
- * Returns true if at least one *available* indexer in the ping response
- * advertises `capabilities.regex === true`.
- */
-export function regexAvailable(ping: PingResponse): boolean {
-  return ping.indexers.some((idx) => idx.available && idx.capabilities.regex);
-}
-
-/**
- * Returns true if the *default* indexer is available and supports content
- * search.
- */
-export function contentAvailable(ping: PingResponse): boolean {
-  const def = ping.indexers.find((idx) => idx.id === ping.defaultIndexer);
-  return def !== undefined && def.available && def.capabilities.content;
 }
 
 /**

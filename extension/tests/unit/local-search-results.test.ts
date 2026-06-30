@@ -238,6 +238,68 @@ describe("buildSearchRequest", () => {
     const req = buildSearchRequest(PREFS_ENABLED, "q");
     expect(req.history).toBeUndefined();
   });
+
+  // Extended filter fields (Phase 3b)
+
+  it("carries pathPrefix from prefs.filters when set", () => {
+    const prefs: LocalSearchPrefs = {
+      ...PREFS_ENABLED,
+      filters: { pathPrefix: "/home/user/Documents" },
+    };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.filters.pathPrefix).toBe("/home/user/Documents");
+  });
+
+  it("carries modifiedRange from prefs.filters when set (epoch ms)", () => {
+    const range = { from: 1_700_000_000_000 };
+    const prefs: LocalSearchPrefs = {
+      ...PREFS_ENABLED,
+      filters: { modifiedRange: range },
+    };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.filters.modifiedRange).toEqual(range);
+  });
+
+  it("carries createdRange from prefs.filters when set (epoch ms)", () => {
+    const range = { from: 1_680_000_000_000, to: 1_700_000_000_000 };
+    const prefs: LocalSearchPrefs = {
+      ...PREFS_ENABLED,
+      filters: { createdRange: range },
+    };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.filters.createdRange).toEqual(range);
+  });
+
+  it("omits pathPrefix from filters when not set in prefs", () => {
+    const req = buildSearchRequest(PREFS_ENABLED, "q", []);
+    expect(req.filters.pathPrefix).toBeUndefined();
+  });
+
+  it("omits modifiedRange from filters when not set in prefs", () => {
+    const req = buildSearchRequest(PREFS_ENABLED, "q", []);
+    expect(req.filters.modifiedRange).toBeUndefined();
+  });
+
+  it("carries all extended filter fields simultaneously", () => {
+    const modRange = { from: 1_690_000_000_000 };
+    const crRange = { from: 1_680_000_000_000 };
+    const prefs: LocalSearchPrefs = {
+      ...PREFS_ENABLED,
+      filters: {
+        types: ["document"],
+        pathPrefix: "/home/user",
+        modifiedRange: modRange,
+        createdRange: crRange,
+        titleOnly: true,
+      },
+    };
+    const req = buildSearchRequest(prefs, "q", []);
+    expect(req.filters.types).toEqual(["document"]);
+    expect(req.filters.pathPrefix).toBe("/home/user");
+    expect(req.filters.modifiedRange).toEqual(modRange);
+    expect(req.filters.createdRange).toEqual(crRange);
+    expect(req.filters.titleOnly).toBe(true);
+  });
 });
 
 // ── navDown ───────────────────────────────────────────────────────────────────

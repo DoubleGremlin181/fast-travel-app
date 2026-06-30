@@ -18,8 +18,18 @@ export interface LocalSearchPrefs {
   queryMode: "simple" | "wildcard" | "regex";
   /** Result sort order. Default relevance/desc. */
   sort: { field: "relevance" | "created" | "modified"; dir: "asc" | "desc" };
-  /** Active filters. Minimal defaults; Phase 3 extends with more fields. */
-  filters: { types?: string[]; titleOnly?: boolean; content?: boolean };
+  /** Active filters. */
+  filters: {
+    types?: string[];
+    titleOnly?: boolean;
+    content?: boolean;
+    /** Path prefix filter — only return files under this directory. */
+    pathPrefix?: string;
+    /** Open-ended date range for file creation date (epoch ms). */
+    createdRange?: { from?: number; to?: number };
+    /** Open-ended date range for file modified date (epoch ms). */
+    modifiedRange?: { from?: number; to?: number };
+  };
   /** Results display style. Default "list". */
   view: "list" | "grid";
   /**
