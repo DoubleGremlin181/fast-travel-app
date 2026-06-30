@@ -3,6 +3,7 @@ package sh.kavi.fasttravel.localsearch.index
 import sh.kavi.fasttravel.localsearch.query.Node
 import sh.kavi.fasttravel.localsearch.query.QueryMode
 import sh.kavi.fasttravel.localsearch.query.parse
+import java.util.Locale
 
 /**
  * Runs the full search pipeline against [candidates]:
@@ -156,21 +157,21 @@ internal fun applyFilters(results: List<FileResult>, f: Filters): List<FileResul
  *   recency = modifiedAt / 2e13  (small tiebreaker in [0, 1) for reasonable timestamps).
  */
 internal fun scoreResult(r: FileResult, terms: List<String>, history: List<String>): Double {
-    val nameLower = r.name.lowercase()
-    val pathLower = r.path.lowercase()
+    val nameLower = r.name.lowercase(Locale.ROOT)
+    val pathLower = r.path.lowercase(Locale.ROOT)
 
     var nameBucket = 0
     for (t in terms) {
-        if (nameLower.startsWith(t.lowercase())) { nameBucket = 3; break }
+        if (nameLower.startsWith(t.lowercase(Locale.ROOT))) { nameBucket = 3; break }
     }
     if (nameBucket == 0) {
         for (t in terms) {
-            if (nameLower.contains(t.lowercase())) { nameBucket = 2; break }
+            if (nameLower.contains(t.lowercase(Locale.ROOT))) { nameBucket = 2; break }
         }
     }
     if (nameBucket == 0) {
         for (t in terms) {
-            if (pathLower.contains(t.lowercase())) { nameBucket = 1; break }
+            if (pathLower.contains(t.lowercase(Locale.ROOT))) { nameBucket = 1; break }
         }
     }
 

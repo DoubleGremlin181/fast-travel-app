@@ -2,6 +2,7 @@ package sh.kavi.fasttravel.localsearch.index
 
 import sh.kavi.fasttravel.localsearch.query.Node
 import sh.kavi.fasttravel.localsearch.query.QueryMode
+import java.util.Locale
 
 /**
  * Returns whether [result] satisfies the AST [node].
@@ -24,12 +25,12 @@ fun matches(result: FileResult, node: Node, @Suppress("UNUSED_PARAMETER") mode: 
             if (node.wildcard == true) {
                 globMatch(node.value ?: "", field)
             } else {
-                field.lowercase().contains((node.value ?: "").lowercase())
+                field.lowercase(Locale.ROOT).contains((node.value ?: "").lowercase(Locale.ROOT))
             }
         }
         "phrase" -> {
             val field = resolveField(result, node.field)
-            field.lowercase().contains((node.value ?: "").lowercase())
+            field.lowercase(Locale.ROOT).contains((node.value ?: "").lowercase(Locale.ROOT))
         }
         "regex"  -> {
             val field = resolveField(result, node.field)
