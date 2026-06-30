@@ -1,6 +1,7 @@
 package sh.kavi.fasttravel.data
 
 import android.content.SharedPreferences
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -24,6 +25,58 @@ class ThemePreferencesTest {
 
         prefs.installedAppsEnabled = true
         assertTrue(prefs.installedAppsEnabled)
+    }
+
+    // ── localSearchEnabled ────────────────────────────────────────────────────
+
+    @Test
+    fun `localSearchEnabled defaults to false`() {
+        // Must start OFF so no user gains an unrequested s-intercept on upgrade.
+        assertFalse(newPrefs().localSearchEnabled)
+    }
+
+    @Test
+    fun `localSearchEnabled persists when toggled`() {
+        val prefs = newPrefs()
+        prefs.localSearchEnabled = true
+        assertTrue(prefs.localSearchEnabled)
+        prefs.localSearchEnabled = false
+        assertFalse(prefs.localSearchEnabled)
+    }
+
+    // ── localSearchQueryMode ──────────────────────────────────────────────────
+
+    @Test
+    fun `localSearchQueryMode defaults to simple`() {
+        assertEquals("simple", newPrefs().localSearchQueryMode)
+    }
+
+    @Test
+    fun `localSearchQueryMode persists custom value`() {
+        val prefs = newPrefs()
+        prefs.localSearchQueryMode = "wildcard"
+        assertEquals("wildcard", prefs.localSearchQueryMode)
+    }
+
+    // ── localSearchSortField / localSearchSortDir ─────────────────────────────
+
+    @Test
+    fun `localSearchSortField defaults to empty string (relevance)`() {
+        assertEquals("", newPrefs().localSearchSortField)
+    }
+
+    @Test
+    fun `localSearchSortDir defaults to empty string (desc)`() {
+        assertEquals("", newPrefs().localSearchSortDir)
+    }
+
+    @Test
+    fun `localSearchSortField and SortDir persist custom values`() {
+        val prefs = newPrefs()
+        prefs.localSearchSortField = "name"
+        prefs.localSearchSortDir = "asc"
+        assertEquals("name", prefs.localSearchSortField)
+        assertEquals("asc", prefs.localSearchSortDir)
     }
 }
 

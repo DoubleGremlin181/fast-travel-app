@@ -6,8 +6,10 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -147,6 +149,10 @@ import sh.kavi.fasttravel.ui.appearance.ResolvedAppearance
 import sh.kavi.fasttravel.ui.appearance.resolveAppearance
 import sh.kavi.fasttravel.ui.appearance.forSettings
 import sh.kavi.fasttravel.ui.appearance.resolveFromPrefs
+import sh.kavi.fasttravel.localsearch.index.hasLocalSearchPermission
+import sh.kavi.fasttravel.localsearch.index.requiredPermissions
+import sh.kavi.fasttravel.localsearch.settings.canEnableLocalSearch
+import sh.kavi.fasttravel.localsearch.settings.configHasSTrigger
 import sh.kavi.fasttravel.ui.theme.FastTravelTheme
 import sh.kavi.fasttravel.ui.theme.LocalAppearance
 import kotlinx.coroutines.Dispatchers
@@ -444,6 +450,7 @@ fun SettingsNavHost(
             LocalSearchScreen(
                 navController = navController,
                 themePrefs = themePrefs,
+                config = config,
             )
         }
         composable(SettingsRoute.About.route) {
@@ -611,8 +618,65 @@ fun SettingsHomeScreen(
 fun LocalSearchScreen(
     navController: NavHostController,
     themePrefs: ThemePreferences,
+    config: FastTravelConfig?,
 ) {
+    val context = LocalContext.current
+
     var installedAppsEnabled by remember { mutableStateOf(themePrefs.installedAppsEnabled) }
+    var localSearchEnabled by remember { mutableStateOf(themePrefs.localSearchEnabled) }
+    var queryMode by remember { mutableStateOf(themePrefs.localSearchQueryMode) }
+    var sortField by remember { mutableStateOf(themePrefs.localSearchSortField) }
+    var sortDir by remember { mutableStateOf(themePrefs.localSearchSortDir) }
+    var sortFieldExpanded by remember { mutableStateOf(false) }
+
+    // Derive permission state; refreshed by the permission launcher callback.
+    var hasPermission by remember { mutableStateOf(hasLocalSearchPermission(context)) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val allGranted = grants.values.all { it }
+        hasPermission = allGranted
+        if (allGranted) {
+            // Permission just granted — enable only if the collision guard still passes.
+            val hasS = config?.let { configHasSTrigger(it) } ?: false
+            if (!hasS) {
+                localSearchEnabled = true
+                themePrefs.localSearchEnabled = true
+            }
+        }
+    }
+
+    // Collision check: does any command in the active config claim the 's' trigger?
+    val configHasS = remember(config) { config?.let { configHasSTrigger(it) } ?: false }
+
+    // If a collision now exists and local search was on, force it off in storage too.
+    LaunchedEffect(configHasS) {
+        if (configHasS && localSearchEnabled) {
+            localSearchEnabled = false
+            themePrefs.localSearchEnabled = false
+        }
+    }
+
+    val canEnable = canEnableLocalSearch(hasPermission, configHasS)
+
+    // Helper to handle the toggle action: permission-gate or direct enable/disable.
+    fun handleToggle(wantOn: Boolean) {
+        if (configHasS) return  // Collision — never allow enabling.
+        if (wantOn) {
+            if (!hasPermission) {
+                permissionLauncher.launch(
+                    requiredPermissions(Build.VERSION.SDK_INT).toTypedArray()
+                )
+            } else {
+                localSearchEnabled = true
+                themePrefs.localSearchEnabled = true
+            }
+        } else {
+            localSearchEnabled = false
+            themePrefs.localSearchEnabled = false
+        }
+    }
 
     Scaffold(
         topBar = { SettingsTopBar(title = "Local search", onBack = { navController.popBackStack() }) },
@@ -625,6 +689,8 @@ fun LocalSearchScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
             Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Installed apps ────────────────────────────────────────────────
             SettingsCard {
                 SettingsSwitchItem(
                     headlineText = "Show installed apps",
@@ -636,8 +702,261 @@ fun LocalSearchScreen(
                     },
                 )
             }
-            // Future on-device, non-web options (e.g. the `s` local file-search command,
-            // issue #25) will live on this screen.
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Local file search ─────────────────────────────────────────────
+            SettingsCategoryHeader(title = "Local file search")
+            SettingsCard {
+                // Explainer
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            "Search on-device media and documents using the 's' keyword. " +
+                                "Results are drawn from your device's files via MediaStore.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                )
+
+                // Enable toggle (disabled when collision exists)
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = "Enable local file search",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = if (!configHasS) MaterialTheme.colorScheme.onSurface
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    supportingContent = {
+                        Text(
+                            text = "Search on-device files with the 's' keyword.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = localSearchEnabled && canEnable,
+                            onCheckedChange = { handleToggle(it) },
+                            enabled = !configHasS,
+                        )
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier
+                        .alpha(if (!configHasS) 1f else 0.5f)
+                        .clickable(enabled = !configHasS) {
+                            handleToggle(!(localSearchEnabled && canEnable))
+                        },
+                )
+
+                // Permission status row
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                )
+                if (!hasPermission && !configHasS) {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = "Permission needed",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        supportingContent = {
+                            Text(
+                                text = "Storage access is required to search on-device files.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        trailingContent = {
+                            OutlinedButton(
+                                onClick = {
+                                    permissionLauncher.launch(
+                                        requiredPermissions(Build.VERSION.SDK_INT).toTypedArray()
+                                    )
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                            ) { Text("Grant") }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                } else if (hasPermission && !configHasS) {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = "Storage permission granted",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                }
+
+                // Collision guard error
+                if (configHasS) {
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = "The 's' keyword is already used by a command in your config — " +
+                                    "rename or remove it to use Local Search.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                }
+            }
+
+            // ── Defaults (shown only when local search is enabled and no collision) ──
+            if (localSearchEnabled && !configHasS) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SettingsCategoryHeader(title = "Defaults")
+                SettingsCard {
+                    // Query mode
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(
+                            "Default query mode",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        val queryModeOptions = listOf(
+                            "simple"   to "Simple",
+                            "wildcard" to "Wildcard",
+                            "regex"    to "Regex*",
+                        )
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            queryModeOptions.forEachIndexed { index, (value, label) ->
+                                SegmentedButton(
+                                    selected = queryMode == value,
+                                    onClick = {
+                                        queryMode = value
+                                        themePrefs.localSearchQueryMode = value
+                                    },
+                                    shape = SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = queryModeOptions.size,
+                                    ),
+                                ) { Text(label) }
+                            }
+                        }
+                        if (queryMode == "regex") {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "* Regex on Android is best-effort — MediaStore has no native regex " +
+                                    "support, so results may be broader than expected.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                    )
+
+                    // Sort
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(
+                            "Default sort",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Spacer(Modifier.height(8.dp))
+
+                        // Sort field dropdown
+                        val sortFieldOptions = listOf(
+                            ""         to "Relevance",
+                            "name"     to "Name",
+                            "modified" to "Modified date",
+                            "created"  to "Created date",
+                            "size"     to "Size",
+                        )
+                        ExposedDropdownMenuBox(
+                            expanded = sortFieldExpanded,
+                            onExpandedChange = { sortFieldExpanded = it },
+                        ) {
+                            OutlinedTextField(
+                                value = sortFieldOptions.firstOrNull { it.first == sortField }?.second
+                                    ?: "Relevance",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Sort by") },
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = sortFieldExpanded)
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                shape = RoundedCornerShape(8.dp),
+                            )
+                            ExposedDropdownMenu(
+                                expanded = sortFieldExpanded,
+                                onDismissRequest = { sortFieldExpanded = false },
+                            ) {
+                                sortFieldOptions.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            sortField = value
+                                            themePrefs.localSearchSortField = value
+                                            sortFieldExpanded = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // Sort direction segmented control
+                        // "" and "desc" are equivalent in the pipeline (both mean descending).
+                        Text(
+                            "Direction",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            val dirOptions = listOf("" to "Descending", "asc" to "Ascending")
+                            dirOptions.forEachIndexed { index, (value, label) ->
+                                SegmentedButton(
+                                    selected = if (value == "asc") sortDir == "asc" else sortDir != "asc",
+                                    onClick = {
+                                        sortDir = value
+                                        themePrefs.localSearchSortDir = value
+                                    },
+                                    shape = SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = dirOptions.size,
+                                    ),
+                                ) { Text(label) }
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
