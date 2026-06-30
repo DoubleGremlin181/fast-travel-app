@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
@@ -50,6 +51,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,29 +62,40 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowOutward
-import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.VideoCameraBack
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -154,6 +169,7 @@ import sh.kavi.fasttravel.localsearch.LocalFileIcon
 import sh.kavi.fasttravel.localsearch.fileTypeIcon
 import sh.kavi.fasttravel.localsearch.formatFileSize
 import sh.kavi.fasttravel.localsearch.formatModifiedDate
+import sh.kavi.fasttravel.localsearch.hasMore
 import sh.kavi.fasttravel.localsearch.index.FileResult
 import sh.kavi.fasttravel.ui.appearance.resolveFromPrefs
 import sh.kavi.fasttravel.ui.theme.DividerDark
@@ -633,8 +649,10 @@ fun SearchScreen(
 
             when {
                 searchState is SearchState.LocalSearchResults -> {
+                    val toolbarState by viewModel.localSearchToolbarState.collectAsState()
                     LocalSearchResultsScreen(
                         state = searchState as SearchState.LocalSearchResults,
+                        toolbarState = toolbarState,
                         onOpenFile = { file ->
                             openFileResult(context, file) { fileId ->
                                 viewModel.recordFileOpen(fileId)
@@ -648,6 +666,16 @@ fun SearchScreen(
                                 }
                             )
                         },
+                        onQueryModeChange = { viewModel.setLocalSearchQueryMode(it) },
+                        onSortFieldChange = { viewModel.setLocalSearchSortField(it) },
+                        onSortDirToggle = { viewModel.toggleLocalSearchSortDir() },
+                        onViewToggle = { viewModel.setLocalSearchView(it) },
+                        onTypeToggle = { viewModel.toggleLocalSearchFilterType(it) },
+                        onDatePresetChange = { viewModel.setLocalSearchFilterDatePreset(it) },
+                        onPathPrefixChange = { viewModel.setLocalSearchFilterPathPrefix(it) },
+                        onTitleOnlyChange = { viewModel.setLocalSearchFilterTitleOnly(it) },
+                        onClearFilters = { viewModel.clearLocalSearchFilters() },
+                        onLoadMore = { viewModel.loadMoreLocalSearch() },
                     )
                 }
                 imeVisible -> {
@@ -1401,12 +1429,13 @@ private fun openFileResult(
     } catch (_: ActivityNotFoundException) {
         Toast.makeText(context, "No app found to open this file", Toast.LENGTH_SHORT).show()
     } catch (e: IllegalArgumentException) {
-        // FileProvider path not covered — fall back to direct file URI.
+        // FileProvider path not covered — fall back to a direct file:// URI.
+        // Note: FLAG_GRANT_READ_URI_PERMISSION is a no-op for file:// URIs (only
+        // applies to content:// URIs from FileProvider), so it is intentionally omitted.
         try {
             val fallbackUri = android.net.Uri.fromFile(File(file.path))
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(fallbackUri, file.mime.ifEmpty { "*/*" })
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(intent)
             onRecordOpen(file.id)
@@ -1419,42 +1448,75 @@ private fun openFileResult(
 }
 
 /**
- * Resolves [LocalFileIcon] to the matching Material icon vector and a theme color.
+ * Resolves [LocalFileIcon] to the matching Material icon vector and a theme-aware color.
+ * Colors are sourced from [MaterialTheme.colorScheme] so they adapt to light/dark/AMOLED/
+ * Material You and custom theme variants — no hardcoded hex values.
  * Called in the Compose layer; [fileTypeIcon] provides the pure category enum.
  */
 @Composable
-private fun fileTypeIconVector(icon: LocalFileIcon): Pair<ImageVector, Color> = when (icon) {
-    LocalFileIcon.FOLDER   -> Icons.Default.Folder       to Color(0xFF4CAF50)
-    LocalFileIcon.IMAGE    -> Icons.Default.Image         to Color(0xFF9C27B0)
-    LocalFileIcon.VIDEO    -> Icons.Default.VideoCameraBack to Color(0xFFE91E63)
-    LocalFileIcon.AUDIO    -> Icons.Default.MusicNote     to Color(0xFFFF9800)
-    LocalFileIcon.ARCHIVE  -> Icons.Default.Archive       to Color(0xFF795548)
-    LocalFileIcon.CODE     -> Icons.Default.Code          to Color(0xFF009688)
-    LocalFileIcon.DOCUMENT -> Icons.Default.Description   to Color(0xFF2196F3)
-    LocalFileIcon.OTHER    -> Icons.AutoMirrored.Filled.InsertDriveFile to Color(0xFF9E9E9E)
+private fun fileTypeIconVector(icon: LocalFileIcon): Pair<ImageVector, Color> {
+    val cs = MaterialTheme.colorScheme
+    return when (icon) {
+        LocalFileIcon.FOLDER   -> Icons.Default.Folder                       to cs.secondary
+        LocalFileIcon.IMAGE    -> Icons.Default.Image                         to cs.primary
+        LocalFileIcon.VIDEO    -> Icons.Default.VideoCameraBack               to cs.error
+        LocalFileIcon.AUDIO    -> Icons.Default.MusicNote                     to cs.onSurfaceVariant
+        LocalFileIcon.ARCHIVE  -> Icons.Default.Archive                       to cs.outline
+        LocalFileIcon.CODE     -> Icons.Default.Code                          to cs.secondary
+        LocalFileIcon.DOCUMENT -> Icons.Default.Description                   to cs.primary
+        LocalFileIcon.OTHER    -> Icons.AutoMirrored.Filled.InsertDriveFile   to cs.outline
+    }
 }
 
 /**
- * Full-screen results list, loading/empty/error/permission states.
- * Structured so 5e can add a toolbar + grid view above the [LazyColumn].
+ * Full-screen results screen with Drive-style toolbar (query mode, sort, filters),
+ * list/grid toggle, paginated results, and all loading/empty/error/permission states.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LocalSearchResultsScreen(
     state: SearchState.LocalSearchResults,
+    toolbarState: LocalSearchToolbarState,
     onOpenFile: (FileResult) -> Unit,
     onRetry: () -> Unit,
     onOpenPermissionSettings: () -> Unit,
+    onQueryModeChange: (String) -> Unit,
+    onSortFieldChange: (String) -> Unit,
+    onSortDirToggle: () -> Unit,
+    onViewToggle: (String) -> Unit,
+    onTypeToggle: (String) -> Unit,
+    onDatePresetChange: (String) -> Unit,
+    onPathPrefixChange: (String) -> Unit,
+    onTitleOnlyChange: (Boolean) -> Unit,
+    onClearFilters: () -> Unit,
+    onLoadMore: () -> Unit,
 ) {
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // ── Toolbar placeholder — 5e will add query-mode control, sort, filter chips ──
-        // Count + source line (shown when results are available).
+        // ── Toolbar (shown once we're past the gating states) ──────────────────
+        if (!state.needsPermission && state.error == null && state.query.isNotBlank()) {
+            LocalSearchToolbar(
+                toolbarState = toolbarState,
+                onQueryModeChange = onQueryModeChange,
+                onSortFieldChange = onSortFieldChange,
+                onSortDirToggle = onSortDirToggle,
+                onViewToggle = onViewToggle,
+                onTypeToggle = onTypeToggle,
+                onDatePresetChange = onDatePresetChange,
+                onPathPrefixChange = onPathPrefixChange,
+                onTitleOnlyChange = onTitleOnlyChange,
+                onClearFilters = onClearFilters,
+            )
+            HorizontalDivider(color = dividerColor)
+        }
+
+        // ── Count + source line ────────────────────────────────────────────────
         if (!state.isLoading && state.error == null && !state.needsPermission && state.query.isNotBlank()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp, bottom = 4.dp, start = 4.dp, end = 4.dp),
+                    .padding(top = 6.dp, bottom = 2.dp, start = 4.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -1465,7 +1527,7 @@ private fun LocalSearchResultsScreen(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = "On-device files",
+                    text = "On-device",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 )
@@ -1475,10 +1537,7 @@ private fun LocalSearchResultsScreen(
 
         when {
             state.isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
@@ -1489,11 +1548,8 @@ private fun LocalSearchResultsScreen(
                 LocalSearchError(message = state.error, onRetry = onRetry)
             }
             state.query.isBlank() -> {
-                // Bare "s" with no query — prompt the user.
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
+                    modifier = Modifier.fillMaxSize().padding(32.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -1506,9 +1562,7 @@ private fun LocalSearchResultsScreen(
             }
             state.results.isEmpty() -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
+                    modifier = Modifier.fillMaxSize().padding(32.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -1519,14 +1573,361 @@ private fun LocalSearchResultsScreen(
                     )
                 }
             }
+            toolbarState.view == "grid" -> {
+                // ── Grid view ──────────────────────────────────────────────────
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    gridItems(state.results) { file ->
+                        FileResultGridCard(file = file, onClick = { onOpenFile(file) })
+                    }
+                    if (hasMore(state.results.size, state.total)) {
+                        item {
+                            LoadMoreFooter(isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
+                        }
+                    }
+                }
+            }
             else -> {
-                // ── Results list — 5e adds a grid variant beside this ──
+                // ── List view ──────────────────────────────────────────────────
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(state.results) { file ->
                         FileResultRow(file = file, onClick = { onOpenFile(file) })
                         HorizontalDivider(color = dividerColor)
                     }
+                    if (hasMore(state.results.size, state.total)) {
+                        item {
+                            LoadMoreFooter(isLoadingMore = state.isLoadingMore, onLoadMore = onLoadMore)
+                        }
+                    }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Drive-style toolbar: query-mode segmented control, sort (field + direction),
+ * list/grid toggle, type-filter chips, date preset, title-only switch, path field,
+ * and a clear affordance.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LocalSearchToolbar(
+    toolbarState: LocalSearchToolbarState,
+    onQueryModeChange: (String) -> Unit,
+    onSortFieldChange: (String) -> Unit,
+    onSortDirToggle: () -> Unit,
+    onViewToggle: (String) -> Unit,
+    onTypeToggle: (String) -> Unit,
+    onDatePresetChange: (String) -> Unit,
+    onPathPrefixChange: (String) -> Unit,
+    onTitleOnlyChange: (Boolean) -> Unit,
+    onClearFilters: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // ── Row 1: query mode | sort + dir | view toggle ───────────────────────
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            // Query-mode segmented buttons
+            val modes = listOf("simple" to "Simple", "wildcard" to "Wildcard", "regex" to "Regex*")
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                for ((value, label) in modes) {
+                    val selected = toolbarState.queryMode == value
+                    if (selected) {
+                        Button(
+                            onClick = {},
+                            modifier = Modifier.weight(1f).height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        ) {
+                            Text(label, fontSize = 11.sp, maxLines = 1)
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onQueryModeChange(value) },
+                            modifier = Modifier.weight(1f).height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                        ) {
+                            Text(label, fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+
+            // Sort field dropdown
+            var sortExpanded by remember { mutableStateOf(false) }
+            val sortFieldOptions = listOf("" to "Relevance", "modified" to "Modified", "created" to "Created")
+            val currentSortLabel = sortFieldOptions.firstOrNull { it.first == toolbarState.sortField }?.second ?: "Relevance"
+            ExposedDropdownMenuBox(
+                expanded = sortExpanded,
+                onExpandedChange = { sortExpanded = it },
+            ) {
+                OutlinedButton(
+                    onClick = { sortExpanded = true },
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .height(32.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                ) {
+                    Text(currentSortLabel, fontSize = 11.sp, maxLines = 1)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(14.dp))
+                }
+                ExposedDropdownMenu(expanded = sortExpanded, onDismissRequest = { sortExpanded = false }) {
+                    sortFieldOptions.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = { onSortFieldChange(value); sortExpanded = false },
+                        )
+                    }
+                }
+            }
+
+            // Sort direction toggle
+            val isAsc = toolbarState.sortDir == "asc"
+            IconButton(
+                onClick = onSortDirToggle,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = if (isAsc) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
+                    contentDescription = if (isAsc) "Sort ascending" else "Sort descending",
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // List / Grid view toggle
+            Row {
+                IconButton(onClick = { onViewToggle("list") }, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ViewList,
+                        contentDescription = "List view",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (toolbarState.view == "list") MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                IconButton(onClick = { onViewToggle("grid") }, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.GridView,
+                        contentDescription = "Grid view",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (toolbarState.view == "grid") MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        // ── Row 2: type chips + date preset + title-only + clear (scrollable) ──
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val fileTypeChips = listOf(
+                "document" to "Doc",
+                "image" to "Image",
+                "video" to "Video",
+                "audio" to "Audio",
+                "archive" to "Archive",
+                "code" to "Code",
+                "folder" to "Folder",
+                "other" to "Other",
+            )
+            for ((value, label) in fileTypeChips) {
+                FilterChip(
+                    selected = toolbarState.filterTypes.contains(value),
+                    onClick = { onTypeToggle(value) },
+                    label = { Text(label, fontSize = 11.sp) },
+                    modifier = Modifier.height(28.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // Date preset dropdown
+            var dateExpanded by remember { mutableStateOf(false) }
+            val dateOptions = listOf("any" to "Any time", "week" to "Past week", "month" to "Past month", "year" to "Past year")
+            val currentDateLabel = dateOptions.firstOrNull { it.first == toolbarState.filterDatePreset }?.second ?: "Any time"
+            ExposedDropdownMenuBox(
+                expanded = dateExpanded,
+                onExpandedChange = { dateExpanded = it },
+            ) {
+                FilterChip(
+                    selected = toolbarState.filterDatePreset != "any",
+                    onClick = { dateExpanded = true },
+                    label = {
+                        Text(currentDateLabel, fontSize = 11.sp)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(12.dp))
+                    },
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .height(28.dp),
+                )
+                ExposedDropdownMenu(expanded = dateExpanded, onDismissRequest = { dateExpanded = false }) {
+                    dateOptions.forEach { (value, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = { onDatePresetChange(value); dateExpanded = false },
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // Title-only toggle
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onTitleOnlyChange(!toolbarState.filterTitleOnly) },
+            ) {
+                Switch(
+                    checked = toolbarState.filterTitleOnly,
+                    onCheckedChange = onTitleOnlyChange,
+                    modifier = Modifier.height(24.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Title only",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // Clear filters
+            val hasActiveFilters = toolbarState.filterTypes.isNotEmpty() ||
+                toolbarState.filterDatePreset != "any" ||
+                toolbarState.filterPathPrefix.isNotEmpty() ||
+                toolbarState.filterTitleOnly
+            if (hasActiveFilters) {
+                TextButton(
+                    onClick = onClearFilters,
+                    modifier = Modifier.height(28.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                ) {
+                    Text("Clear", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+
+        // ── Row 3: path prefix (full-width, debounced) ──────────────────────────
+        // Local mutable state for debouncing; syncs to toolbarState.filterPathPrefix externally.
+        var localPath by remember { mutableStateOf(toolbarState.filterPathPrefix) }
+        LaunchedEffect(toolbarState.filterPathPrefix) {
+            if (localPath != toolbarState.filterPathPrefix) localPath = toolbarState.filterPathPrefix
+        }
+        LaunchedEffect(localPath) {
+            if (localPath != toolbarState.filterPathPrefix) {
+                kotlinx.coroutines.delay(400L)
+                onPathPrefixChange(localPath)
+            }
+        }
+        OutlinedTextFieldS(
+            value = localPath,
+            onValueChange = { localPath = it },
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            placeholder = { Text("Path prefix…", style = MaterialTheme.typography.bodySmall) },
+        )
+    }
+}
+
+/**
+ * Grid card for a single file result (used in grid view).
+ */
+@Composable
+private fun FileResultGridCard(file: FileResult, onClick: () -> Unit) {
+    val iconInfo = fileTypeIcon(file.type)
+    val (iconVector, iconColor) = fileTypeIconVector(iconInfo)
+    val meta = buildString {
+        val date = formatModifiedDate(file.modifiedAt)
+        if (date.isNotEmpty()) append(date)
+        val size = formatFileSize(file.size)
+        if (size.isNotEmpty()) { if (isNotEmpty()) append(" · "); append(size) }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = "File: ${file.name}" },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = iconVector,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = iconColor,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = file.name,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+            if (meta.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = meta,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Load-more footer shown at the bottom of list/grid when more results are available.
+ */
+@Composable
+private fun LoadMoreFooter(isLoadingMore: Boolean, onLoadMore: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (isLoadingMore) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+        } else {
+            OutlinedButton(onClick = onLoadMore) {
+                Text("Load more")
             }
         }
     }

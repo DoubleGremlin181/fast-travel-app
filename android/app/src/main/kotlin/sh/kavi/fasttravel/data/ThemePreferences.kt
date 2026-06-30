@@ -39,6 +39,11 @@ class ThemePreferences(private val prefs: SharedPreferences) {
         private const val KEY_LOCAL_SEARCH_QUERY_MODE = "local_search_query_mode"
         private const val KEY_LOCAL_SEARCH_SORT_FIELD = "local_search_sort_field"
         private const val KEY_LOCAL_SEARCH_SORT_DIR = "local_search_sort_dir"
+        private const val KEY_LOCAL_SEARCH_VIEW = "local_search_view"
+        private const val KEY_LOCAL_SEARCH_FILTER_TYPES = "local_search_filter_types"
+        private const val KEY_LOCAL_SEARCH_FILTER_DATE_PRESET = "local_search_filter_date_preset"
+        private const val KEY_LOCAL_SEARCH_FILTER_PATH_PREFIX = "local_search_filter_path_prefix"
+        private const val KEY_LOCAL_SEARCH_FILTER_TITLE_ONLY = "local_search_filter_title_only"
         private const val KEY_RECENTLY_OPENED = "local_search_recently_opened"
         private const val RECENTLY_OPENED_MAX = 50
         const val DEFAULT_AUTO_IGNORE_THRESHOLD = 3
@@ -122,6 +127,39 @@ class ThemePreferences(private val prefs: SharedPreferences) {
     var localSearchSortDir: String
         get() = prefs.getString(KEY_LOCAL_SEARCH_SORT_DIR, "") ?: ""
         set(value) { prefs.edit().putString(KEY_LOCAL_SEARCH_SORT_DIR, value).apply() }
+
+    /** Preferred results layout: "list" (default) or "grid". View-only — does not trigger re-search. */
+    var localSearchView: String
+        get() = prefs.getString(KEY_LOCAL_SEARCH_VIEW, "list") ?: "list"
+        set(value) { prefs.edit().putString(KEY_LOCAL_SEARCH_VIEW, value).apply() }
+
+    /** Active file-type filter strings (e.g. ["image","video"]). Empty means no filter. */
+    var localSearchFilterTypes: List<String>
+        get() {
+            val json = prefs.getString(KEY_LOCAL_SEARCH_FILTER_TYPES, null) ?: return emptyList()
+            return try {
+                val arr = org.json.JSONArray(json)
+                (0 until arr.length()).map { arr.getString(it) }
+            } catch (_: Exception) { emptyList() }
+        }
+        set(value) {
+            prefs.edit().putString(KEY_LOCAL_SEARCH_FILTER_TYPES, org.json.JSONArray(value).toString()).apply()
+        }
+
+    /** Active date preset: "any" (default), "week", "month", or "year". */
+    var localSearchFilterDatePreset: String
+        get() = prefs.getString(KEY_LOCAL_SEARCH_FILTER_DATE_PRESET, "any") ?: "any"
+        set(value) { prefs.edit().putString(KEY_LOCAL_SEARCH_FILTER_DATE_PRESET, value).apply() }
+
+    /** Path prefix filter string. Empty string means no filter. */
+    var localSearchFilterPathPrefix: String
+        get() = prefs.getString(KEY_LOCAL_SEARCH_FILTER_PATH_PREFIX, "") ?: ""
+        set(value) { prefs.edit().putString(KEY_LOCAL_SEARCH_FILTER_PATH_PREFIX, value).apply() }
+
+    /** When true, only match the file name/title (not path content). Default false. */
+    var localSearchFilterTitleOnly: Boolean
+        get() = prefs.getBoolean(KEY_LOCAL_SEARCH_FILTER_TITLE_ONLY, false)
+        set(value) { prefs.edit().putBoolean(KEY_LOCAL_SEARCH_FILTER_TITLE_ONLY, value).apply() }
 
     /**
      * Ordered list of recently-opened local-file ids (paths), most-recent first.

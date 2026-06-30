@@ -28,8 +28,14 @@ import sh.kavi.fasttravel.data.SearchHistory
 import sh.kavi.fasttravel.data.ThemePreferences
 import sh.kavi.fasttravel.data.withIgnoreAdded
 import sh.kavi.fasttravel.localsearch.buildLocalSearchRequest
+import sh.kavi.fasttravel.localsearch.datePresetToRange
+import sh.kavi.fasttravel.localsearch.hasMore
+import sh.kavi.fasttravel.localsearch.nextPage
 import sh.kavi.fasttravel.localsearch.shouldInterceptLocalSearch
+import sh.kavi.fasttravel.localsearch.toggleType
+import sh.kavi.fasttravel.localsearch.index.DateRange
 import sh.kavi.fasttravel.localsearch.index.FileResult
+import sh.kavi.fasttravel.localsearch.index.FileType
 import sh.kavi.fasttravel.localsearch.index.MediaStoreSearcher
 import sh.kavi.fasttravel.localsearch.index.hasLocalSearchPermission
 import sh.kavi.fasttravel.localsearch.settings.configHasSTrigger
@@ -52,10 +58,28 @@ sealed class SearchState {
         val results: List<FileResult> = emptyList(),
         val total: Int = 0,
         val isLoading: Boolean = true,
+        val isLoadingMore: Boolean = false,
+        val currentPage: Int = 0,
         val error: String? = null,
         val needsPermission: Boolean = false,
     ) : SearchState()
 }
+
+/**
+ * Immutable snapshot of all toolbar control states for the local-search results screen.
+ * Kept separate from [SearchState.LocalSearchResults] so the view toggle can update without
+ * triggering a re-search (re-renders current results in the chosen layout only).
+ */
+data class LocalSearchToolbarState(
+    val queryMode: String = "simple",
+    val sortField: String = "",
+    val sortDir: String = "",
+    val view: String = "list",
+    val filterTypes: List<String> = emptyList(),
+    val filterDatePreset: String = "any",
+    val filterPathPrefix: String = "",
+    val filterTitleOnly: Boolean = false,
+)
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -71,6 +95,9 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _searchState = MutableStateFlow<SearchState>(SearchState.Idle)
     val searchState: StateFlow<SearchState> = _searchState.asStateFlow()
+
+    private val _localSearchToolbarState = MutableStateFlow(LocalSearchToolbarState())
+    val localSearchToolbarState: StateFlow<LocalSearchToolbarState> = _localSearchToolbarState.asStateFlow()
 
     private var config: FastTravelConfig? = null
     private var suggestionJob: Job? = null
@@ -111,6 +138,18 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val autoIgnoreStore = AutoIgnoreStore(application)
 
     init {
+        // Load persisted toolbar state so controls reflect saved prefs on open.
+        _localSearchToolbarState.value = LocalSearchToolbarState(
+            queryMode = themePrefs.localSearchQueryMode,
+            sortField = themePrefs.localSearchSortField,
+            sortDir = themePrefs.localSearchSortDir,
+            view = themePrefs.localSearchView,
+            filterTypes = themePrefs.localSearchFilterTypes,
+            filterDatePreset = themePrefs.localSearchFilterDatePreset,
+            filterPathPrefix = themePrefs.localSearchFilterPathPrefix,
+            filterTitleOnly = themePrefs.localSearchFilterTitleOnly,
+        )
+
         loadCommonWords(application)
         themePrefs.registerListener(prefsListener)
 
@@ -444,10 +483,13 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     /**
      * Runs a local-file search for [query] and emits [SearchState.LocalSearchResults].
      *
+     * When [page] is 0 the results list resets (new search / filter change).
+     * When [page] > 0 the new results are appended to the existing list (load-more).
+     *
      * Permission is checked independently here — [themePrefs.localSearchEnabled] is
      * necessary but not sufficient (the pref is not cleared on permission revocation).
      */
-    private fun handleLocalSearch(query: String) {
+    private fun handleLocalSearch(query: String, page: Int = 0) {
         lastLocalSearchQuery = query
 
         // Blank query (bare "s") — show the results screen without running a search.
@@ -469,33 +511,65 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             return
         }
 
-        _searchState.value = SearchState.LocalSearchResults(query = query, isLoading = true)
+        // Capture existing results before the coroutine (for append in load-more).
+        val existingResults = if (page > 0) {
+            (_searchState.value as? SearchState.LocalSearchResults)?.results ?: emptyList()
+        } else {
+            emptyList()
+        }
+
+        if (page == 0) {
+            _searchState.value = SearchState.LocalSearchResults(query = query, isLoading = true)
+        } else {
+            _searchState.value = (_searchState.value as? SearchState.LocalSearchResults)
+                ?.copy(isLoadingMore = true)
+                ?: SearchState.LocalSearchResults(query = query, isLoading = true)
+        }
 
         localSearchJob?.cancel()
         localSearchJob = viewModelScope.launch {
             try {
+                val types = themePrefs.localSearchFilterTypes.mapNotNull { s ->
+                    runCatching { FileType.fromString(s) }.getOrNull()
+                }
+                val modifiedRange: DateRange? = datePresetToRange(
+                    themePrefs.localSearchFilterDatePreset,
+                    System.currentTimeMillis(),
+                )
                 val req = buildLocalSearchRequest(
                     query = query,
                     queryMode = themePrefs.localSearchQueryMode,
                     sortField = themePrefs.localSearchSortField,
                     sortDir = themePrefs.localSearchSortDir,
                     history = themePrefs.recentlyOpened,
+                    types = types,
+                    modifiedRange = modifiedRange,
+                    pathPrefix = themePrefs.localSearchFilterPathPrefix,
+                    titleOnly = themePrefs.localSearchFilterTitleOnly,
+                    page = page,
                 )
                 val result = withContext(Dispatchers.IO) {
                     MediaStoreSearcher(getApplication<Application>().contentResolver).search(req)
                 }
                 _searchState.value = SearchState.LocalSearchResults(
                     query = query,
-                    results = result.results,
+                    results = existingResults + result.results,
                     total = result.total,
                     isLoading = false,
+                    isLoadingMore = false,
+                    currentPage = page,
                 )
             } catch (e: Exception) {
-                _searchState.value = SearchState.LocalSearchResults(
-                    query = query,
-                    isLoading = false,
-                    error = e.message ?: "Search failed",
-                )
+                val prev = _searchState.value as? SearchState.LocalSearchResults
+                _searchState.value = if (prev != null) {
+                    prev.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "Search failed")
+                } else {
+                    SearchState.LocalSearchResults(
+                        query = query,
+                        isLoading = false,
+                        error = e.message ?: "Search failed",
+                    )
+                }
             }
         }
     }
@@ -511,6 +585,94 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     /** Re-run the last local search (e.g. after a permission grant). */
     fun retryLocalSearch() {
         handleLocalSearch(lastLocalSearchQuery)
+    }
+
+    /**
+     * Fetches the next page of results for the current query and appends them.
+     * No-op when already loading or when all results are loaded.
+     */
+    fun loadMoreLocalSearch() {
+        val state = _searchState.value as? SearchState.LocalSearchResults ?: return
+        if (state.isLoading || state.isLoadingMore) return
+        if (!hasMore(state.results.size, state.total)) return
+        handleLocalSearch(lastLocalSearchQuery, page = nextPage(state.currentPage))
+    }
+
+    // ── Toolbar control functions ────────────────────────────────────────────
+
+    /** Changes query mode, persists the pref, and re-runs the search from page 0. */
+    fun setLocalSearchQueryMode(mode: String) {
+        themePrefs.localSearchQueryMode = mode
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(queryMode = mode)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /** Changes sort field, persists the pref, and re-runs the search from page 0. */
+    fun setLocalSearchSortField(field: String) {
+        themePrefs.localSearchSortField = field
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(sortField = field)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /** Toggles sort direction (asc ↔ desc), persists the pref, and re-runs the search from page 0. */
+    fun toggleLocalSearchSortDir() {
+        val next = if (themePrefs.localSearchSortDir == "asc") "" else "asc"
+        themePrefs.localSearchSortDir = next
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(sortDir = next)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /**
+     * Changes the view layout (list/grid), persists the pref.
+     * Does NOT re-run the search — re-renders current results in the new layout only.
+     */
+    fun setLocalSearchView(view: String) {
+        themePrefs.localSearchView = view
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(view = view)
+    }
+
+    /** Toggles a file-type filter string, persists, and re-runs the search from page 0. */
+    fun toggleLocalSearchFilterType(type: String) {
+        val new = toggleType(themePrefs.localSearchFilterTypes, type)
+        themePrefs.localSearchFilterTypes = new
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(filterTypes = new)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /** Sets the date-modified preset filter, persists, and re-runs the search from page 0. */
+    fun setLocalSearchFilterDatePreset(preset: String) {
+        themePrefs.localSearchFilterDatePreset = preset
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(filterDatePreset = preset)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /** Sets the path-prefix filter, persists, and re-runs the search from page 0. */
+    fun setLocalSearchFilterPathPrefix(prefix: String) {
+        themePrefs.localSearchFilterPathPrefix = prefix
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(filterPathPrefix = prefix)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /** Toggles the title-only filter, persists, and re-runs the search from page 0. */
+    fun setLocalSearchFilterTitleOnly(titleOnly: Boolean) {
+        themePrefs.localSearchFilterTitleOnly = titleOnly
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(filterTitleOnly = titleOnly)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /** Clears all filter prefs, resets toolbar filter state, and re-runs the search from page 0. */
+    fun clearLocalSearchFilters() {
+        themePrefs.localSearchFilterTypes = emptyList()
+        themePrefs.localSearchFilterDatePreset = "any"
+        themePrefs.localSearchFilterPathPrefix = ""
+        themePrefs.localSearchFilterTitleOnly = false
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(
+            filterTypes = emptyList(),
+            filterDatePreset = "any",
+            filterPathPrefix = "",
+            filterTitleOnly = false,
+        )
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
     }
 
     /**

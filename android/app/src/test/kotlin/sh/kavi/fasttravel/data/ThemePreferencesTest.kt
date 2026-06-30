@@ -78,6 +78,109 @@ class ThemePreferencesTest {
         assertEquals("name", prefs.localSearchSortField)
         assertEquals("asc", prefs.localSearchSortDir)
     }
+
+    // ── localSearchView ──────────────────────────────────────────────────────
+
+    @Test
+    fun `localSearchView defaults to list`() {
+        assertEquals("list", newPrefs().localSearchView)
+    }
+
+    @Test
+    fun `localSearchView persists grid`() {
+        val prefs = newPrefs()
+        prefs.localSearchView = "grid"
+        assertEquals("grid", prefs.localSearchView)
+    }
+
+    @Test
+    fun `localSearchView round-trips back to list`() {
+        val prefs = newPrefs()
+        prefs.localSearchView = "grid"
+        prefs.localSearchView = "list"
+        assertEquals("list", prefs.localSearchView)
+    }
+
+    // ── localSearchFilterTypes ───────────────────────────────────────────────
+
+    @Test
+    fun `localSearchFilterTypes defaults to empty list`() {
+        assertTrue(newPrefs().localSearchFilterTypes.isEmpty())
+    }
+
+    @Test
+    fun `localSearchFilterTypes persists a list of type strings`() {
+        val prefs = newPrefs()
+        prefs.localSearchFilterTypes = listOf("image", "video")
+        assertEquals(listOf("image", "video"), prefs.localSearchFilterTypes)
+    }
+
+    @Test
+    fun `localSearchFilterTypes persists empty list after clear`() {
+        val prefs = newPrefs()
+        prefs.localSearchFilterTypes = listOf("image")
+        prefs.localSearchFilterTypes = emptyList()
+        assertTrue(prefs.localSearchFilterTypes.isEmpty())
+    }
+
+    // ── localSearchFilterDatePreset ──────────────────────────────────────────
+
+    @Test
+    fun `localSearchFilterDatePreset defaults to any`() {
+        assertEquals("any", newPrefs().localSearchFilterDatePreset)
+    }
+
+    @Test
+    fun `localSearchFilterDatePreset persists week`() {
+        val prefs = newPrefs()
+        prefs.localSearchFilterDatePreset = "week"
+        assertEquals("week", prefs.localSearchFilterDatePreset)
+    }
+
+    @Test
+    fun `localSearchFilterDatePreset persists month and year`() {
+        val prefs = newPrefs()
+        prefs.localSearchFilterDatePreset = "month"
+        assertEquals("month", prefs.localSearchFilterDatePreset)
+        prefs.localSearchFilterDatePreset = "year"
+        assertEquals("year", prefs.localSearchFilterDatePreset)
+    }
+
+    // ── localSearchFilterPathPrefix ──────────────────────────────────────────
+
+    @Test
+    fun `localSearchFilterPathPrefix defaults to empty string`() {
+        assertEquals("", newPrefs().localSearchFilterPathPrefix)
+    }
+
+    @Test
+    fun `localSearchFilterPathPrefix persists a path`() {
+        val prefs = newPrefs()
+        prefs.localSearchFilterPathPrefix = "/sdcard/Music"
+        assertEquals("/sdcard/Music", prefs.localSearchFilterPathPrefix)
+    }
+
+    // ── localSearchFilterTitleOnly ───────────────────────────────────────────
+
+    @Test
+    fun `localSearchFilterTitleOnly defaults to false`() {
+        assertFalse(newPrefs().localSearchFilterTitleOnly)
+    }
+
+    @Test
+    fun `localSearchFilterTitleOnly persists true`() {
+        val prefs = newPrefs()
+        prefs.localSearchFilterTitleOnly = true
+        assertTrue(prefs.localSearchFilterTitleOnly)
+    }
+
+    @Test
+    fun `localSearchFilterTitleOnly round-trips false`() {
+        val prefs = newPrefs()
+        prefs.localSearchFilterTitleOnly = true
+        prefs.localSearchFilterTitleOnly = false
+        assertFalse(prefs.localSearchFilterTitleOnly)
+    }
 }
 
 private class TPFakePrefs : SharedPreferences {

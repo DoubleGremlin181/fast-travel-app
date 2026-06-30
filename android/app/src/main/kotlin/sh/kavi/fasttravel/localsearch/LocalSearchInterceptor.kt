@@ -1,5 +1,6 @@
 package sh.kavi.fasttravel.localsearch
 
+import sh.kavi.fasttravel.localsearch.index.DateRange
 import sh.kavi.fasttravel.localsearch.index.FileType
 import sh.kavi.fasttravel.localsearch.index.Filters
 import sh.kavi.fasttravel.localsearch.index.SearchRequest
@@ -52,16 +53,66 @@ fun buildLocalSearchRequest(
     sortField: String,
     sortDir: String,
     history: List<String>,
+    types: List<FileType> = emptyList(),
+    modifiedRange: DateRange? = null,
+    pathPrefix: String = "",
+    titleOnly: Boolean = false,
+    page: Int = 0,
     pageSize: Int = 50,
 ): SearchRequest = SearchRequest(
     query = query,
     queryMode = runCatching { QueryMode.fromString(queryMode) }.getOrDefault(QueryMode.SIMPLE),
     sort = Sort(field = sortField, dir = sortDir),
-    filters = Filters(),
-    page = 0,
+    filters = Filters(
+        types = types,
+        modifiedRange = modifiedRange,
+        pathPrefix = pathPrefix,
+        titleOnly = titleOnly,
+    ),
+    page = page,
     pageSize = pageSize,
     history = history,
 )
+
+private const val DAY_MS = 86_400_000L
+
+/**
+ * Converts a named date preset to an epoch-ms open range (from, to=0 meaning open upper bound),
+ * or null for "any" (no filter). Matches the extension's datePresetToRange semantics:
+ *   week  → 7 days
+ *   month → 30 days
+ *   year  → 365 days
+ *
+ * Pure — no android.* imports; JVM-testable.
+ */
+fun datePresetToRange(preset: String, now: Long): DateRange? = when (preset) {
+    "week"  -> DateRange(from = now - 7L   * DAY_MS)
+    "month" -> DateRange(from = now - 30L  * DAY_MS)
+    "year"  -> DateRange(from = now - 365L * DAY_MS)
+    else    -> null  // "any" or unknown → no filter
+}
+
+/**
+ * Toggles [type] in the active [types] list: removes it if already present,
+ * appends it otherwise. Returns a new list — does not mutate the input.
+ * An empty result means "all types" (no filter).
+ *
+ * Matches the extension's toggleType semantics. Pure — JVM-testable.
+ */
+fun toggleType(types: List<String>, type: String): List<String> =
+    if (types.contains(type)) types.filter { it != type } else types + type
+
+/**
+ * Returns true when more pages are available ([loaded] < [total]).
+ * Pure — JVM-testable.
+ */
+fun hasMore(loaded: Int, total: Int): Boolean = loaded < total
+
+/**
+ * Returns the next page index (0-based).
+ * Pure — JVM-testable.
+ */
+fun nextPage(currentPage: Int): Int = currentPage + 1
 
 /**
  * Broad file-type category for icon selection.
