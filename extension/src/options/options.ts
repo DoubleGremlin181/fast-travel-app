@@ -9,6 +9,7 @@ import { renderImportExport } from "./screens/import-export.js";
 import { renderHistory } from "./screens/history.js";
 import { renderAbout } from "./screens/about.js";
 import { renderSearchEngine } from "./screens/search-engine.js";
+import { renderLocalSearch } from "./screens/local-search.js";
 
 defineRoutes([
   { pattern: /^#\/appearance$/, render: (main) => renderAppearance(main) },
@@ -29,6 +30,7 @@ defineRoutes([
   { pattern: /^#\/import-export$/, render: (main) => renderImportExport(main) },
   { pattern: /^#\/history$/, render: (main) => renderHistory(main) },
   { pattern: /^#\/search-engine$/, render: (main) => renderSearchEngine(main) },
+  { pattern: /^#\/local-search$/, render: (main) => renderLocalSearch(main) },
   { pattern: /^#\/about$/, render: (main) => renderAbout(main) },
 ]);
 

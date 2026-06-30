@@ -19,7 +19,7 @@ export interface LocalSearchPrefs {
   /** Result sort order. Default relevance/desc. */
   sort: { field: "relevance" | "created" | "modified"; dir: "asc" | "desc" };
   /** Active filters. Minimal defaults; Phase 3 extends with more fields. */
-  filters: { types?: string[]; titleOnly?: boolean };
+  filters: { types?: string[]; titleOnly?: boolean; content?: boolean };
   /** Results display style. Default "list". */
   view: "list" | "grid";
 }
