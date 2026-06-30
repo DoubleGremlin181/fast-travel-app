@@ -245,4 +245,51 @@ class LocalSearchToolbarTest {
         )
         assertEquals(25, req.pageSize)
     }
+
+    // ── caseSensitive / exactPhrase ────────────────────────────────────────────
+
+    @Test
+    fun `buildLocalSearchRequest carries caseSensitive flag`() {
+        val req = buildLocalSearchRequest(
+            "cats", "simple", "", "", emptyList(),
+            caseSensitive = true,
+        )
+        assertTrue(req.caseSensitive)
+    }
+
+    @Test
+    fun `buildLocalSearchRequest carries exactPhrase flag`() {
+        val req = buildLocalSearchRequest(
+            "cats", "simple", "", "", emptyList(),
+            exactPhrase = true,
+        )
+        assertTrue(req.exactPhrase)
+    }
+
+    @Test
+    fun `buildLocalSearchRequest defaults caseSensitive and exactPhrase to false`() {
+        val req = buildLocalSearchRequest("cats", "simple", "", "", emptyList())
+        assertFalse(req.caseSensitive)
+        assertFalse(req.exactPhrase)
+    }
+
+    // ── Bug B: created sort remapped to relevance ──────────────────────────────
+
+    @Test
+    fun `buildLocalSearchRequest remaps created sort field to relevance (empty string)`() {
+        val req = buildLocalSearchRequest("cats", "simple", "created", "", emptyList())
+        assertEquals("", req.sort.field, "stored 'created' sort must be remapped to '' (relevance)")
+    }
+
+    @Test
+    fun `buildLocalSearchRequest leaves modified sort field unchanged`() {
+        val req = buildLocalSearchRequest("cats", "simple", "modified", "asc", emptyList())
+        assertEquals("modified", req.sort.field)
+    }
+
+    @Test
+    fun `buildLocalSearchRequest leaves relevance sort field unchanged`() {
+        val req = buildLocalSearchRequest("cats", "simple", "", "desc", emptyList())
+        assertEquals("", req.sort.field)
+    }
 }

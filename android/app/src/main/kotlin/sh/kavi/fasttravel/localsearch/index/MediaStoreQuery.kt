@@ -204,6 +204,12 @@ class MediaStoreSearcher(private val contentResolver: ContentResolver) {
                 }
             }
 
-        return search(candidates, req)
+        // Degraded when the candidate query was capped: there may be more matches that
+        // the pipeline never saw. Mirrors companion behaviour (Go: idx.Query returns degraded bool).
+        val degraded = candidates.size >= CANDIDATE_LIMIT
+
+        return search(candidates, req).let { result ->
+            if (degraded) result.copy(degraded = true) else result
+        }
     }
 }

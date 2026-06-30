@@ -253,6 +253,59 @@ class PipelineTest {
         assertFalse(resp.results.any { it.id == "g4" }, "TitleOnly=true: g4 (Finance nowhere) must NOT match")
     }
 
+    // ── exactPhrase tests ──────────────────────────────────────────────────────
+
+    /**
+     * exactPhrase=true: the 2-word query "annual report" becomes a single phrase node,
+     * so only files containing "annual report" as a contiguous substring match.
+     * Mirrors companion/internal/index/pipeline.go ExactPhrase handling.
+     */
+    @Test
+    fun `exactPhrase true – matches only contiguous phrase, not AND of terms`() {
+        val corpus = listOf(
+            FileResult(id = "j1", name = "annual-report.pdf", path = "/docs/annual-report.pdf", type = FileType.DOCUMENT),
+            FileResult(id = "j2", name = "annual report.pdf", path = "/docs/annual report.pdf", type = FileType.DOCUMENT),
+        )
+        val req = SearchRequest(query = "annual report", queryMode = QueryMode.SIMPLE, exactPhrase = true, pageSize = 100)
+        val resp = search(corpus, req)
+        assertTrue(resp.results.any { it.id == "j2" }, "exactPhrase: 'annual report.pdf' (with space) must match")
+        assertFalse(resp.results.any { it.id == "j1" }, "exactPhrase: 'annual-report.pdf' (dash) must NOT match phrase")
+    }
+
+    @Test
+    fun `exactPhrase false (default) AND-matches both results`() {
+        val corpus = listOf(
+            FileResult(id = "j1", name = "annual-report.pdf", path = "/docs/annual-report.pdf", type = FileType.DOCUMENT),
+            FileResult(id = "j2", name = "annual report.pdf", path = "/docs/annual report.pdf", type = FileType.DOCUMENT),
+        )
+        val req = SearchRequest(query = "annual report", queryMode = QueryMode.SIMPLE, exactPhrase = false, pageSize = 100)
+        val resp = search(corpus, req)
+        assertTrue(resp.results.any { it.id == "j1" }, "exactPhrase=false: AND-match hits 'annual-report.pdf'")
+        assertTrue(resp.results.any { it.id == "j2" }, "exactPhrase=false: AND-match hits 'annual report.pdf'")
+    }
+
+    @Test
+    fun `exactPhrase true is ignored in regex mode`() {
+        val corpus = listOf(
+            FileResult(id = "k1", name = "annual-report.pdf", path = "/docs/annual-report.pdf", type = FileType.DOCUMENT),
+        )
+        // regex mode: exactPhrase must be ignored; pattern "annual" matches name
+        val req = SearchRequest(query = "annual", queryMode = QueryMode.REGEX, exactPhrase = true, pageSize = 100)
+        val resp = search(corpus, req)
+        assertTrue(resp.results.any { it.id == "k1" }, "exactPhrase in regex mode is ignored; pattern 'annual' must match")
+    }
+
+    // ── Bug A: invalid regex → QueryParseException ─────────────────────────────
+
+    @Test
+    fun `invalid regex throws QueryParseException`() {
+        val corpus = listOf(
+            FileResult(id = "r1", name = "report.pdf", path = "/docs/report.pdf", type = FileType.DOCUMENT),
+        )
+        val req = SearchRequest(query = "[invalid", queryMode = QueryMode.REGEX, pageSize = 100)
+        assertThrows(QueryParseException::class.java) { search(corpus, req) }
+    }
+
     @Test
     fun `regex broadening – name-only regex leaf is broadened to name-OR-path`() {
         val req = SearchRequest(

@@ -676,6 +676,8 @@ fun SearchScreen(
                         onTitleOnlyChange = { viewModel.setLocalSearchFilterTitleOnly(it) },
                         onClearFilters = { viewModel.clearLocalSearchFilters() },
                         onLoadMore = { viewModel.loadMoreLocalSearch() },
+                        onCaseSensitiveChange = { viewModel.setLocalSearchCaseSensitive(it) },
+                        onExactPhraseChange = { viewModel.setLocalSearchExactPhrase(it) },
                     )
                 }
                 imeVisible -> {
@@ -1490,6 +1492,8 @@ private fun LocalSearchResultsScreen(
     onTitleOnlyChange: (Boolean) -> Unit,
     onClearFilters: () -> Unit,
     onLoadMore: () -> Unit,
+    onCaseSensitiveChange: (Boolean) -> Unit,
+    onExactPhraseChange: (Boolean) -> Unit,
 ) {
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
@@ -1507,6 +1511,8 @@ private fun LocalSearchResultsScreen(
                 onPathPrefixChange = onPathPrefixChange,
                 onTitleOnlyChange = onTitleOnlyChange,
                 onClearFilters = onClearFilters,
+                onCaseSensitiveChange = onCaseSensitiveChange,
+                onExactPhraseChange = onExactPhraseChange,
             )
             HorizontalDivider(color = dividerColor)
         }
@@ -1520,7 +1526,12 @@ private fun LocalSearchResultsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (state.total == 1) "1 file" else "${state.total} files",
+                    text = when {
+                        state.degraded && state.total == 1 -> "1+ file"
+                        state.degraded -> "${state.total}+ files"
+                        state.total == 1 -> "1 file"
+                        else -> "${state.total} files"
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1612,8 +1623,8 @@ private fun LocalSearchResultsScreen(
 
 /**
  * Drive-style toolbar: query-mode segmented control, sort (field + direction),
- * list/grid toggle, type-filter chips, date preset, title-only switch, path field,
- * and a clear affordance.
+ * list/grid toggle, type-filter chips, date preset, title-only switch,
+ * exact-phrase + match-case toggles, path field, and a clear affordance.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1628,6 +1639,8 @@ private fun LocalSearchToolbar(
     onPathPrefixChange: (String) -> Unit,
     onTitleOnlyChange: (Boolean) -> Unit,
     onClearFilters: () -> Unit,
+    onCaseSensitiveChange: (Boolean) -> Unit,
+    onExactPhraseChange: (Boolean) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -1671,7 +1684,8 @@ private fun LocalSearchToolbar(
 
             // Sort field dropdown
             var sortExpanded by remember { mutableStateOf(false) }
-            val sortFieldOptions = listOf("" to "Relevance", "modified" to "Modified", "created" to "Created")
+            // Bug B: "Date created" sort removed — unreliable via MediaStore on Android.
+            val sortFieldOptions = listOf("" to "Relevance", "modified" to "Modified")
             val currentSortLabel = sortFieldOptions.firstOrNull { it.first == toolbarState.sortField }?.second ?: "Relevance"
             ExposedDropdownMenuBox(
                 expanded = sortExpanded,
@@ -1812,11 +1826,58 @@ private fun LocalSearchToolbar(
 
             Spacer(modifier = Modifier.width(4.dp))
 
+            // Match case toggle
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable { onCaseSensitiveChange(!toolbarState.caseSensitive) },
+            ) {
+                Switch(
+                    checked = toolbarState.caseSensitive,
+                    onCheckedChange = onCaseSensitiveChange,
+                    modifier = Modifier.height(24.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Match case",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // Exact phrase toggle (disabled in regex mode — pattern already is the full query)
+            val isRegexMode = toolbarState.queryMode == "regex"
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.clickable(enabled = !isRegexMode) {
+                    if (!isRegexMode) onExactPhraseChange(!toolbarState.exactPhrase)
+                },
+            ) {
+                Switch(
+                    checked = toolbarState.exactPhrase,
+                    onCheckedChange = { if (!isRegexMode) onExactPhraseChange(it) },
+                    enabled = !isRegexMode,
+                    modifier = Modifier.height(24.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Exact phrase",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isRegexMode) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                            else MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(4.dp))
+
             // Clear filters
             val hasActiveFilters = toolbarState.filterTypes.isNotEmpty() ||
                 toolbarState.filterDatePreset != "any" ||
                 toolbarState.filterPathPrefix.isNotEmpty() ||
-                toolbarState.filterTitleOnly
+                toolbarState.filterTitleOnly ||
+                toolbarState.caseSensitive ||
+                toolbarState.exactPhrase
             if (hasActiveFilters) {
                 TextButton(
                     onClick = onClearFilters,

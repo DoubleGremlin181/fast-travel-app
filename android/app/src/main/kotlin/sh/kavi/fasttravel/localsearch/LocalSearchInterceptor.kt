@@ -44,6 +44,7 @@ fun shouldInterceptLocalSearch(
  *
  * Defaults: page=0, pageSize=[pageSize] (50), empty filters.
  * Unknown [queryMode] strings fall back to SIMPLE rather than throwing.
+ * [sortField] "created" is remapped to "" (relevance) — Bug B: created sort removed.
  *
  * Pure — no android.* imports; JVM-testable.
  */
@@ -59,10 +60,13 @@ fun buildLocalSearchRequest(
     titleOnly: Boolean = false,
     page: Int = 0,
     pageSize: Int = 50,
+    caseSensitive: Boolean = false,
+    exactPhrase: Boolean = false,
 ): SearchRequest = SearchRequest(
     query = query,
     queryMode = runCatching { QueryMode.fromString(queryMode) }.getOrDefault(QueryMode.SIMPLE),
-    sort = Sort(field = sortField, dir = sortDir),
+    // Bug B: "created" sort is non-functional on Android; remap to "" (relevance).
+    sort = Sort(field = if (sortField == "created") "" else sortField, dir = sortDir),
     filters = Filters(
         types = types,
         modifiedRange = modifiedRange,
@@ -72,6 +76,8 @@ fun buildLocalSearchRequest(
     page = page,
     pageSize = pageSize,
     history = history,
+    caseSensitive = caseSensitive,
+    exactPhrase = exactPhrase,
 )
 
 private const val DAY_MS = 86_400_000L

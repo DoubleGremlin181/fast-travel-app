@@ -56,12 +56,23 @@ fun parse(query: String, mode: QueryMode): Node {
 
 // ── regex mode ────────────────────────────────────────────────────────────────
 
+/**
+ * Builds a regex AST node, validating the pattern compiles.
+ * Throws [QueryParseException] (Bug A) when the pattern is invalid so callers can
+ * surface a useful error to the UI.
+ * Mirrors companion/internal/query/parse.go parseRegex.
+ */
 private fun parseRegex(query: String): Node {
     var field = "name"
     var value = query
     if (query.startsWith("path:")) {
         field = "path"
         value = query.removePrefix("path:")
+    }
+    try {
+        Regex(value)
+    } catch (_: Exception) {
+        throw QueryParseException("invalid regular expression: $value")
     }
     return Node(op = "regex", field = field, value = value)
 }

@@ -44,6 +44,8 @@ class ThemePreferences(private val prefs: SharedPreferences) {
         private const val KEY_LOCAL_SEARCH_FILTER_DATE_PRESET = "local_search_filter_date_preset"
         private const val KEY_LOCAL_SEARCH_FILTER_PATH_PREFIX = "local_search_filter_path_prefix"
         private const val KEY_LOCAL_SEARCH_FILTER_TITLE_ONLY = "local_search_filter_title_only"
+        private const val KEY_LOCAL_SEARCH_CASE_SENSITIVE = "local_search_case_sensitive"
+        private const val KEY_LOCAL_SEARCH_EXACT_PHRASE = "local_search_exact_phrase"
         private const val KEY_RECENTLY_OPENED = "local_search_recently_opened"
         private const val RECENTLY_OPENED_MAX = 50
         const val DEFAULT_AUTO_IGNORE_THRESHOLD = 3
@@ -160,6 +162,16 @@ class ThemePreferences(private val prefs: SharedPreferences) {
     var localSearchFilterTitleOnly: Boolean
         get() = prefs.getBoolean(KEY_LOCAL_SEARCH_FILTER_TITLE_ONLY, false)
         set(value) { prefs.edit().putBoolean(KEY_LOCAL_SEARCH_FILTER_TITLE_ONLY, value).apply() }
+
+    /** When true, term/phrase comparisons are case-sensitive; regex is unaffected. Default false. */
+    var localSearchCaseSensitive: Boolean
+        get() = prefs.getBoolean(KEY_LOCAL_SEARCH_CASE_SENSITIVE, false)
+        set(value) { prefs.edit().putBoolean(KEY_LOCAL_SEARCH_CASE_SENSITIVE, value).apply() }
+
+    /** When true and queryMode != regex, the whole query is matched as one ordered phrase. Default false. */
+    var localSearchExactPhrase: Boolean
+        get() = prefs.getBoolean(KEY_LOCAL_SEARCH_EXACT_PHRASE, false)
+        set(value) { prefs.edit().putBoolean(KEY_LOCAL_SEARCH_EXACT_PHRASE, value).apply() }
 
     /**
      * Ordered list of recently-opened local-file ids (paths), most-recent first.

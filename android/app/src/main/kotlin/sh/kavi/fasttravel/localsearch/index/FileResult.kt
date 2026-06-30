@@ -65,6 +65,12 @@ data class SearchRequest(
     val page: Int = 0,
     val pageSize: Int = 100,
     val history: List<String> = emptyList(),
+    /** When true, term/phrase comparisons are case-sensitive; regex is unaffected.
+     *  Mirrors companion/internal/protocol/types.go SearchRequest.CaseSensitive. */
+    val caseSensitive: Boolean = false,
+    /** When true and queryMode != REGEX, treat the whole query as one ordered phrase.
+     *  Mirrors companion/internal/protocol/types.go SearchRequest.ExactPhrase. */
+    val exactPhrase: Boolean = false,
 )
 
 /**
@@ -93,4 +99,8 @@ data class SearchResult(
     val results: List<FileResult>,
     val total: Int,
     val page: Int,
+    /** True when the MediaStore candidate query was capped at CANDIDATE_LIMIT, meaning
+     *  actual matches may exceed [total] (lower-bound count).
+     *  Mirrors companion/internal/protocol/types.go SearchResponse.Degraded. */
+    val degraded: Boolean = false,
 )

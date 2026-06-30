@@ -62,6 +62,8 @@ sealed class SearchState {
         val currentPage: Int = 0,
         val error: String? = null,
         val needsPermission: Boolean = false,
+        /** True when the MediaStore candidate set was capped — total is a lower bound. */
+        val degraded: Boolean = false,
     ) : SearchState()
 }
 
@@ -79,6 +81,8 @@ data class LocalSearchToolbarState(
     val filterDatePreset: String = "any",
     val filterPathPrefix: String = "",
     val filterTitleOnly: Boolean = false,
+    val caseSensitive: Boolean = false,
+    val exactPhrase: Boolean = false,
 )
 
 class SearchViewModel(application: Application) : AndroidViewModel(application) {
@@ -139,15 +143,19 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         // Load persisted toolbar state so controls reflect saved prefs on open.
+        // Bug B: remap stored "created" sort to "" (relevance) — created sort is removed.
+        val storedSortField = themePrefs.localSearchSortField.let { if (it == "created") "" else it }
         _localSearchToolbarState.value = LocalSearchToolbarState(
             queryMode = themePrefs.localSearchQueryMode,
-            sortField = themePrefs.localSearchSortField,
+            sortField = storedSortField,
             sortDir = themePrefs.localSearchSortDir,
             view = themePrefs.localSearchView,
             filterTypes = themePrefs.localSearchFilterTypes,
             filterDatePreset = themePrefs.localSearchFilterDatePreset,
             filterPathPrefix = themePrefs.localSearchFilterPathPrefix,
             filterTitleOnly = themePrefs.localSearchFilterTitleOnly,
+            caseSensitive = themePrefs.localSearchCaseSensitive,
+            exactPhrase = themePrefs.localSearchExactPhrase,
         )
 
         loadCommonWords(application)
@@ -547,6 +555,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                     pathPrefix = themePrefs.localSearchFilterPathPrefix,
                     titleOnly = themePrefs.localSearchFilterTitleOnly,
                     page = page,
+                    caseSensitive = themePrefs.localSearchCaseSensitive,
+                    exactPhrase = themePrefs.localSearchExactPhrase,
                 )
                 val result = withContext(Dispatchers.IO) {
                     MediaStoreSearcher(getApplication<Application>().contentResolver).search(req)
@@ -558,6 +568,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                     isLoading = false,
                     isLoadingMore = false,
                     currentPage = page,
+                    degraded = result.degraded,
                 )
             } catch (e: Exception) {
                 val prev = _searchState.value as? SearchState.LocalSearchResults
@@ -666,12 +677,33 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         themePrefs.localSearchFilterDatePreset = "any"
         themePrefs.localSearchFilterPathPrefix = ""
         themePrefs.localSearchFilterTitleOnly = false
+        themePrefs.localSearchCaseSensitive = false
+        themePrefs.localSearchExactPhrase = false
         _localSearchToolbarState.value = _localSearchToolbarState.value.copy(
             filterTypes = emptyList(),
             filterDatePreset = "any",
             filterPathPrefix = "",
             filterTitleOnly = false,
+            caseSensitive = false,
+            exactPhrase = false,
         )
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /** Toggles case-sensitive matching, persists the pref, and re-runs the search from page 0. */
+    fun setLocalSearchCaseSensitive(value: Boolean) {
+        themePrefs.localSearchCaseSensitive = value
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(caseSensitive = value)
+        handleLocalSearch(lastLocalSearchQuery, page = 0)
+    }
+
+    /**
+     * Toggles exact-phrase matching, persists the pref, and re-runs the search from page 0.
+     * Has no effect in regex mode (the pipeline ignores exactPhrase for regex queries).
+     */
+    fun setLocalSearchExactPhrase(value: Boolean) {
+        themePrefs.localSearchExactPhrase = value
+        _localSearchToolbarState.value = _localSearchToolbarState.value.copy(exactPhrase = value)
         handleLocalSearch(lastLocalSearchQuery, page = 0)
     }
 

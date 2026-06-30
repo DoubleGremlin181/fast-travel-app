@@ -1,7 +1,10 @@
 package sh.kavi.fasttravel.localsearch.index
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -83,5 +86,63 @@ class MatcherTest {
         val node = parse(tc.queryString, tc.mode)
         val got = matches(tc.result, node, tc.mode)
         assertEquals(tc.want, got, "matches(\"${tc.queryString}\", name=\"${tc.result.name}\")")
+    }
+
+    // ── caseSensitive tests ────────────────────────────────────────────────────
+
+    @Test
+    fun `caseSensitive false (default) matches term case-insensitively`() {
+        val node = parse("REPORT", QueryMode.SIMPLE)
+        val result = makeResult("annual-report-2024.pdf", "/home/alice/docs/annual-report-2024.pdf")
+        assertTrue(matches(result, node, QueryMode.SIMPLE, caseSensitive = false))
+    }
+
+    @Test
+    fun `caseSensitive true misses term when case differs`() {
+        val node = parse("REPORT", QueryMode.SIMPLE)
+        val result = makeResult("annual-report-2024.pdf", "/home/alice/docs/annual-report-2024.pdf")
+        assertFalse(matches(result, node, QueryMode.SIMPLE, caseSensitive = true))
+    }
+
+    @Test
+    fun `caseSensitive true hits term when case matches`() {
+        val node = parse("report", QueryMode.SIMPLE)
+        val result = makeResult("annual-report-2024.pdf", "/home/alice/docs/annual-report-2024.pdf")
+        assertTrue(matches(result, node, QueryMode.SIMPLE, caseSensitive = true))
+    }
+
+    @Test
+    fun `caseSensitive true misses phrase when case differs`() {
+        // Quoted phrase node
+        val node = parse("\"Annual Report\"", QueryMode.SIMPLE)
+        val result = makeResult("annual report 2024.pdf", "/home/alice/docs/annual report 2024.pdf")
+        // caseSensitive=true: field.contains("Annual Report") → false (file has lowercase)
+        assertFalse(matches(result, node, QueryMode.SIMPLE, caseSensitive = true))
+    }
+
+    @Test
+    fun `caseSensitive false hits phrase when case differs`() {
+        val node = parse("\"Annual Report\"", QueryMode.SIMPLE)
+        val result = makeResult("annual report 2024.pdf", "/home/alice/docs/annual report 2024.pdf")
+        assertTrue(matches(result, node, QueryMode.SIMPLE, caseSensitive = false))
+    }
+
+    @Test
+    fun `caseSensitive true with wildcard glob – case mismatch fails`() {
+        val node = parse("Rep*.pdf", QueryMode.WILDCARD)
+        val result = makeResult("report_2024.pdf", "/home/bob/report_2024.pdf")
+        // caseSensitive=false uses (?i) prefix → matches; caseSensitive=true does not
+        assertTrue(matches(result, node, QueryMode.WILDCARD, caseSensitive = false))
+        assertFalse(matches(result, node, QueryMode.WILDCARD, caseSensitive = true))
+    }
+
+    @Test
+    fun `caseSensitive does not affect regex nodes`() {
+        // regex "report" should not match "REPORT.pdf" regardless of caseSensitive
+        // (the pattern's own flags control case, caseSensitive is irrelevant)
+        val node = parse("report", QueryMode.REGEX)
+        val result = makeResult("REPORT.pdf", "/home/alice/REPORT.pdf")
+        assertFalse(matches(result, node, QueryMode.REGEX, caseSensitive = false))
+        assertFalse(matches(result, node, QueryMode.REGEX, caseSensitive = true))
     }
 }

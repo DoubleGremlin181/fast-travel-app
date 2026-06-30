@@ -21,12 +21,19 @@ import java.util.Locale
  * MediaStore wiring (slice 5b) supplies [candidates]; tests use an in-memory list.
  */
 fun search(candidates: List<FileResult>, req: SearchRequest): SearchResult {
-    val ast = parse(req.query, req.queryMode)
+    var ast = parse(req.query, req.queryMode)
+
+    // ExactPhrase: treat the whole query as one ordered phrase (non-regex only).
+    // Regex mode ignores ExactPhrase; the pattern is already the entire query.
+    // Mirrors companion/internal/index/pipeline.go Search ExactPhrase block.
+    if (req.exactPhrase && req.queryMode != QueryMode.REGEX) {
+        ast = Node(op = "phrase", field = "name", value = req.query.trim())
+    }
 
     val matchAst = if (req.filters.titleOnly) coerceFieldsToName(ast) else broadenToPath(ast)
 
     // Post-filter: guarantee correctness via the matcher.
-    var filtered = candidates.filter { matches(it, matchAst, req.queryMode) }
+    var filtered = candidates.filter { matches(it, matchAst, req.queryMode, req.caseSensitive) }
 
     // Apply request filters.
     filtered = applyFilters(filtered, req.filters)
