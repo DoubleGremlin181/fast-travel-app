@@ -90,6 +90,27 @@ export interface ToolbarControls {
   sync(prefs: LocalSearchPrefs, ping: PingResponse | null): void;
 }
 
+// View toggle icon markup
+const ICON_LIST =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"' +
+  ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<line x1="8" y1="6" x2="21" y2="6"/>' +
+  '<line x1="8" y1="12" x2="21" y2="12"/>' +
+  '<line x1="8" y1="18" x2="21" y2="18"/>' +
+  '<line x1="3" y1="6" x2="3.01" y2="6"/>' +
+  '<line x1="3" y1="12" x2="3.01" y2="12"/>' +
+  '<line x1="3" y1="18" x2="3.01" y2="18"/>' +
+  "</svg>";
+
+const ICON_GRID =
+  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"' +
+  ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<rect x="3" y="3" width="7" height="7"/>' +
+  '<rect x="14" y="3" width="7" height="7"/>' +
+  '<rect x="14" y="14" width="7" height="7"/>' +
+  '<rect x="3" y="14" width="7" height="7"/>' +
+  "</svg>";
+
 // ── DOM helper ───────────────────────────────────────────────────────────────
 
 function mkEl<K extends keyof HTMLElementTagNameMap>(
@@ -118,14 +139,18 @@ function mkEl<K extends keyof HTMLElementTagNameMap>(
  *
  * @param container  The #ls-toolbar HTMLElement to populate.
  * @param onReSearch Callback to re-trigger the current search after prefs change.
+ * @param onReRender Callback to re-render current results without a new search
+ *                   (used for view-toggle: same data, different layout).
  */
 export function mountToolbar(
   container: HTMLElement,
   onReSearch: () => void,
+  onReRender?: () => void,
 ): ToolbarControls {
   // ── Closure state (kept in sync by the returned sync function) ─────────
   let _types: string[] = [];
   let _sortDir: "asc" | "desc" = "desc";
+  let _view: "list" | "grid" = "list";
 
   // ── Row 1: query-mode segmented control + sort ──────────────────────────
 
@@ -214,6 +239,57 @@ export function mountToolbar(
   sortWrap.appendChild(sortDirBtn);
 
   mainRow.appendChild(sortWrap);
+
+  // -- View toggle (List / Grid) --
+
+  const viewSeg = mkEl("div", {
+    class: "ls-view-seg",
+    role: "group",
+    "aria-label": "View layout",
+  });
+
+  const listBtn = mkEl("button", {
+    type: "button",
+    class: "ls-view-btn active",
+    "data-view": "list",
+    title: "List view",
+    "aria-label": "List view",
+  });
+  listBtn.innerHTML = ICON_LIST;
+
+  const gridBtn = mkEl("button", {
+    type: "button",
+    class: "ls-view-btn",
+    "data-view": "grid",
+    title: "Grid view",
+    "aria-label": "Grid view",
+  });
+  gridBtn.innerHTML = ICON_GRID;
+
+  listBtn.addEventListener("click", () => {
+    if (_view === "list") return;
+    _view = "list";
+    listBtn.classList.add("active");
+    gridBtn.classList.remove("active");
+    void setLocalSearchPrefs({ view: "list" }).then(() => {
+      (onReRender ?? onReSearch)();
+    });
+  });
+
+  gridBtn.addEventListener("click", () => {
+    if (_view === "grid") return;
+    _view = "grid";
+    gridBtn.classList.add("active");
+    listBtn.classList.remove("active");
+    void setLocalSearchPrefs({ view: "grid" }).then(() => {
+      (onReRender ?? onReSearch)();
+    });
+  });
+
+  viewSeg.appendChild(listBtn);
+  viewSeg.appendChild(gridBtn);
+  mainRow.appendChild(viewSeg);
+
   container.appendChild(mainRow);
 
   // ── Row 2: type chips, date preset, path input, toggles, clear ─────────
@@ -407,6 +483,11 @@ export function mountToolbar(
     const showContent = ping !== null && contentAvailable(ping);
     contentLabel.classList.toggle("hidden", !showContent);
     contentCheck.checked = prefs.filters.content === true;
+
+    // View toggle
+    _view = prefs.view;
+    listBtn.classList.toggle("active", _view === "list");
+    gridBtn.classList.toggle("active", _view === "grid");
   }
 
   return { sync };

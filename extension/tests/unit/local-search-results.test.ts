@@ -17,7 +17,12 @@ import {
   navDown,
   navUp,
   formatDate,
+  hasMore,
+  nextPage,
+  appendResults,
+  resetResults,
 } from "../../src/newtab/local-search-results.js";
+import type { FileResult } from "../../src/core/companion-types.js";
 import type { LocalSearchPrefs } from "../../src/core/local-search-store.js";
 import type { FastTravelConfig } from "../../src/core/types.js";
 import { installMockStorage } from "./helpers/mock-storage.js";
@@ -368,6 +373,164 @@ describe("navUp", () => {
   it("works correctly with total=1", () => {
     expect(navUp(0, 1)).toBe(-1);
     expect(navUp(-1, 1)).toBe(-1);
+  });
+});
+
+// ── buildSearchRequest — page parameter ───────────────────────────────────────
+
+describe("buildSearchRequest — page parameter", () => {
+  it("defaults to page=0 when page arg is omitted", () => {
+    const req = buildSearchRequest(PREFS_ENABLED, "q");
+    expect(req.page).toBe(0);
+  });
+
+  it("passes explicit page=0", () => {
+    const req = buildSearchRequest(PREFS_ENABLED, "q", [], 0);
+    expect(req.page).toBe(0);
+  });
+
+  it("passes explicit page=1 for the second page", () => {
+    const req = buildSearchRequest(PREFS_ENABLED, "q", [], 1);
+    expect(req.page).toBe(1);
+  });
+
+  it("passes explicit page=5", () => {
+    const req = buildSearchRequest(PREFS_ENABLED, "q", [], 5);
+    expect(req.page).toBe(5);
+  });
+
+  it("pageSize is always 50 regardless of page", () => {
+    const req = buildSearchRequest(PREFS_ENABLED, "q", [], 3);
+    expect(req.pageSize).toBe(50);
+  });
+});
+
+// ── hasMore ───────────────────────────────────────────────────────────────────
+
+describe("hasMore", () => {
+  it("returns false when loaded === total (all loaded)", () => {
+    expect(hasMore(50, 50)).toBe(false);
+  });
+
+  it("returns false when loaded > total (shouldn't happen, but safe)", () => {
+    expect(hasMore(55, 50)).toBe(false);
+  });
+
+  it("returns true when loaded < total", () => {
+    expect(hasMore(50, 100)).toBe(true);
+  });
+
+  it("returns false when both are 0 (no results)", () => {
+    expect(hasMore(0, 0)).toBe(false);
+  });
+
+  it("returns true when loaded=0 and total>0 (nothing loaded yet)", () => {
+    expect(hasMore(0, 1)).toBe(true);
+  });
+
+  it("returns true for partial first page (50 of 200)", () => {
+    expect(hasMore(50, 200)).toBe(true);
+  });
+
+  it("returns false at exact boundary (loaded === total)", () => {
+    expect(hasMore(1, 1)).toBe(false);
+    expect(hasMore(200, 200)).toBe(false);
+  });
+});
+
+// ── nextPage ──────────────────────────────────────────────────────────────────
+
+describe("nextPage", () => {
+  it("returns 1 when current is 0 (first page → second page)", () => {
+    expect(nextPage(0)).toBe(1);
+  });
+
+  it("returns 2 when current is 1", () => {
+    expect(nextPage(1)).toBe(2);
+  });
+
+  it("returns current + 1 for arbitrary pages", () => {
+    expect(nextPage(5)).toBe(6);
+    expect(nextPage(99)).toBe(100);
+  });
+});
+
+// ── appendResults ─────────────────────────────────────────────────────────────
+
+function makeFile(id: string): FileResult {
+  return {
+    id,
+    name: `${id}.txt`,
+    path: `/files/${id}.txt`,
+    dir: "/files",
+    ext: "txt",
+    mime: "text/plain",
+    type: "document",
+    size: 1024,
+    createdAt: 1_700_000_000_000,
+    modifiedAt: 1_700_000_000_000,
+    score: 1,
+  };
+}
+
+describe("appendResults", () => {
+  it("appends next results to prev", () => {
+    const prev = [makeFile("a"), makeFile("b")];
+    const next = [makeFile("c"), makeFile("d")];
+    const result = appendResults(prev, next);
+    expect(result.map((f) => f.id)).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("does not mutate the prev array", () => {
+    const prev = [makeFile("a")];
+    const next = [makeFile("b")];
+    appendResults(prev, next);
+    expect(prev).toHaveLength(1);
+  });
+
+  it("handles empty prev", () => {
+    const next = [makeFile("a")];
+    const result = appendResults([], next);
+    expect(result).toEqual(next);
+  });
+
+  it("handles empty next", () => {
+    const prev = [makeFile("a")];
+    const result = appendResults(prev, []);
+    expect(result).toEqual(prev);
+    // Returns a new array, not the original
+    expect(result).not.toBe(prev);
+  });
+
+  it("handles both empty", () => {
+    expect(appendResults([], [])).toEqual([]);
+  });
+
+  it("preserves order: prev items come before next items", () => {
+    const prev = [makeFile("x")];
+    const next = [makeFile("y"), makeFile("z")];
+    const result = appendResults(prev, next);
+    expect(result[0].id).toBe("x");
+    expect(result[1].id).toBe("y");
+    expect(result[2].id).toBe("z");
+  });
+});
+
+// ── resetResults ──────────────────────────────────────────────────────────────
+
+describe("resetResults", () => {
+  it("returns an empty array", () => {
+    expect(resetResults()).toEqual([]);
+  });
+
+  it("each call returns a new empty array (not the same reference)", () => {
+    const a = resetResults();
+    const b = resetResults();
+    expect(a).not.toBe(b);
+  });
+
+  it("return value has length 0", () => {
+    expect(resetResults()).toHaveLength(0);
   });
 });
 
