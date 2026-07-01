@@ -462,6 +462,11 @@ function hideSuggestions(): void {
 
 let suggestionTimer: ReturnType<typeof setTimeout> | null = null;
 let activeSuggestionIndex = -1;
+// The items backing the currently-rendered suggestion rows, and the user's
+// originally-typed text captured when arrow-key navigation begins (so Esc or
+// arrowing back above the first row can restore it).
+let currentSuggestionItems: SuggestionItem[] = [];
+let typedText = "";
 
 async function showHistory(): Promise<void> {
   if (!config) return;
@@ -631,6 +636,7 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
   suggestionsDropdown.replaceChildren();
   searchWrapper.classList.add("dropdown-open");
   activeSuggestionIndex = -1;
+  currentSuggestionItems = items;
 
   let lastKind: SuggestionKind | "" = "";
   for (let i = 0; i < items.length; i++) {
@@ -733,20 +739,35 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
   });
 }
 
-// Keyboard navigation
+// Keyboard navigation — omnibox model:
+//   ↑/↓  move the highlight and autofill the input with the highlighted
+//        suggestion (caret at end); arrowing back above the first row restores
+//        the originally-typed text. Continuing to type refines from there.
+//   Enter same as clicking the row (kind-aware): a command fills + keeps
+//        editing; an engine/history suggestion searches. No selection → search
+//        the typed text.
+//   Tab   accept + keep editing for any kind (fills the box, never searches),
+//        so you can refine before pressing Enter. No selection → completes the
+//        top suggestion.
+//   Esc   restore the originally-typed text and close the dropdown.
 searchInput.addEventListener("keydown", (e) => {
   const items = suggestionsDropdown.querySelectorAll<HTMLElement>(".suggestion-item");
   if (e.key === "ArrowDown" && items.length > 0) {
     e.preventDefault();
+    if (activeSuggestionIndex === -1) typedText = searchInput.value;
     activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, items.length - 1);
     updateActiveSuggestion(items);
+    autofillFromActive(items);
   } else if (e.key === "ArrowUp" && items.length > 0) {
     e.preventDefault();
+    if (activeSuggestionIndex === -1) typedText = searchInput.value;
     activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, -1);
     updateActiveSuggestion(items);
-  } else if (e.key === "Tab" && activeSuggestionIndex >= 0 && items.length > 0) {
+    autofillFromActive(items);
+  } else if (e.key === "Tab" && items.length > 0) {
     e.preventDefault();
-    items[activeSuggestionIndex].click();
+    const idx = activeSuggestionIndex >= 0 ? activeSuggestionIndex : 0;
+    acceptSuggestion(currentSuggestionItems[idx]);
   } else if (e.key === "Enter") {
     if (activeSuggestionIndex >= 0 && items.length > 0) {
       items[activeSuggestionIndex].click();
@@ -755,6 +776,7 @@ searchInput.addEventListener("keydown", (e) => {
       handleSearch();
     }
   } else if (e.key === "Escape") {
+    if (activeSuggestionIndex >= 0) restoreTypedText();
     hideSuggestions();
     if (currentTypo) hideTypo();
   }
@@ -762,6 +784,44 @@ searchInput.addEventListener("keydown", (e) => {
 
 function updateActiveSuggestion(items: NodeListOf<HTMLElement>): void {
   items.forEach((item, i) => item.classList.toggle("active", i === activeSuggestionIndex));
+}
+
+// Sets the input value and places the caret at the end (so type-ahead appends).
+function setInputValue(value: string): void {
+  searchInput.value = value;
+  searchInput.setSelectionRange(value.length, value.length);
+}
+
+// Reflects the highlighted row into the input. When arrowed back above the
+// first row (index -1) it restores the originally-typed text. Uses each item's
+// `text` field, which for commands already carries a trailing space (e.g.
+// "g "), so typing ahead continues the command as "g <query>".
+function autofillFromActive(items: NodeListOf<HTMLElement>): void {
+  if (activeSuggestionIndex === -1) {
+    restoreTypedText();
+    return;
+  }
+  const item = currentSuggestionItems[activeSuggestionIndex];
+  if (!item) return;
+  setInputValue(item.text);
+  updateLeadingIcon(item.text);
+  items[activeSuggestionIndex]?.scrollIntoView({ block: "nearest" });
+}
+
+function restoreTypedText(): void {
+  setInputValue(typedText);
+  updateLeadingIcon(typedText);
+}
+
+// Tab behaviour: fill the box with the suggestion and keep editing (mirrors a
+// command row's click), regardless of kind — never submits a search.
+function acceptSuggestion(item: SuggestionItem | undefined): void {
+  if (!item) return;
+  setInputValue(item.text);
+  hideSuggestions();
+  searchInput.focus();
+  updateLeadingIcon(item.text);
+  updateChipsVisibility();
 }
 
 searchInput.addEventListener("input", () => {
