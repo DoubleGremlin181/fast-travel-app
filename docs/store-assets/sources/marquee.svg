@@ -7,6 +7,9 @@
       <stop offset="0" stop-color="#F5F2EC"/>
       <stop offset="1" stop-color="#ECE7DC"/>
     </linearGradient>
+    <filter id="tileShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="7" stdDeviation="14" flood-color="#0E1020" flood-opacity="0.18"/>
+    </filter>
   </defs>
 
   <rect width="1400" height="560" fill="url(#bg)"/>
@@ -19,12 +22,13 @@
     </g>
   </g>
 
-  <!-- App icon tile (Night mark, zoomed) -->
-  <g transform="translate(130,140)">
-    <rect width="280" height="280" rx="62" ry="62" fill="#0E1020"/>
+  <!-- App icon tile (light Paper mark, zoomed) with a soft shadow for definition
+       against the light background. -->
+  <g transform="translate(130,140)" filter="url(#tileShadow)">
+    <rect width="280" height="280" rx="62" ry="62" fill="#F5F2EC"/>
     <g transform="translate(-7.66,-7.66) scale(1.477)">
       <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
-        <polyline stroke="#F5F2EC" points="52,60 97,100 52,140"/>
+        <polyline stroke="#0E1020" points="52,60 97,100 52,140"/>
         <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
       </g>
     </g>

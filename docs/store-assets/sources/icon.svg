@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Fast Travel — store listing icon (512×512). Matches the installed app icon
-     (Night squircle, Paper + Denim chevron) but with the mark zoomed in / less
-     border per request. Edit + re-render with sources/render.mjs. -->
+<!-- Fast Travel — store listing icon (512×512). Light "Paper" variant (Paper
+     squircle, Night + Denim chevron) so the store listing reads consistently
+     light. Edit + re-render with sources/render.mjs. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Fast Travel">
   <!-- Full-bleed square (no rounded corners): Google Play applies its own rounding,
        so the icon must fill the canvas — a pre-rounded squircle would leave corners. -->
-  <rect width="512" height="512" fill="#0E1020"/>
+  <rect width="512" height="512" fill="#F5F2EC"/>
   <!-- Zoomed chevron: scale 2.7, translate -14 keeps it centered at (256,256). -->
   <g transform="translate(-14,-14) scale(2.7)">
     <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
-      <polyline stroke="#F5F2EC" points="52,60 97,100 52,140"/>
+      <polyline stroke="#0E1020" points="52,60 97,100 52,140"/>
       <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
     </g>
   </g>
