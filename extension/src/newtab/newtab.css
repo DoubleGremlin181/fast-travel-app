@@ -216,8 +216,14 @@ body:hover #settings-link {
   border-radius: 0 0 var(--radius-md) var(--radius-md);
   box-shadow: var(--shadow-2);
   z-index: 100;
-  max-height: 420px;
-  overflow-y: auto;
+  /* Fits the densest bounded case — a full 8-item recent-history list plus its
+   * separator and "Clear history" button (~431px) — so that list never shows
+   * an unnecessary scrollbar. Rows never wrap (nowrap + ellipsis), so content
+   * height stays bounded; overflow-y is kept only as a safety net.
+   * overflow-x is pinned to hidden so it can't implicitly compute to `auto`
+   * (which happens when only overflow-y is set) and draw a stray bar. */
+  max-height: 460px;
+  overflow: hidden auto;
   padding: 4px 0 6px;
   animation: dropdown-in var(--duration-short) var(--ease);
 }
