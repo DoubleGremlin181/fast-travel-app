@@ -78,8 +78,9 @@ jobs:
               --title "chore(config): auto-update mirror domains" \
               --body "Automated weekly domain health check found one or more unreachable mirror domains in \`shared/config/default-config.json\` and replaced them with reachable alternatives (verified via a HEAD check). Review the diff; CI must pass before this merges."
           fi
-          # Best-effort: queue auto-merge once required checks pass. Requires
-          # auto-merge to be enabled on the repo and a PAT for CI to run (see
-          # the note at the top of this file).
-          gh pr merge "$branch" --auto --squash \
+          # Best-effort: queue auto-merge once required checks pass, and delete
+          # the head branch once it lands so runs don't accumulate stale
+          # branches. Requires auto-merge to be enabled on the repo and a PAT
+          # for CI to run (see the note at the top of this file).
+          gh pr merge "$branch" --auto --squash --delete-branch \
             || echo "::warning::Could not enable auto-merge; merge the PR manually once CI is green."
