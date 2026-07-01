@@ -125,6 +125,27 @@ for (const size of [16, 48, 128]) {
   ]);
 }
 
+// ─── Extension toolbar icons — light "Paper" variant ────────────────────
+// The Night tile above stays high-contrast on light browser chrome; this Paper
+// tile (light bg + Night+Denim chevron) is high-contrast on dark chrome. The
+// service worker swaps to this variant when the resolved appearance is dark
+// (see setToolbarIcon in background/service-worker.ts), so the toolbar icon
+// follows the selected theme.
+for (const size of extensionSizes) {
+  const svg = iconSvg({
+    size, bg: PAPER, fg: NIGHT, accent: DENIM, cornerPct: 0.18,
+  });
+  const out = resolve(OUT, "extension", `icon${size}-paper.png`);
+  render(svg, out, size);
+}
+for (const size of [16, 48, 128]) {
+  const src = resolve(OUT, "extension", `icon${size}-paper.png`);
+  copyInto(src, [
+    resolve(ROOT, "extension", "src", "icons", `icon${size}-paper.png`),
+    resolve(ROOT, "extension", "dev-harness", "icons", `icon${size}-paper.png`),
+  ]);
+}
+
 // ─── Android mipmap launcher ────────────────────────────────────────────
 // Legacy (pre-adaptive) launcher icon: solid Night tile with the mark.
 // Android expects these densities for ic_launcher.png / ic_launcher_round.png:

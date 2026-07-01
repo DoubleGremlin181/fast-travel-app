@@ -2,4 +2,9 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <!-- Android 13+ themed icons: the launcher tints this silhouette to match
+         the system (light/dark) theme, so the installed icon follows the theme
+         where the launcher supports it. Reuses the chevron mark (only its shape
+         is used; the tint is applied by the system). -->
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>

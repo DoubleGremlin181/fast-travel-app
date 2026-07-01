@@ -46,3 +46,15 @@ served at `https://kavi.sh/fast-travel-app/privacy-policy/`.
 
 Brand sources: `shared/brand/`. Extension icons (16/48/128) ship in
 `extension/src/icons/`; Android launcher icons in `android/app/src/main/res/mipmap-*`.
+
+The **store-listing** icon and promo graphics use the light **Paper** variant
+(Paper squircle, Night + Denim chevron) so listings read consistently light; the
+theming-demo screenshots (`04-theme-dark`, `google-play/…/05-home-dark`) stay
+dark on purpose. The **installed** extension toolbar icon follows the selected
+theme at runtime (`icon*-paper.png` on dark chrome), and the Android launcher
+icon carries a `<monochrome>` layer for Android 13+ themed icons.
+
+## Updating a live listing
+
+See [`UPDATING.md`](./UPDATING.md) for step-by-step instructions to replace these
+assets in the Chrome Web Store, Firefox AMO, and Google Play.

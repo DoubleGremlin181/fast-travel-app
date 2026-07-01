@@ -15,6 +15,33 @@ export interface AppearancePrefs {
 const STORAGE_KEY = "fast-travel-appearance";
 const DEFAULTS: AppearancePrefs = { mode: "system", variant: "material", shape: "pill" };
 
+// Remember the last applied mode so the OS-theme listener below only re-reports
+// while "system" is active (explicit Light/Dark are reported by the worker's
+// own storage listener).
+let lastAppliedMode: AppearanceMode = DEFAULTS.mode;
+
+/**
+ * Tell the service worker which theme is active so it can pick the matching
+ * toolbar icon (the worker can't read prefers-color-scheme itself). Best-effort:
+ * a no-op outside an extension page or if the worker isn't listening.
+ */
+function reportResolvedTheme(theme: "light" | "dark"): void {
+    try {
+        void chrome.runtime?.sendMessage?.({ type: "resolvedTheme", theme })?.catch?.(() => {});
+    } catch {
+        // ignore — not in an extension context
+    }
+}
+
+// Re-report when the OS theme flips while "system" mode is active.
+try {
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+        if (lastAppliedMode === "system") reportResolvedTheme(e.matches ? "dark" : "light");
+    });
+} catch {
+    // ignore — no matchMedia (non-browser context)
+}
+
 /**
  * Mirror prefs to localStorage so the pre-paint shim (apply-theme.ts) can read
  * them synchronously before first paint — chrome.storage is async-only and would
@@ -63,6 +90,11 @@ export function applyAppearance(prefs: AppearancePrefs) {
     html.dataset.mode = prefs.variant === "amoled" ? "dark" : resolvedMode;
     html.dataset.variant = prefs.variant;
     html.dataset.shape = prefs.shape;
+
+    // Keep the toolbar icon in sync with the applied theme (amoled counts as
+    // dark, per dataset.mode above).
+    lastAppliedMode = prefs.mode;
+    reportResolvedTheme(html.dataset.mode === "dark" ? "dark" : "light");
     if (prefs.accent) html.style.setProperty("--custom-accent", prefs.accent);
     else html.style.removeProperty("--custom-accent");
 

@@ -59,6 +59,11 @@ const staticFiles = [
   ["src/icons/icon16.png", "icons/icon16.png"],
   ["src/icons/icon48.png", "icons/icon48.png"],
   ["src/icons/icon128.png", "icons/icon128.png"],
+  // Light "Paper" toolbar variants — the service worker swaps to these when the
+  // resolved appearance is dark, so the toolbar icon follows the selected theme.
+  ["src/icons/icon16-paper.png", "icons/icon16-paper.png"],
+  ["src/icons/icon48-paper.png", "icons/icon48-paper.png"],
+  ["src/icons/icon128-paper.png", "icons/icon128-paper.png"],
 ];
 
 for (const [src, dest] of staticFiles) {
