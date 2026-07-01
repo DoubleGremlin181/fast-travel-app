@@ -4,8 +4,6 @@
 import type { Command, FastTravelConfig, Group } from "../core/types.js";
 import { lintConfig } from "../core/config-linter.js";
 
-const ICON_CACHE_BUST_KEY = "fast-travel-icon-cache-bust";
-
 export type RefreshInterval = "manual" | "daily" | "weekly";
 
 export async function getConfig(): Promise<FastTravelConfig | null> {
@@ -65,10 +63,6 @@ export async function importFromUrl(url: string, interval: RefreshInterval): Pro
 export async function resetToRemote(): Promise<RefreshResult> {
   const result = await chrome.runtime.sendMessage({ type: "resetToRemote" });
   return result ?? { ok: false, reason: "No response" };
-}
-
-export async function clearIconCache(): Promise<void> {
-  await chrome.storage.local.set({ [ICON_CACHE_BUST_KEY]: Date.now() });
 }
 
 export function findCommandById(cfg: FastTravelConfig, id: string): { cmd: Command; group: Group; color?: string } | null {

@@ -1,6 +1,6 @@
 import { el, screenHeader } from "../dom.js";
 import { navigate } from "../router.js";
-import { getConfig, setConfig } from "../data.js";
+import { getConfig, setConfig, getConfigSourceState } from "../data.js";
 import type { FastTravelConfig } from "../../core/types.js";
 
 export async function renderConfiguration(main: HTMLElement): Promise<void> {
@@ -40,17 +40,25 @@ export async function renderConfiguration(main: HTMLElement): Promise<void> {
     card.appendChild(el("div", { class: "card-divider" }));
   }
 
-  // Import / Export row
-  const importRow = navRow("Import / Export");
+  // Import / Export row — its subtitle surfaces sync state (mirrors Android):
+  // when local edits have paused auto-refresh, that's called out here so it's
+  // discoverable without opening the screen.
+  const sourceState = await getConfigSourceState();
+  const importRow = navRow(
+    "Import / Export",
+    sourceState.dirty ? "Local config · auto-refresh paused" : "Synced from remote",
+  );
   importRow.addEventListener("click", () => navigate("#/import-export"));
   card.appendChild(importRow);
 
   main.appendChild(card);
 }
 
-function navRow(label: string): HTMLElement {
+function navRow(label: string, subtitle?: string): HTMLElement {
   const row = el("div", { class: "nav-list-item", tabindex: "0", role: "button" });
-  row.appendChild(el("span", null, label));
+  const labelCol = el("div", { class: "nav-list-item-text" }, el("span", null, label));
+  if (subtitle) labelCol.appendChild(el("span", { class: "nav-list-item-subtitle" }, subtitle));
+  row.appendChild(labelCol);
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", "16");

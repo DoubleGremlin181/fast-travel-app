@@ -533,8 +533,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       chrome.storage.local.get([CONFIG_URL_KEY, REFRESH_INTERVAL_KEY, LAST_SYNCED_KEY]),
       isDirty(),
     ]).then(([v, dirty]) => {
+      // Report the *effective* URL (falling back to the built-in default) so the
+      // options UI prefills an editable URL field like the Android app does,
+      // rather than leaving it blank until the user imports one.
+      const stored = (v[CONFIG_URL_KEY] as string | undefined)?.trim();
       sendResponse({
-        url: (v[CONFIG_URL_KEY] as string) ?? "",
+        url: stored && stored.length > 0 ? stored : DEFAULT_CONFIG_URL,
         interval: (v[REFRESH_INTERVAL_KEY] as string) ?? "daily",
         lastSynced: (v[LAST_SYNCED_KEY] as number | null) ?? null,
         dirty,
