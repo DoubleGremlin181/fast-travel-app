@@ -23,7 +23,6 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -134,6 +133,7 @@ import sh.kavi.fasttravel.core.InstalledApp
 import sh.kavi.fasttravel.core.InstalledAppResolver
 import sh.kavi.fasttravel.core.Suggestion
 import sh.kavi.fasttravel.core.resolveIconUrl
+import androidx.compose.ui.graphics.toArgb
 import sh.kavi.fasttravel.data.ThemePreferences
 import sh.kavi.fasttravel.deeplink.DeepLinkResolver
 import sh.kavi.fasttravel.ui.appearance.resolveFromPrefs
@@ -190,7 +190,7 @@ private fun MonogramIcon(
     size: Dp,
     modifier: Modifier = Modifier,
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalAppearance.current.isDarkSurface
     val (_, textColor) = GroupColorPalette.resolve(groupColorHex, fallbackKey = trigger, isDark = isDark)
     val letter = trigger.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     Box(
@@ -276,6 +276,15 @@ class SearchActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Paint the window background from the persisted theme before Compose
+        // draws, so the first frame doesn't flash the OS-driven (-night) window
+        // background when the app theme disagrees with the system theme.
+        window.setBackgroundDrawable(
+            android.graphics.drawable.ColorDrawable(
+                resolveFromPrefs(applicationContext, ThemePreferences(this)).colorScheme.background.toArgb()
+            )
+        )
 
         val deepLinkQuery = extractDeepLinkQuery(intent)
         val fromWidget = intent?.getBooleanExtra("from_widget", false) == true
@@ -400,7 +409,6 @@ fun SearchScreen(
 
     var isSearchFocused by remember { mutableStateOf(false) }
 
-    val isDark = isSystemInDarkTheme()
     val screenBg = MaterialTheme.colorScheme.background
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
 
@@ -767,7 +775,7 @@ private fun FocusedContent(
     val matchedCommand = matchedCommandPair?.first
     val matchedCommandTrigger = matchedCommandPair?.second
     val autocompleteCommands = remember(query) { viewModel.commandsMatchingPrefix(query) }
-    val dividerColor = if (isSystemInDarkTheme()) DividerDark else DividerLight
+    val dividerColor = if (LocalAppearance.current.isDarkSurface) DividerDark else DividerLight
 
     Column(modifier = Modifier.fillMaxWidth()) {
         if (isEmptyQuery) {
@@ -874,7 +882,7 @@ private fun CommandAutocompleteRow(
     onClick: () -> Unit,
 ) {
     val trigger = command.triggers.firstOrNull() ?: return
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalAppearance.current.isDarkSurface
     val (_, textColor) = GroupColorPalette.resolve(groupColorHex, fallbackKey = command.id, isDark = isDark)
     Row(
         modifier = Modifier
@@ -1289,7 +1297,7 @@ private fun CommandChip(
     onClick: () -> Unit,
 ) {
     val trigger = command.triggers.firstOrNull() ?: return
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalAppearance.current.isDarkSurface
     val (fill, textColor) = GroupColorPalette.resolve(groupColorHex, fallbackKey = command.id, isDark = isDark)
 
     Row(
