@@ -129,6 +129,7 @@ import sh.kavi.fasttravel.data.ConfigValidator
 import sh.kavi.fasttravel.data.EditableConfigStore
 import sh.kavi.fasttravel.data.LocalIgnoreStore
 import sh.kavi.fasttravel.data.SearchHistory
+import androidx.compose.ui.graphics.toArgb
 import sh.kavi.fasttravel.data.ThemePreferences
 import sh.kavi.fasttravel.data.allGroupIds
 import sh.kavi.fasttravel.data.findGroupById
@@ -235,6 +236,14 @@ class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Paint the window background from the persisted (settings) theme before
+        // Compose draws, to avoid a first-frame flash of the OS-driven window bg.
+        window.setBackgroundDrawable(
+            android.graphics.drawable.ColorDrawable(
+                resolveFromPrefs(applicationContext, ThemePreferences(this)).forSettings().colorScheme.background.toArgb()
+            )
+        )
 
         setContent {
             val context = LocalContext.current

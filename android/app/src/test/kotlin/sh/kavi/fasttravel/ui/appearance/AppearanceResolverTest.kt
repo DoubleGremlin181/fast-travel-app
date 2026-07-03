@@ -40,6 +40,15 @@ class AppearanceResolverTest {
         assertEquals(0xFF000000.toInt(), dark.widgetFill)
     }
 
+    @Test fun `isDarkSurface follows the resolved surface, honoring explicit mode over the OS`() {
+        // Explicit LIGHT/DARK map directly — this is what makes chips/dividers
+        // follow the app setting instead of isSystemInDarkTheme().
+        assertEquals(false, resolveAppearance(context, AppearanceMode.LIGHT, AppearanceVariant.MATERIAL, AppearanceShape.PILL).isDarkSurface)
+        assertEquals(true, resolveAppearance(context, AppearanceMode.DARK, AppearanceVariant.MATERIAL, AppearanceShape.PILL).isDarkSurface)
+        // AMOLED forces a black surface, so it reads dark even under LIGHT mode.
+        assertEquals(true, resolveAppearance(context, AppearanceMode.LIGHT, AppearanceVariant.AMOLED, AppearanceShape.PILL).isDarkSurface)
+    }
+
     @Test fun `Gradient variants produce a widget gradient array`() {
         val r = resolveAppearance(context, AppearanceMode.DARK, AppearanceVariant.GRADIENT_BLUE, AppearanceShape.PILL)
         assertNotNull(r.widgetGradient)

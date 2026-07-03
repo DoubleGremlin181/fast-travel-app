@@ -15,12 +15,75 @@ const REFRESH_INTERVAL_KEY = "fast-travel-refresh-interval";
 const LAST_SYNCED_KEY = "fast-travel-last-synced";
 const REFRESH_ALARM = "config-refresh";
 const CONFIG_FETCH_TIMEOUT_MS = 5000;
+const APPEARANCE_KEY = "fast-travel-appearance";
 
 // Appearance prefs are mirrored to localStorage by the page (appearance.ts) and
-// read synchronously before first paint by apply-theme.ts. The service worker is
-// no longer involved in theming (it has no localStorage and runs async).
+// read synchronously before first paint by apply-theme.ts. The worker uses them
+// only to pick the toolbar icon (below); it has no localStorage and can't read
+// prefers-color-scheme, so "system" mode is resolved by the pages (which post a
+// "resolvedTheme" message) rather than here.
 
 type RefreshInterval = "manual" | "daily" | "weekly";
+type AppearanceMode = "light" | "dark" | "system";
+// Only the fields the worker needs to pick an icon.
+type AppearancePrefs = { mode?: AppearanceMode; variant?: string };
+
+// Resolve the toolbar theme the worker can commit to on its own. Mirrors
+// applyAppearance's `variant === "amoled" ? "dark" : resolvedMode` rule so the
+// worker and the page's "resolvedTheme" message never pick different icons:
+// amoled forces a dark body regardless of mode, so it resolves to "dark" even
+// under "system". Returns null for plain "system" (which the worker can't
+// resolve without prefers-color-scheme) — an open page reports that instead.
+function resolveWorkerTheme(prefs: AppearancePrefs | undefined): "light" | "dark" | null {
+  if (!prefs) return null;
+  if (prefs.variant === "amoled") return "dark";
+  if (prefs.mode === "light" || prefs.mode === "dark") return prefs.mode;
+  return null;
+}
+
+// The toolbar icon matches the selected theme: the dark Night tile
+// (icon16/48/128.png) for Dark, the light Paper tile (…-paper.png) for Light.
+// NOTE: chrome.action.setIcon({path}) fails ("Failed to fetch") in an MV3
+// service worker, so we decode the PNGs to ImageData and pass {imageData}.
+const iconDataCache = new Map<"light" | "dark", Record<number, ImageData>>();
+
+async function loadIconData(theme: "light" | "dark"): Promise<Record<number, ImageData>> {
+  const cached = iconDataCache.get(theme);
+  if (cached) return cached;
+  const suffix = theme === "dark" ? "" : "-paper";
+  const record: Record<number, ImageData> = {};
+  for (const size of [16, 48, 128]) {
+    const url = chrome.runtime.getURL(`icons/icon${size}${suffix}.png`);
+    const blob = await (await fetch(url)).blob();
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.drawImage(bitmap, 0, 0);
+    record[size] = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+    bitmap.close();
+  }
+  iconDataCache.set(theme, record);
+  return record;
+}
+
+async function setToolbarIcon(theme: "light" | "dark"): Promise<void> {
+  try {
+    await chrome.action.setIcon({ imageData: await loadIconData(theme) });
+  } catch {
+    // Ignore (e.g. during teardown, or if the action API is unavailable).
+  }
+}
+
+// On startup, honour any theme the worker can resolve (explicit Light/Dark, or
+// any amoled variant) immediately. Plain "system" is left at the manifest
+// default (Night) until an open page reports the resolved OS theme via the
+// "resolvedTheme" message.
+async function initToolbarIcon(): Promise<void> {
+  const v = await chrome.storage.sync.get(APPEARANCE_KEY);
+  const theme = resolveWorkerTheme(v[APPEARANCE_KEY] as AppearancePrefs | undefined);
+  if (theme) await setToolbarIcon(theme);
+}
 
 function intervalToMinutes(interval: RefreshInterval): number | null {
   switch (interval) {
@@ -265,6 +328,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
   scheduleRefresh();
   installSearchRedirectRule();
+  initToolbarIcon();
 });
 
 // Reinstall the rule on every worker startup — dynamic rules persist across
@@ -276,12 +340,20 @@ chrome.runtime.onStartup.addListener(async () => {
   if (!(await isDirty())) {
     fetchAndStoreConfig();
   }
+  initToolbarIcon();
 });
 
-// When the refresh interval changes in settings, reschedule the alarm.
+// When the refresh interval changes in settings, reschedule the alarm. When the
+// appearance preference changes to a theme the worker can resolve, update the
+// toolbar icon immediately (plain "system" is handled by the page-reported
+// "resolvedTheme").
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && changes[REFRESH_INTERVAL_KEY]) {
     scheduleRefresh();
+  }
+  if (areaName === "sync" && changes[APPEARANCE_KEY]) {
+    const theme = resolveWorkerTheme(changes[APPEARANCE_KEY].newValue as AppearancePrefs | undefined);
+    if (theme) void setToolbarIcon(theme);
   }
 });
 
@@ -528,13 +600,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     setConfig(cfg).then(() => sendResponse({ ok: true }));
     return true;
   }
+  if (message.type === "resolvedTheme") {
+    // Pages report their resolved light/dark theme so the toolbar icon can
+    // follow "system" mode (which the worker can't resolve on its own).
+    void setToolbarIcon(message.theme === "dark" ? "dark" : "light");
+    return false;
+  }
   if (message.type === "getConfigSourceState") {
     Promise.all([
       chrome.storage.local.get([CONFIG_URL_KEY, REFRESH_INTERVAL_KEY, LAST_SYNCED_KEY]),
       isDirty(),
     ]).then(([v, dirty]) => {
+      // Report the *effective* URL (falling back to the built-in default) so the
+      // options UI prefills an editable URL field like the Android app does,
+      // rather than leaving it blank until the user imports one.
+      const stored = (v[CONFIG_URL_KEY] as string | undefined)?.trim();
       sendResponse({
-        url: (v[CONFIG_URL_KEY] as string) ?? "",
+        url: stored && stored.length > 0 ? stored : DEFAULT_CONFIG_URL,
         interval: (v[REFRESH_INTERVAL_KEY] as string) ?? "daily",
         lastSynced: (v[LAST_SYNCED_KEY] as number | null) ?? null,
         dirty,

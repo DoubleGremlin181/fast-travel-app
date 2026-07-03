@@ -9,6 +9,7 @@ import { renderImportExport } from "./screens/import-export.js";
 import { renderHistory } from "./screens/history.js";
 import { renderAbout } from "./screens/about.js";
 import { renderSearchEngine } from "./screens/search-engine.js";
+import { applyAppearance, getAppearance, subscribe as subscribeAppearance } from "../ui/appearance.js";
 
 defineRoutes([
   { pattern: /^#\/appearance$/, render: (main) => renderAppearance(main) },
@@ -34,3 +35,9 @@ defineRoutes([
 
 const mainEl = document.getElementById("main");
 if (mainEl) init(mainEl, "#/appearance");
+
+// Theme the whole options surface on load (not just the #/appearance route) and
+// keep it live — mirrors newtab.ts / popup.ts. Reads chrome.storage.sync (the
+// source of truth) and corrects the pre-paint shim's OS fallback.
+void getAppearance().then(applyAppearance);
+subscribeAppearance(applyAppearance);

@@ -6,16 +6,20 @@
       <stop offset="0" stop-color="#F5F2EC"/>
       <stop offset="1" stop-color="#ECE7DC"/>
     </linearGradient>
+    <filter id="tileShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#0E1020" flood-opacity="0.18"/>
+    </filter>
   </defs>
 
   <rect width="440" height="280" fill="url(#bg)"/>
 
-  <!-- Centered icon tile (the real Night mark, zoomed) -->
-  <g transform="translate(160,34)">
-    <rect width="120" height="120" rx="27" ry="27" fill="#0E1020"/>
+  <!-- Centered icon tile (light Paper mark, zoomed) with a soft shadow for
+       definition against the light background. -->
+  <g transform="translate(160,34)" filter="url(#tileShadow)">
+    <rect width="120" height="120" rx="27" ry="27" fill="#F5F2EC"/>
     <g transform="translate(-3.28,-3.28) scale(0.633)">
       <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
-        <polyline stroke="#F5F2EC" points="52,60 97,100 52,140"/>
+        <polyline stroke="#0E1020" points="52,60 97,100 52,140"/>
         <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
       </g>
     </g>

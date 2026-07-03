@@ -109,7 +109,21 @@ data class ResolvedAppearance(
     val widgetTextColor: Int,
     val widgetIconColor: Int,
     val widgetAccentColor: Int,
-)
+) {
+    /**
+     * True when the resolved surface reads as dark — i.e. content painted on the
+     * page/surface (chips, dividers, monogram fallbacks, system-bar icon tint)
+     * should use dark-mode colors. Derived from surface luminance so it is
+     * correct for every variant, including AMOLED (black surface) under an
+     * explicit LIGHT mode. Use this instead of isSystemInDarkTheme(), which
+     * follows the OS and ignores the app's Light/Dark setting.
+     */
+    val isDarkSurface: Boolean
+        get() {
+            val s = colorScheme.surface
+            return (0.2126f * s.red + 0.7152f * s.green + 0.0722f * s.blue) < 0.5f
+        }
+}
 
 private val BrandLightColorScheme: ColorScheme = lightColorScheme(
     primary = LightPrimary, onPrimary = LightOnPrimary,

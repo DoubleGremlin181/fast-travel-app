@@ -5,7 +5,6 @@ import {
   getConfigSourceState,
   importFromUrl,
   resetToRemote,
-  clearIconCache,
   type RefreshInterval,
   type ConfigSourceState,
 } from "../data.js";
@@ -34,11 +33,13 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
   statusCard.appendChild(statusBody);
   main.appendChild(statusCard);
 
-  // ---- Import from file ----
-  const fileCard = el("section", { class: "card" });
-  fileCard.appendChild(el("div", { class: "card-header" }, "Import from file"));
-  const fileBody = el("div", { class: "card-body" });
-  const fileStatus = el("div", { class: "status" });
+  // ---- Import (file or URL) — mirrors the Android Import section ----
+  const importCard = el("section", { class: "card" });
+  importCard.appendChild(el("div", { class: "card-header" }, "Import"));
+  const importBody = el("div", { class: "card-body" });
+  const importStatus = el("div", { class: "status" });
+
+  // Choose file…
   const fileInput = el("input", {
     type: "file",
     accept: ".json,application/json",
@@ -55,37 +56,28 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
       const parsed = JSON.parse(text) as unknown;
       const errors = lintConfig(parsed as FastTravelConfig);
       if (errors.length > 0) {
-        fileStatus.className = "status error";
-        fileStatus.textContent = `Validation failed: ${errors[0].message}`;
+        importStatus.className = "status error";
+        importStatus.textContent = `Validation failed: ${errors[0].message}`;
         return;
       }
       const result = await setConfig(parsed as FastTravelConfig);
       if (result.ok) {
-        fileStatus.className = "status success";
-        fileStatus.textContent = "Config imported from file.";
+        importStatus.className = "status success";
+        importStatus.textContent = "Config imported from file.";
         updateStatusLine(statusLine, await getConfigSourceState());
         showSnackbar({ message: "Config imported" });
       } else {
-        fileStatus.className = "status error";
-        fileStatus.textContent = `Import failed: ${result.reason}`;
+        importStatus.className = "status error";
+        importStatus.textContent = `Import failed: ${result.reason}`;
       }
     } catch (e) {
-      fileStatus.className = "status error";
-      fileStatus.textContent = `Failed: ${(e as Error).message}`;
+      importStatus.className = "status error";
+      importStatus.textContent = `Failed: ${(e as Error).message}`;
     }
     fileInput.value = "";
   });
-  fileBody.appendChild(el("div", { class: "btn-row" }, fileBtn, fileInput));
-  fileBody.appendChild(fileStatus);
-  fileCard.appendChild(fileBody);
-  main.appendChild(fileCard);
 
-  // ---- Import from URL ----
-  const urlCard = el("section", { class: "card" });
-  urlCard.appendChild(el("div", { class: "card-header" }, "Import from URL"));
-  const urlBody = el("div", { class: "card-body" });
-  const urlStatus = el("div", { class: "status" });
-
+  // Config URL (prefilled + editable, like Android)
   const urlInput = el("input", {
     type: "url",
     placeholder: "https://raw.githubusercontent.com/…/config.json",
@@ -93,7 +85,7 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
     class: "full-width",
   }) as HTMLInputElement;
 
-  // Interval selector
+  // Auto-refresh interval selector
   const radioGroup = el("div", { class: "radio-group", style: "padding:8px 0;" });
   for (const opt of INTERVAL_CHOICES) {
     const isSelected = opt.value === state.interval;
@@ -122,38 +114,40 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
   fetchBtn.addEventListener("click", async () => {
     const url = urlInput.value.trim();
     if (!url) {
-      urlStatus.className = "status error";
-      urlStatus.textContent = "Enter a URL first.";
+      importStatus.className = "status error";
+      importStatus.textContent = "Enter a URL first.";
       return;
     }
     fetchBtn.setAttribute("disabled", "true");
-    urlStatus.className = "status";
-    urlStatus.replaceChildren(el("span", { class: "spinner" }), " Fetching…");
+    importStatus.className = "status";
+    importStatus.replaceChildren(el("span", { class: "spinner" }), " Fetching…");
     try {
       const result = await importFromUrl(url, selectedInterval());
       if (result.ok) {
-        urlStatus.className = "status success";
-        urlStatus.textContent = "Config imported from URL.";
+        importStatus.className = "status success";
+        importStatus.textContent = "Config imported from URL.";
         updateStatusLine(statusLine, await getConfigSourceState());
         showSnackbar({ message: "Config imported" });
       } else {
-        urlStatus.className = "status error";
-        urlStatus.textContent = `Failed: ${result.reason}`;
+        importStatus.className = "status error";
+        importStatus.textContent = `Failed: ${result.reason}`;
       }
     } catch (e) {
-      urlStatus.className = "status error";
-      urlStatus.textContent = `Error: ${(e as Error).message}`;
+      importStatus.className = "status error";
+      importStatus.textContent = `Error: ${(e as Error).message}`;
     } finally {
       fetchBtn.removeAttribute("disabled");
     }
   });
 
-  urlBody.appendChild(el("div", { class: "form-row" }, el("label", null, "URL"), urlInput));
-  urlBody.appendChild(radioGroup);
-  urlBody.appendChild(el("div", { class: "btn-row" }, fetchBtn));
-  urlBody.appendChild(urlStatus);
-  urlCard.appendChild(urlBody);
-  main.appendChild(urlCard);
+  importBody.appendChild(el("div", { class: "btn-row" }, fileBtn, fileInput));
+  importBody.appendChild(el("div", { class: "form-row" }, el("label", null, "Config URL"), urlInput));
+  importBody.appendChild(el("label", { class: "form-label" }, "Auto-refresh"));
+  importBody.appendChild(radioGroup);
+  importBody.appendChild(el("div", { class: "btn-row" }, fetchBtn));
+  importBody.appendChild(importStatus);
+  importCard.appendChild(importBody);
+  main.appendChild(importCard);
 
   // ---- Export ----
   const exportCard = el("section", { class: "card" });
@@ -176,21 +170,8 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
   exportCard.appendChild(exportBody);
   main.appendChild(exportCard);
 
-  // ---- Icon cache ----
-  const cacheCard = el("section", { class: "card" });
-  cacheCard.appendChild(el("div", { class: "card-header" }, "Icon cache"));
-  const cacheBody = el("div", { class: "card-body" });
-  const cacheBtn = el("button", { class: "primary" }, "Clear icon cache");
-  cacheBtn.addEventListener("click", async () => {
-    await clearIconCache();
-    showSnackbar({ message: "Icon cache cleared" });
-  });
-  cacheBody.appendChild(el("div", { class: "btn-row" }, cacheBtn));
-  cacheCard.appendChild(cacheBody);
-  main.appendChild(cacheCard);
-
-  // ---- Reset to remote (only when URL stored) ----
-  if (state.url) {
+  // ---- Reset to remote (only when there are local edits to discard) ----
+  if (state.dirty) {
     const resetCard = el("section", { class: "card" });
     resetCard.appendChild(el("div", { class: "card-header" }, "Reset"));
     const resetBody = el("div", { class: "card-body" });
@@ -214,11 +195,12 @@ export async function renderImportExport(main: HTMLElement): Promise<void> {
 }
 
 function buildStatusText(state: ConfigSourceState): string {
-  if (!state.dirty && state.lastSynced) {
-    return `Synced ${formatTimestamp(state.lastSynced)}`;
-  }
-  if (state.dirty) return "Local config";
-  return "No remote source";
+  // Mirror the Android status wording: when local edits have paused
+  // auto-refresh, say so explicitly so it's clear why remote changes aren't
+  // arriving (and that "Reset to remote" is the way to resume).
+  if (state.dirty) return "Local config · auto-refresh paused";
+  if (state.lastSynced) return `Synced ${formatTimestamp(state.lastSynced)}`;
+  return "Not synced yet";
 }
 
 function updateStatusLine(el: HTMLElement, state: ConfigSourceState): void {

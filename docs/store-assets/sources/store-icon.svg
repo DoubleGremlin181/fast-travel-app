@@ -2,13 +2,14 @@
 <!-- Chrome Web Store store icon. 128×128 canvas, transparent padding.
      Per CWS guidelines the artwork (the squircle) is ~98px (≈77% width) centered
      with ~15px transparent padding so it isn't clipped by the store's rounded mask.
-     The mark matches the rest of the store assets (Night squircle, zoomed chevron). -->
+     Light "Paper" variant (Paper squircle, Night + Denim chevron) to match the
+     rest of the light store assets; a hairline border defines the edge on white. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Fast Travel">
   <g transform="translate(15,15) scale(0.19140625)">
-    <rect width="512" height="512" rx="114" ry="114" fill="#0E1020"/>
+    <rect width="512" height="512" rx="114" ry="114" fill="#F5F2EC" stroke="#0E1020" stroke-opacity="0.10" stroke-width="6"/>
     <g transform="translate(-14,-14) scale(2.7)">
       <g fill="none" stroke-width="22" stroke-linecap="square" stroke-linejoin="miter">
-        <polyline stroke="#F5F2EC" points="52,60 97,100 52,140"/>
+        <polyline stroke="#0E1020" points="52,60 97,100 52,140"/>
         <polyline stroke="#3E6098" points="103,60 148,100 103,140"/>
       </g>
     </g>

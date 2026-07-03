@@ -32,7 +32,80 @@ test("settings: Import/Export link navigates to import-export screen", async ({ 
   await page.goto(`chrome-extension://${extensionId}/options/options.html#/configuration`);
   await page.locator('.nav-list-item', { hasText: "Import / Export" }).click();
   await expect(page).toHaveURL(/.*#\/import-export$/);
-  await expect(page.locator(".card-header", { hasText: "Import from file" })).toBeVisible();
-  await expect(page.locator(".card-header", { hasText: "Import from URL" })).toBeVisible();
+  // File + URL import are now merged into a single "Import" card (Android parity).
+  await expect(page.locator(".card-header", { hasText: /^Import$/ })).toBeVisible();
   await expect(page.locator(".card-header", { hasText: "Export" })).toBeVisible();
+  // The "Clear icon cache" action has been removed.
+  await expect(page.locator(".card-header", { hasText: "Icon cache" })).toHaveCount(0);
+  await expect(page.locator("button", { hasText: "Clear icon cache" })).toHaveCount(0);
+});
+
+test("settings: Import/Export prefills the config URL and hides Reset when synced", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options/options.html#/import-export`);
+
+  // The URL field is prefilled with the default config URL (editable), like Android.
+  const urlInput = page.locator('input[type="url"]');
+  await expect(urlInput).toHaveValue(/raw\.githubusercontent\.com.*default-config\.json/);
+
+  // With no local edits, "Reset to remote" is not offered.
+  await expect(page.locator("button", { hasText: "Reset to remote" })).toHaveCount(0);
+});
+
+test("settings: local edits surface 'auto-refresh paused' and offer Reset to remote", async ({
+  context,
+  extensionId,
+}) => {
+  let worker = context.serviceWorkers()[0];
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  // Simulate a prior local edit having set the dirty flag.
+  await worker.evaluate(() =>
+    chrome.storage.local.set({ "fast-travel-config-dirty": true }),
+  );
+
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options/options.html#/import-export`);
+
+  await expect(page.locator(".status", { hasText: "auto-refresh paused" })).toBeVisible();
+  await expect(page.locator("button", { hasText: "Reset to remote" })).toBeVisible();
+
+  // The Configuration screen surfaces the same paused state on the nav row.
+  await page.goto(`chrome-extension://${extensionId}/options/options.html#/configuration`);
+  await expect(
+    page.locator(".nav-list-item-subtitle", { hasText: "auto-refresh paused" }),
+  ).toBeVisible();
+
+  // Clean up so the flag doesn't leak into other tests sharing the context.
+  await worker.evaluate(() =>
+    chrome.storage.local.remove("fast-travel-config-dirty"),
+  );
+});
+
+test("settings: options page honors an explicit Light setting under a dark OS", async ({
+  context,
+  extensionId,
+}) => {
+  let worker = context.serviceWorkers()[0];
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  await worker.evaluate(() =>
+    chrome.storage.sync.set({
+      "fast-travel-appearance": { mode: "light", variant: "material", shape: "pill" },
+    }),
+  );
+
+  const page = await context.newPage();
+  await page.emulateMedia({ colorScheme: "dark" }); // OS = dark
+  // Simulate a device where the localStorage theme mirror is absent/stale.
+  await page.addInitScript(() => {
+    try { localStorage.removeItem("fast-travel-appearance"); } catch {}
+  });
+  // A non-appearance route: only the init-time reconcile can theme it.
+  await page.goto(`chrome-extension://${extensionId}/options/options.html#/configuration`);
+
+  await expect(page.locator("html")).toHaveAttribute("data-mode", "light");
+
+  await worker.evaluate(() => chrome.storage.sync.remove("fast-travel-appearance"));
 });
