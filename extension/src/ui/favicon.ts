@@ -11,33 +11,6 @@ export interface FaviconOpts {
   size?: number;
 }
 
-const ICON_CACHE_BUST_KEY = "fast-travel-icon-cache-bust";
-let iconCacheBust: number | null = null;
-let cacheBustResolved = false;
-
-function applyCacheBust(url: string): string {
-  if (!iconCacheBust) return url;
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}_ftcb=${iconCacheBust}`;
-}
-
-const cacheBustReady: Promise<void> = (async () => {
-  try {
-    const v = await chrome.storage?.local?.get(ICON_CACHE_BUST_KEY);
-    iconCacheBust = (v?.[ICON_CACHE_BUST_KEY] as number | null) ?? null;
-  } catch {
-    iconCacheBust = null;
-  } finally {
-    cacheBustResolved = true;
-  }
-})();
-
-chrome.storage?.onChanged?.addListener((changes, area) => {
-  if (area === "local" && changes[ICON_CACHE_BUST_KEY]) {
-    iconCacheBust = (changes[ICON_CACHE_BUST_KEY].newValue as number | null) ?? null;
-  }
-});
-
 /** Attach a favicon image to `container`. On error, swap to a monogram. */
 export function renderFavicon(container: HTMLElement, opts: FaviconOpts): void {
   const { iconUrl, trigger, groupColor, size = 20 } = opts;
@@ -56,13 +29,7 @@ export function renderFavicon(container: HTMLElement, opts: FaviconOpts): void {
       paintMonogram(container, trigger, tint);
     });
     container.appendChild(img);
-    if (cacheBustResolved) {
-      img.src = applyCacheBust(iconUrl);
-    } else {
-      cacheBustReady.then(() => {
-        img.src = applyCacheBust(iconUrl);
-      });
-    }
+    img.src = iconUrl;
   } else {
     paintMonogram(container, trigger, tint);
   }

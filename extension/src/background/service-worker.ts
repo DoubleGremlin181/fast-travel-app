@@ -25,6 +25,21 @@ const APPEARANCE_KEY = "fast-travel-appearance";
 
 type RefreshInterval = "manual" | "daily" | "weekly";
 type AppearanceMode = "light" | "dark" | "system";
+// Only the fields the worker needs to pick an icon.
+type AppearancePrefs = { mode?: AppearanceMode; variant?: string };
+
+// Resolve the toolbar theme the worker can commit to on its own. Mirrors
+// applyAppearance's `variant === "amoled" ? "dark" : resolvedMode` rule so the
+// worker and the page's "resolvedTheme" message never pick different icons:
+// amoled forces a dark body regardless of mode, so it resolves to "dark" even
+// under "system". Returns null for plain "system" (which the worker can't
+// resolve without prefers-color-scheme) — an open page reports that instead.
+function resolveWorkerTheme(prefs: AppearancePrefs | undefined): "light" | "dark" | null {
+  if (!prefs) return null;
+  if (prefs.variant === "amoled") return "dark";
+  if (prefs.mode === "light" || prefs.mode === "dark") return prefs.mode;
+  return null;
+}
 
 // The toolbar icon follows the active theme for legibility: the default Night
 // tile (icon16/48/128.png) stays crisp on light browser chrome, and the Paper
@@ -46,13 +61,14 @@ async function setToolbarIcon(theme: "light" | "dark"): Promise<void> {
   }
 }
 
-// On startup, honour an explicit Light/Dark preference immediately. "system" is
-// left at the manifest default (Night) until an open page reports the resolved
-// OS theme via the "resolvedTheme" message.
+// On startup, honour any theme the worker can resolve (explicit Light/Dark, or
+// any amoled variant) immediately. Plain "system" is left at the manifest
+// default (Night) until an open page reports the resolved OS theme via the
+// "resolvedTheme" message.
 async function initToolbarIcon(): Promise<void> {
   const v = await chrome.storage.sync.get(APPEARANCE_KEY);
-  const mode = (v[APPEARANCE_KEY] as { mode?: AppearanceMode } | undefined)?.mode ?? "system";
-  if (mode === "light" || mode === "dark") await setToolbarIcon(mode);
+  const theme = resolveWorkerTheme(v[APPEARANCE_KEY] as AppearancePrefs | undefined);
+  if (theme) await setToolbarIcon(theme);
 }
 
 function intervalToMinutes(interval: RefreshInterval): number | null {
@@ -314,15 +330,16 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 
 // When the refresh interval changes in settings, reschedule the alarm. When the
-// appearance preference changes to an explicit Light/Dark, update the toolbar
-// icon immediately ("system" is handled by the page-reported "resolvedTheme").
+// appearance preference changes to a theme the worker can resolve, update the
+// toolbar icon immediately (plain "system" is handled by the page-reported
+// "resolvedTheme").
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && changes[REFRESH_INTERVAL_KEY]) {
     scheduleRefresh();
   }
   if (areaName === "sync" && changes[APPEARANCE_KEY]) {
-    const mode = (changes[APPEARANCE_KEY].newValue as { mode?: AppearanceMode } | undefined)?.mode;
-    if (mode === "light" || mode === "dark") void setToolbarIcon(mode);
+    const theme = resolveWorkerTheme(changes[APPEARANCE_KEY].newValue as AppearancePrefs | undefined);
+    if (theme) void setToolbarIcon(theme);
   }
 });
 
