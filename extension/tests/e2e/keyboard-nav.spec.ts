@@ -84,11 +84,13 @@ test("Tab accepts the top suggestion into the box without searching", async ({
   await firstItem.waitFor({ state: "visible" });
   const trigger = (await firstItem.locator(".suggestion-trigger").textContent())?.trim();
 
-  // Tab with no explicit selection completes the top suggestion.
+  // Tab with no explicit selection completes the top suggestion, appends a
+  // trailing space, and keeps the dropdown open (suggestions for the completed
+  // query) instead of closing it.
   await input.press("Tab");
 
   await expect(input).toHaveValue(`${trigger} `);
-  await expect(page.locator("#suggestions-dropdown")).toHaveClass(/hidden/);
+  await expect(page.locator("#suggestions-dropdown")).not.toHaveClass(/hidden/);
   await expect(input).toBeFocused();
   // Tab must NOT navigate away from the new-tab page.
   expect(page.url()).toContain(`chrome-extension://${extensionId}/newtab/newtab.html`);

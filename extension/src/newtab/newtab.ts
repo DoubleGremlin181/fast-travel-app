@@ -746,9 +746,10 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
 //   Enter same as clicking the row (kind-aware): a command fills + keeps
 //        editing; an engine/history suggestion searches. No selection → search
 //        the typed text.
-//   Tab   accept + keep editing for any kind (fills the box, never searches),
-//        so you can refine before pressing Enter. No selection → completes the
-//        top suggestion.
+//   Tab   accept + keep editing for any kind (fills the box, never searches):
+//        appends a trailing space and reopens suggestions for the completed
+//        query, so you can keep drilling in before pressing Enter. No
+//        selection → completes the top suggestion.
 //   Esc   restore the originally-typed text and close the dropdown.
 searchInput.addEventListener("keydown", (e) => {
   const items = suggestionsDropdown.querySelectorAll<HTMLElement>(".suggestion-item");
@@ -813,14 +814,17 @@ function restoreTypedText(): void {
   updateLeadingIcon(typedText);
 }
 
-// Tab behaviour: fill the box with the suggestion and keep editing (mirrors a
-// command row's click), regardless of kind — never submits a search.
+// Tab behaviour: fill the box with the suggestion, ensure a trailing space so
+// the next keystroke starts a new word, and reopen suggestions for the
+// completed query (mirrors the populate arrow) — never submits a search.
+// Commands already carry a trailing space, so the space is only added when
+// missing (keeps it idempotent for command suggestions).
 function acceptSuggestion(item: SuggestionItem | undefined): void {
   if (!item) return;
-  setInputValue(item.text);
-  hideSuggestions();
+  const value = item.text.endsWith(" ") ? item.text : `${item.text} `;
+  setInputValue(value);
   searchInput.focus();
-  updateLeadingIcon(item.text);
+  showSuggestions(value);
   updateChipsVisibility();
 }
 
