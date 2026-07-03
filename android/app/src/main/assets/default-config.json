@@ -208,8 +208,8 @@
           "routes": [
             {
               "devices": "*",
-              "defaultUrl": "https://annas-archive.org",
-              "searchUrl": "https://annas-archive.org/search?q={query}"
+              "defaultUrl": "https://annas-archive.gl",
+              "searchUrl": "https://annas-archive.gl/search?q={query}"
             }
           ]
         },
@@ -353,7 +353,12 @@
           "type": "standard",
           "routes": [
             {
-              "devices": ["Windows", "MacOS", "Linux", "Unknown"],
+              "devices": [
+                "Windows",
+                "MacOS",
+                "Linux",
+                "Unknown"
+              ],
               "defaultUrl": "file:///",
               "patterns": [
                 {
@@ -568,7 +573,9 @@
           "name": "FlightAware",
           "type": "standard",
           "iconUrl": "https://www.google.com/s2/favicons?domain=flightaware.com&sz=128",
-          "normalize": ["stripSpaces"],
+          "normalize": [
+            "stripSpaces"
+          ],
           "routes": [
             {
               "devices": "*",
