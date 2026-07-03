@@ -83,3 +83,29 @@ test("settings: local edits surface 'auto-refresh paused' and offer Reset to rem
     chrome.storage.local.remove("fast-travel-config-dirty"),
   );
 });
+
+test("settings: options page honors an explicit Light setting under a dark OS", async ({
+  context,
+  extensionId,
+}) => {
+  let worker = context.serviceWorkers()[0];
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  await worker.evaluate(() =>
+    chrome.storage.sync.set({
+      "fast-travel-appearance": { mode: "light", variant: "material", shape: "pill" },
+    }),
+  );
+
+  const page = await context.newPage();
+  await page.emulateMedia({ colorScheme: "dark" }); // OS = dark
+  // Simulate a device where the localStorage theme mirror is absent/stale.
+  await page.addInitScript(() => {
+    try { localStorage.removeItem("fast-travel-appearance"); } catch {}
+  });
+  // A non-appearance route: only the init-time reconcile can theme it.
+  await page.goto(`chrome-extension://${extensionId}/options/options.html#/configuration`);
+
+  await expect(page.locator("html")).toHaveAttribute("data-mode", "light");
+
+  await worker.evaluate(() => chrome.storage.sync.remove("fast-travel-appearance"));
+});
