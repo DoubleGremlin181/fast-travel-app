@@ -34,8 +34,8 @@ extension keeps functioning on the old assets until the new listing is approved.
    - Screenshots are unchanged (`01–03` light; `04-theme-dark` stays dark).
 3. **Save Changes**. (Icon/screenshot updates to an existing listing are usually applied without full re-review.)
 
-> The packaged toolbar icon inside the extension now follows the selected theme
-> at runtime (a light tile on dark chrome, the dark tile on light chrome); it
+> The packaged toolbar icon inside the extension now matches the selected theme
+> at runtime (the dark Night tile for Dark, the light Paper tile for Light); it
 > ships with the next signed build and needs no store-listing action.
 
 ## Google Play

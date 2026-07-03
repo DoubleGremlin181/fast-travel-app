@@ -41,9 +41,8 @@ function resolveWorkerTheme(prefs: AppearancePrefs | undefined): "light" | "dark
   return null;
 }
 
-// The toolbar icon follows the active theme for legibility: the default Night
-// tile (icon16/48/128.png) stays crisp on light browser chrome, and the Paper
-// tile (…-paper.png) is swapped in on dark chrome.
+// The toolbar icon matches the selected theme: the dark Night tile
+// (icon16/48/128.png) for Dark, the light Paper tile (…-paper.png) for Light.
 // NOTE: chrome.action.setIcon({path}) fails ("Failed to fetch") in an MV3
 // service worker, so we decode the PNGs to ImageData and pass {imageData}.
 const iconDataCache = new Map<"light" | "dark", Record<number, ImageData>>();
@@ -51,7 +50,7 @@ const iconDataCache = new Map<"light" | "dark", Record<number, ImageData>>();
 async function loadIconData(theme: "light" | "dark"): Promise<Record<number, ImageData>> {
   const cached = iconDataCache.get(theme);
   if (cached) return cached;
-  const suffix = theme === "dark" ? "-paper" : "";
+  const suffix = theme === "dark" ? "" : "-paper";
   const record: Record<number, ImageData> = {};
   for (const size of [16, 48, 128]) {
     const url = chrome.runtime.getURL(`icons/icon${size}${suffix}.png`);

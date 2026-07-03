@@ -1,10 +1,10 @@
 import { test, expect } from "./fixtures";
 
-// The toolbar icon should follow the selected theme (issue #5): the Night tile
-// on light chrome, the Paper tile on dark chrome. The service worker drives this
-// via chrome.action.setIcon({imageData}) — {path} fails ("Failed to fetch") in
-// an MV3 service worker, so these tests assert the call SUCCEEDS and carries the
-// correct variant (Paper ~ light pixels, Night ~ dark pixels), not just that a
+// The toolbar icon matches the selected theme (issue #5): the dark Night tile
+// for Dark, the light Paper tile for Light. The service worker drives this via
+// chrome.action.setIcon({imageData}) — {path} fails ("Failed to fetch") in an
+// MV3 service worker, so these tests assert the call SUCCEEDS and carries the
+// correct variant (Night ~ dark pixels, Paper ~ light pixels), not just that a
 // path was requested.
 
 type IconCall = { hasImageData: boolean; ok: boolean; lum: number | null };
@@ -47,29 +47,29 @@ const lastCall = (worker: import("@playwright/test").Worker): Promise<IconCall |
     return c.length ? c[c.length - 1] : null;
   });
 
-test("toolbar icon renders the Paper tile on dark and Night on light (setIcon succeeds)", async ({
+test("toolbar icon renders the Night tile on dark and Paper on light (setIcon succeeds)", async ({
   context,
 }) => {
   let worker = context.serviceWorkers()[0];
   if (!worker) worker = await context.waitForEvent("serviceworker");
   await installIconSpy(worker);
 
-  // Explicit Dark → Paper (light) tile. Worker's storage.onChanged handles this.
+  // Explicit Dark → Night (dark) tile. Worker's storage.onChanged handles this.
   await worker.evaluate(() =>
     chrome.storage.sync.set({
       "fast-travel-appearance": { mode: "dark", variant: "material", shape: "pill" },
     }),
   );
   await expect.poll(() => lastCall(worker!)).toMatchObject({ hasImageData: true, ok: true });
-  expect((await lastCall(worker))!.lum!).toBeGreaterThan(0.5);
+  expect((await lastCall(worker))!.lum!).toBeLessThan(0.5);
 
-  // Explicit Light → Night (dark) tile.
+  // Explicit Light → Paper (light) tile.
   await worker.evaluate(() =>
     chrome.storage.sync.set({
       "fast-travel-appearance": { mode: "light", variant: "material", shape: "pill" },
     }),
   );
-  await expect.poll(async () => (await lastCall(worker!))!.lum!).toBeLessThan(0.5);
+  await expect.poll(async () => (await lastCall(worker!))!.lum!).toBeGreaterThan(0.5);
   expect((await lastCall(worker))!).toMatchObject({ hasImageData: true, ok: true });
 
   await worker.evaluate(() => chrome.storage.sync.remove("fast-travel-appearance"));
@@ -84,7 +84,7 @@ test("a page in system mode reports the OS theme so the icon follows it", async 
   await installIconSpy(worker);
 
   // System mode + emulated dark OS → the page resolves dark and reports it, so
-  // the worker renders the Paper (light) tile.
+  // the worker renders the Night (dark) tile.
   await worker.evaluate(() =>
     chrome.storage.sync.set({
       "fast-travel-appearance": { mode: "system", variant: "material", shape: "pill" },
@@ -95,7 +95,7 @@ test("a page in system mode reports the OS theme so the icon follows it", async 
   await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
   await page.locator("html[data-ft-ready]").waitFor();
 
-  await expect.poll(async () => (await lastCall(worker!))?.lum ?? -1).toBeGreaterThan(0.5);
+  await expect.poll(async () => (await lastCall(worker!))?.lum ?? 1).toBeLessThan(0.5);
   expect((await lastCall(worker))!).toMatchObject({ hasImageData: true, ok: true });
 
   await worker.evaluate(() => chrome.storage.sync.remove("fast-travel-appearance"));

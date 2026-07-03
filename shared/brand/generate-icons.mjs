@@ -126,11 +126,10 @@ for (const size of [16, 48, 128]) {
 }
 
 // ─── Extension toolbar icons — light "Paper" variant ────────────────────
-// The Night tile above stays high-contrast on light browser chrome; this Paper
-// tile (light bg + Night+Denim chevron) is high-contrast on dark chrome. The
-// service worker swaps to this variant when the resolved appearance is dark
-// (see setToolbarIcon in background/service-worker.ts), so the toolbar icon
-// follows the selected theme.
+// The Night tile above is used for the Dark theme; this Paper tile (light bg +
+// Night+Denim chevron) is used for the Light theme. The service worker swaps to
+// this variant when the selected theme is Light (see setToolbarIcon in
+// background/service-worker.ts), so the toolbar icon matches the selected theme.
 for (const size of extensionSizes) {
   const svg = iconSvg({
     size, bg: PAPER, fg: NIGHT, accent: DENIM, cornerPct: 0.18,
