@@ -921,7 +921,7 @@
             {
               "devices": "*",
               "defaultUrl": "https://www.instagram.com",
-              "searchUrl": "https://www.instagram.com/explore/tags/{query}"
+              "searchUrl": "https://www.instagram.com/explore/search/keyword/?q={query}"
             }
           ]
         },
