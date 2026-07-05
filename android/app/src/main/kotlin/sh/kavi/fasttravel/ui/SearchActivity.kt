@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -273,6 +274,12 @@ class SearchActivity : ComponentActivity() {
     // increments replay it on each foreground transition.
     private val resumeTick = kotlinx.coroutines.flow.MutableStateFlow(0)
 
+    // The retained, activity-scoped SearchViewModel — the SAME instance the composable
+    // obtains via viewModel(). Holding a reference here lets onStop() reset its state
+    // before the app is backgrounded, so a relaunch starts clean instead of flashing
+    // the previous query + stale suggestions (see SearchViewModel.resetForFreshStart).
+    private val viewModel: SearchViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -332,6 +339,7 @@ class SearchActivity : ComponentActivity() {
                         )
                 ) {
                     SearchScreen(
+                        viewModel = viewModel,
                         initialQuery = deepLinkQuery,
                         fromWidget = fromWidget,
                         focusTick = tick,
@@ -346,6 +354,26 @@ class SearchActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         resumeTick.value++
+        // Keep the recents/overview card tinted to the (possibly just-changed) theme.
+        LauncherIconManager.applyTaskDescription(
+            this,
+            resolveFromPrefs(applicationContext, ThemePreferences(this)),
+        )
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Reset transient search state while the app is off-screen (opened another app,
+        // home, recents) so the next resume's first frame is already a clean, empty
+        // search bar — no ~1s flash of the previous query + its stale suggestions.
+        viewModel.resetForFreshStart()
+        // Flip the drawer/launcher icon to match the theme while we're off-screen —
+        // switching the live launcher component while foregrounded can drop the task
+        // from recents on some Android versions.
+        LauncherIconManager.applyThemeIcon(
+            this,
+            resolveFromPrefs(applicationContext, ThemePreferences(this)).isDarkSurface,
+        )
     }
 
     override fun onNewIntent(intent: Intent) {

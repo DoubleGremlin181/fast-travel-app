@@ -31,10 +31,8 @@
             android:launchMode="singleTask"
             android:clearTaskOnLaunch="true"
             android:theme="@style/Theme.FastTravel">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+            <!-- MAIN/LAUNCHER lives on the activity-aliases below so the drawer icon
+                 can flip light/dark with the in-app theme (see LauncherIconManager). -->
 
             <!-- Deep link: fasttravel://search?q={query} -->
             <intent-filter>
@@ -60,6 +58,40 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!--
+            Launcher entry points. Exactly one alias is enabled at a time; the app
+            toggles them (LauncherIconManager) so the drawer/launcher icon follows the
+            in-app Light/Dark theme. LauncherLight is enabled by default. Note: the
+            Settings > Apps listing uses the <application> icon and does NOT flip.
+        -->
+        <activity-alias
+            android:name=".ui.LauncherLight"
+            android:targetActivity=".ui.SearchActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.LauncherDark"
+            android:targetActivity=".ui.SearchActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_dark"
+            android:roundIcon="@mipmap/ic_launcher_dark_round"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ui.SettingsActivity"
