@@ -216,6 +216,26 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         updateChipCommands()
     }
 
+    /**
+     * Reset transient search state back to a cold-open state, synchronously.
+     *
+     * The query + suggestions live in this retained (activity-scoped) ViewModel and,
+     * with the launcher's `singleTask` mode, survive the app being backgrounded to
+     * open another app. Without this reset, relaunching flashes the previous query +
+     * its stale Google suggestions for ~1s before the post-resume effect clears them.
+     * Called from the Activity's `onStop()` so the state is already clean on the next
+     * resume's first frame (no flash). Suggestions are restored to the "Recent" list
+     * immediately (no debounce) so the resumed empty state matches a cold open.
+     */
+    fun resetForFreshStart() {
+        suggestionJob?.cancel()
+        installedAppsJob?.cancel()
+        _query.value = ""
+        _searchState.value = SearchState.Idle
+        _installedApps.value = emptyList()
+        _suggestions.value = config?.let { getHistorySuggestions(it) } ?: emptyList()
+    }
+
     private fun flattenCommands(groups: List<Group>): List<Command> = groups.flatMap { it.commands }
 
     /**

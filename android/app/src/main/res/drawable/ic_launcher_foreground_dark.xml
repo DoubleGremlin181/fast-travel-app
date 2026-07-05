@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark-theme variant of the chevron mark. Same shape as ic_launcher_foreground,
+     with lightened strokes so it stays legible on the dark launcher background. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:strokeColor="#B9BEDC"
+        android:strokeWidth="9"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:pathData="M39,41 L53,54 L39,67" />
+
+    <path
+        android:strokeColor="#6FA0E0"
+        android:strokeWidth="9"
+        android:strokeLineCap="butt"
+        android:strokeLineJoin="miter"
+        android:pathData="M55,41 L69,54 L55,67" />
+</vector>
