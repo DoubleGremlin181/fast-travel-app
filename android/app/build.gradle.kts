@@ -13,8 +13,8 @@ android {
         applicationId = "sh.kavi.fasttravel"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "2.1.5"
+        versionCode = 13
+        versionName = "2.1.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
