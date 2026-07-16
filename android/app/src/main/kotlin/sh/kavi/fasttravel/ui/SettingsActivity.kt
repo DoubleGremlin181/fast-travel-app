@@ -1114,7 +1114,33 @@ fun AppearanceScreen(
                     onSelect = { draft = draft.copy(shape = it) },
                 )
             }
-            // 5 & 6. Widget settings (opacity + rows)
+            // 5. App icon: theme-following is opt-in because flipping the live
+            // launcher alias invalidates launcher-stored references (gestures,
+            // pinned shortcuts) to the disabled one — Lawnchair crashes on launch.
+            SettingsCategoryHeader("App icon")
+            SettingsCard {
+                var themedIcon by remember { mutableStateOf(prefs.themedIconEnabled) }
+                SettingsSwitchItem(
+                    headlineText = "Icon follows theme",
+                    supportingText = "Flips the launcher icon light/dark with the app theme. " +
+                        "Launcher gestures and pinned shortcuts point at one icon and can " +
+                        "break or crash their launcher when it flips.",
+                    checked = themedIcon,
+                    onCheckedChange = {
+                        themedIcon = it
+                        prefs.themedIconEnabled = it
+                        // Apply now rather than waiting for the next SearchActivity
+                        // onStop, so turning it off immediately restores the stable
+                        // alias (and turning it on shows the effect right away).
+                        LauncherIconManager.applyThemeIcon(
+                            context,
+                            appearance.isDarkSurface,
+                            followTheme = it,
+                        )
+                    },
+                )
+            }
+            // 6 & 7. Widget settings (opacity + rows)
             SettingsCategoryHeader("Widget")
             SettingsCard {
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {

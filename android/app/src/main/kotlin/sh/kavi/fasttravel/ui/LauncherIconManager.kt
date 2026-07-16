@@ -36,17 +36,28 @@ object LauncherIconManager {
         appearance.colorScheme.background.toArgb() or 0xFF000000.toInt()
 
     /**
-     * Enable the alias matching [isDark] and disable the other, so exactly one launcher
-     * icon is ever live. Idempotent: no-ops when already in the desired state to avoid
-     * redundant PackageManager writes / icon flicker. `DONT_KILL_APP` keeps the running
-     * task alive; callers switch on `onStop()` so flipping the live launcher component
+     * Converge the launcher aliases so exactly one icon is live. With [followTheme]
+     * the enabled alias matches [isDark] (the original themed-icon behavior); without
+     * it the stable light alias is enforced regardless of theme.
+     *
+     * followTheme is opt-in because disabling an alias breaks every external reference
+     * a launcher stored to it — Lawnchair gestures and pinned shortcuts launch the
+     * ComponentName that was enabled at setup time, and launching a DISABLED component
+     * throws ActivityNotFoundException inside the launcher (Lawnchair crashes). The
+     * followTheme=false pass also serves as the migration path for devices where a
+     * previous version left the dark alias live.
+     *
+     * Idempotent: no-ops when already in the desired state to avoid redundant
+     * PackageManager writes / icon flicker. `DONT_KILL_APP` keeps the running task
+     * alive; callers switch on `onStop()` so flipping the live launcher component
      * can't drop the task from recents.
      */
-    fun applyThemeIcon(context: Context, isDark: Boolean) {
+    fun applyThemeIcon(context: Context, isDark: Boolean, followTheme: Boolean) {
+        val wantDark = followTheme && isDark
         val pm = context.packageManager
         val pkg = context.packageName
-        val enable = ComponentName(pkg, aliasFor(isDark))
-        val disable = ComponentName(pkg, aliasFor(!isDark))
+        val enable = ComponentName(pkg, aliasFor(wantDark))
+        val disable = ComponentName(pkg, aliasFor(!wantDark))
 
         val alreadyApplied =
             pm.getComponentEnabledSetting(enable) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED &&

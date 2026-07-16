@@ -16,6 +16,25 @@ class ThemePreferencesTest {
     }
 
     @Test
+    fun `themedIconEnabled defaults to off`() {
+        // Default must stay OFF: theme-following flips the live launcher alias and
+        // breaks launcher-stored references (gestures, pinned shortcuts) to the
+        // disabled one — Lawnchair crashes launching them. Opt-in only.
+        assertFalse(newPrefs().themedIconEnabled)
+    }
+
+    @Test
+    fun `themedIconEnabled persists when opted in`() {
+        val prefs = newPrefs()
+
+        prefs.themedIconEnabled = true
+        assertTrue(prefs.themedIconEnabled)
+
+        prefs.themedIconEnabled = false
+        assertFalse(prefs.themedIconEnabled)
+    }
+
+    @Test
     fun `installedAppsEnabled persists when toggled off and back on`() {
         val prefs = newPrefs()
 

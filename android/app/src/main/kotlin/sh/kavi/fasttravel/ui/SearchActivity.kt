@@ -367,12 +367,15 @@ class SearchActivity : ComponentActivity() {
         // home, recents) so the next resume's first frame is already a clean, empty
         // search bar — no ~1s flash of the previous query + its stale suggestions.
         viewModel.resetForFreshStart()
-        // Flip the drawer/launcher icon to match the theme while we're off-screen —
-        // switching the live launcher component while foregrounded can drop the task
-        // from recents on some Android versions.
+        // Converge the drawer/launcher icon while we're off-screen — switching the
+        // live launcher component while foregrounded can drop the task from recents
+        // on some Android versions. Theme-following is opt-in; the default pass
+        // enforces the stable light alias so launcher-stored references stay valid.
+        val themePrefs = ThemePreferences(this)
         LauncherIconManager.applyThemeIcon(
             this,
-            resolveFromPrefs(applicationContext, ThemePreferences(this)).isDarkSurface,
+            resolveFromPrefs(applicationContext, themePrefs).isDarkSurface,
+            followTheme = themePrefs.themedIconEnabled,
         )
     }
 

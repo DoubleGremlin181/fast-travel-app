@@ -35,6 +35,7 @@ class ThemePreferences(private val prefs: SharedPreferences) {
         private const val KEY_AUTO_IGNORE_THRESHOLD = "auto_ignore_threshold"
         private const val KEY_CONFIG_SOURCE_DIRTY = "config_source_dirty"
         const val KEY_INSTALLED_APPS_ENABLED = "installed_apps_enabled"
+        const val KEY_THEMED_ICON_ENABLED = "themed_icon_enabled"
         const val DEFAULT_AUTO_IGNORE_THRESHOLD = 3
         const val AUTO_IGNORE_THRESHOLD_MIN = 1
         const val AUTO_IGNORE_THRESHOLD_MAX = 20
@@ -96,6 +97,13 @@ class ThemePreferences(private val prefs: SharedPreferences) {
     var installedAppsEnabled: Boolean
         get() = prefs.getBoolean(KEY_INSTALLED_APPS_ENABLED, true)
         set(value) { prefs.edit().putBoolean(KEY_INSTALLED_APPS_ENABLED, value).apply() }
+
+    /** Opt-in: flip the launcher icon (activity-aliases) with the in-app theme.
+     *  Off by default because disabling an alias breaks launcher-stored references
+     *  to it — gestures and pinned shortcuts crash or vanish when the icon flips. */
+    var themedIconEnabled: Boolean
+        get() = prefs.getBoolean(KEY_THEMED_ICON_ENABLED, false)
+        set(value) { prefs.edit().putBoolean(KEY_THEMED_ICON_ENABLED, value).apply() }
 
     var shortcutRows: Int
         get() = prefs.getInt(KEY_SHORTCUT_ROWS, 2)
