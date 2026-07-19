@@ -1117,14 +1117,12 @@ fun AppearanceScreen(
             // 5. App icon: theme-following is opt-in because flipping the live
             // launcher alias invalidates launcher-stored references (gestures,
             // pinned shortcuts) to the disabled one — Lawnchair crashes on launch.
-            SettingsCategoryHeader("App icon")
+            SettingsCategoryHeader("App Icon")
             SettingsCard {
                 var themedIcon by remember { mutableStateOf(prefs.themedIconEnabled) }
                 SettingsSwitchItem(
                     headlineText = "Icon follows theme",
-                    supportingText = "Flips the launcher icon light/dark with the app theme. " +
-                        "Launcher gestures and pinned shortcuts point at one icon and can " +
-                        "break or crash their launcher when it flips.",
+                    supportingText = "Can be unstable with certain launcher shortcuts",
                     checked = themedIcon,
                     onCheckedChange = {
                         themedIcon = it
