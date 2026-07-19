@@ -11,7 +11,7 @@ export function renderAbout(main: HTMLElement): void {
       "p",
       null,
       "Fast Travel ",
-      el("span", { class: "version-badge" }, "v2.1.7"),
+      el("span", { class: "version-badge" }, "v2.1.8"),
     ),
   );
   body.appendChild(
