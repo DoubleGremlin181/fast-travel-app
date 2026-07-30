@@ -9,11 +9,6 @@ on:
         required: true
         type: choice
         options: [patch, minor, major]
-      skip_play:
-        description: "Skip the Google Play publish (e.g. while a Play review blocks the track)"
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: write
@@ -164,7 +159,7 @@ jobs:
       # a failed Play edit commits nothing. Put the step most likely to fail
       # first so a failure can't strand a half-published version.
       - name: Publish to Google Play
-        if: github.event_name == 'workflow_dispatch' && inputs.skip_play != true
+        if: github.event_name == 'workflow_dispatch'
         run: ./gradlew publishBundle
         working-directory: android
         env:
