@@ -30,7 +30,9 @@ export async function searchBrowserHistory(
       startTime: Date.now() - LOOKBACK_MS,
     });
     return results
-      .filter((r) => typeof r.url === "string" && r.url.length > 0)
+      // http(s) only: file://, about: etc. can't be navigated to from an
+      // extension page, so surfacing them would produce dead rows.
+      .filter((r) => typeof r.url === "string" && /^https?:/i.test(r.url))
       .map((r) => ({
         url: r.url as string,
         title: r.title ?? "",

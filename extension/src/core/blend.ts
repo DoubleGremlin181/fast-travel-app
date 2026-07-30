@@ -100,10 +100,19 @@ export function blendSuggestions(input: BlendInput): BlendedItem[] {
   const q = normalizeText(input.query);
   if (q === "") return [];
 
+  // FT history keeps duplicate entries for repeated searches (addHistory
+  // unshifts unconditionally) — collapse to one row per normalized query,
+  // keeping the newest, like the empty-input history dropdown does.
   const ftAll = input.prefs.blendFtHistory
     ? input.ftHistory
         .filter((e) => normalizeText(e.query).includes(q))
         .sort((a, b) => b.timestamp - a.timestamp)
+        .filter(
+          (e, i, arr) =>
+            arr.findIndex(
+              (x) => normalizeText(x.query) === normalizeText(e.query),
+            ) === i,
+        )
     : [];
 
   // Browser entries dedupe by URL among themselves, and an FT entry whose

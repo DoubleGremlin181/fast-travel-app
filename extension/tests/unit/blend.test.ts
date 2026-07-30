@@ -93,6 +93,19 @@ describe("blendSuggestions - sections and caps", () => {
     expect(browser).toHaveLength(2);
   });
 
+  it("repeated searches collapse to one FT row (newest kept)", () => {
+    const out = blendSuggestions(
+      makeInput({
+        query: "gi",
+        ftHistory: [ft("github", 1), ft("github", 2), ft("  GitHub ", 3), ft("gi other", 4)],
+      }),
+    );
+    // "github" appears once (as the top hit — newest copy), not three times.
+    expect(texts(out)).toEqual(["github", "gi other"]);
+    expect(out[0].topHit).toBe(true);
+    expect(out[0].kind === "history" && out[0].entry.timestamp).toBe(NOW - 1 * DAY);
+  });
+
   it("only FT entries matching the query as a substring are included", () => {
     const out = blendSuggestions(
       makeInput({

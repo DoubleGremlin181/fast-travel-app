@@ -59,6 +59,19 @@ describe("searchBrowserHistory", () => {
     expect(await searchBrowserHistory("a")).toHaveLength(1);
   });
 
+  it("drops non-http(s) urls (file://, about:)", async () => {
+    install({
+      granted: true,
+      results: [
+        { url: "file:///home/user/notes.txt" },
+        { url: "about:config" },
+        { url: "http://a.com" },
+      ],
+    });
+    const out = await searchBrowserHistory("a");
+    expect(out.map((r) => r.url)).toEqual(["http://a.com"]);
+  });
+
   it("passes the query text and caps results", async () => {
     const getQuery = install({ granted: true, results: [] });
     await searchBrowserHistory("kittens");

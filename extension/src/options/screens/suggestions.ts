@@ -75,6 +75,14 @@ export async function renderSuggestionsScreen(main: HTMLElement): Promise<void> 
     hasHistoryPermission(),
   ]);
 
+  // Repair a stale pref (e.g. permission revoked in the browser's own UI):
+  // without this, a later out-of-band re-grant would silently reactivate
+  // browser-history blending with no action taken in Fast Travel.
+  if (prefs.includeBrowserHistory && !permissionGranted) {
+    prefs.includeBrowserHistory = false;
+    void setSuggestionsPrefs({ includeBrowserHistory: false });
+  }
+
   const body = el("div", { class: "suggestions-settings" });
 
   body.appendChild(

@@ -643,6 +643,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "queryBrowserHistory") {
     // Purely local: results go straight back to the newtab dropdown and are
     // never sent anywhere. Resolves [] without the optional permission.
+    if (typeof message.query !== "string") {
+      sendResponse([]);
+      return true;
+    }
     searchBrowserHistory(message.query).then((items) => sendResponse(items));
     return true;
   }

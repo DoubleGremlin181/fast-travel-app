@@ -609,9 +609,13 @@ function showSuggestions(query: string): void {
     if (!config) return;
     try {
       // All three sources fetch on the same debounce tick; the FT/browser
-      // history queries are local and add no meaningful latency.
+      // history queries are local and add no meaningful latency. URL-shaped
+      // input (e.g. a browser-history row populated into the box) must NEVER
+      // reach the suggestions API — that would ship a history URL upstream
+      // and break the "your history never leaves this device" guarantee.
+      const isUrlInput = /^https?:\/\//i.test(query.trim());
       const [apiSuggestions, ftHistory, browserHistory] = await Promise.all([
-        fetchSuggestions(query, config),
+        isUrlInput ? Promise.resolve([] as Suggestion[]) : fetchSuggestions(query, config),
         suggestionsPrefs.blendFtHistory
           ? (chrome.runtime.sendMessage({ type: "getHistory" }) as Promise<HistoryEntry[]>)
           : Promise.resolve([] as HistoryEntry[]),
@@ -829,11 +833,17 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
         // URL text through search parsing would turn it into a query.
         // http(s) only: extension pages can't navigate to file:// anyway.
         if (!/^https?:/i.test(item.url)) return;
-        chrome.runtime.sendMessage({
-          type: "addHistory",
-          value: { query: item.url, commandId: null, timestamp: Date.now() },
-        });
-        window.location.href = item.url;
+        const url = item.url;
+        // Await the write: navigating unloads the page and can drop the
+        // in-flight message (seen on Firefox especially).
+        void chrome.runtime
+          .sendMessage({
+            type: "addHistory",
+            value: { query: url, commandId: null, timestamp: Date.now() },
+          })
+          .finally(() => {
+            window.location.href = url;
+          });
       } else {
         handleSearch();
       }

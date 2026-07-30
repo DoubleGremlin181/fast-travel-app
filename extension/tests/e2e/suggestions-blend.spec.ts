@@ -203,4 +203,15 @@ test("settings: browser-history toggle stays off when pref is set but permission
   await page.reload();
   const toggles = page.locator(".setting-toggle-row .toggle-input");
   await expect(toggles.nth(1)).not.toBeChecked();
+  // The stale pref must also be repaired in storage, so an out-of-band
+  // permission grant can't silently reactivate blending later.
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const v = await chrome.storage.local.get("fast-travel-suggestions-prefs");
+        return (v["fast-travel-suggestions-prefs"] as { includeBrowserHistory?: boolean })
+          ?.includeBrowserHistory;
+      }),
+    )
+    .toBe(false);
 });
