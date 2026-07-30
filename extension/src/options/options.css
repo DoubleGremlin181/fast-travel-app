@@ -1442,6 +1442,8 @@ button:disabled {
   height: 100%;
   margin: 0;
   cursor: pointer;
+  /* Above the track so direct clicks land on the input itself. */
+  z-index: 1;
 }
 
 .toggle-switch .toggle-track {
