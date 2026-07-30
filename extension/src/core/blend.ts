@@ -53,7 +53,9 @@ export type BlendedItem =
   | { kind: "browser"; entry: BrowserHistoryEntry; topHit: boolean };
 
 const MAX_FT = 2;
-const MAX_API = 4;
+const MAX_API_BLENDED = 4;
+/** With no history rows shown the API keeps its pre-blend cap of 5. */
+const MAX_API_SOLO = 5;
 const MAX_BROWSER = 2;
 const MAX_TOTAL = 8;
 
@@ -85,7 +87,7 @@ function browserScore(entry: BrowserHistoryEntry, now: number): number {
 }
 
 function ftPrefixMatches(entry: FtHistoryEntry, q: string): boolean {
-  return entry.query.toLowerCase().startsWith(q);
+  return normalizeText(entry.query).startsWith(q);
 }
 
 function browserPrefixMatches(entry: BrowserHistoryEntry, q: string): boolean {
@@ -104,10 +106,15 @@ export function blendSuggestions(input: BlendInput): BlendedItem[] {
         .sort((a, b) => b.timestamp - a.timestamp)
     : [];
 
+  // Browser entries dedupe by URL among themselves, and an FT entry whose
+  // query IS that URL wins outright (same destination, and the FT copy
+  // carries the user's own action) — this happens when a browser row was
+  // clicked earlier and its URL landed in FT history.
+  const ftTextsAll = new Set(ftAll.map((e) => normalizeText(e.query)));
   const browserAll = input.prefs.includeBrowserHistory
-    ? input.browserHistory.filter(
-        (e, i, arr) => arr.findIndex((x) => x.url === e.url) === i,
-      )
+    ? input.browserHistory
+        .filter((e, i, arr) => arr.findIndex((x) => x.url === e.url) === i)
+        .filter((e) => !ftTextsAll.has(normalizeText(e.url)))
     : [];
 
   // Top hit: best-scoring history entry (either kind) that prefix-matches
@@ -134,17 +141,21 @@ export function blendSuggestions(input: BlendInput): BlendedItem[] {
 
   const ftSection = ftAll.filter((e) => e !== promotedFt).slice(0, MAX_FT);
 
-  // API dedupes against FT history text (identical query → the history copy
-  // wins, it carries the user's own context). Browser URLs are a different
-  // destination (navigate vs search) and never dedupe against API text.
-  const ftTexts = new Set(ftAll.map((e) => normalizeText(e.query)));
-  const apiSection = input.api
-    .filter((text) => !ftTexts.has(normalizeText(text)))
-    .slice(0, MAX_API);
-
   const browserSection = browserAll
     .filter((e) => e !== promotedBrowser)
     .slice(0, MAX_BROWSER);
+
+  // API dedupes against the VISIBLE FT rows (identical query → the history
+  // copy wins, it carries the user's own context); a cap-hidden FT match must
+  // not make the API copy vanish too. Browser URLs are a different
+  // destination (navigate vs search) and never dedupe against API text.
+  const visibleFt = promotedFt ? [promotedFt, ...ftSection] : ftSection;
+  const visibleFtTexts = new Set(visibleFt.map((e) => normalizeText(e.query)));
+  const anyHistoryShown =
+    topHit !== null || ftSection.length > 0 || browserSection.length > 0;
+  const apiSection = input.api
+    .filter((text) => !visibleFtTexts.has(normalizeText(text)))
+    .slice(0, anyHistoryShown ? MAX_API_BLENDED : MAX_API_SOLO);
 
   const out: BlendedItem[] = [];
   if (topHit) out.push(topHit);
@@ -165,9 +176,10 @@ export function sectionStarts(kinds: string[]): number[] {
 
 /**
  * Index to jump to when moving one section down (dir=1) or up (dir=-1) from
- * `currentIndex`. Down goes to the next section's first item; up goes to the
- * previous section start (a mid-section index first snaps to its own section
- * start). Clamps at the ends.
+ * `currentIndex`. Down goes to the next section's first item and clamps at
+ * the last section; up goes to the previous section start (a mid-section
+ * index first snaps to its own section start), and from the first row
+ * returns -1 — "no selection", restoring the typed text like plain ArrowUp.
  */
 export function nextSectionStart(
   kinds: string[],
@@ -183,5 +195,5 @@ export function nextSectionStart(
   for (let i = starts.length - 1; i >= 0; i--) {
     if (starts[i] < currentIndex) return starts[i];
   }
-  return currentIndex <= 0 ? 0 : currentIndex;
+  return -1;
 }

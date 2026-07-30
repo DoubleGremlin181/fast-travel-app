@@ -53,12 +53,12 @@ describe("blendSuggestions - sections and caps", () => {
     expect(out).toEqual([]);
   });
 
-  it("API-only input passes through capped at 4, in server order", () => {
+  it("API-only input passes through capped at 5 (pre-blend cap), in server order", () => {
     const out = blendSuggestions(
       makeInput({ api: ["giants game", "github", "gif maker", "girl names", "give"] }),
     );
-    expect(kinds(out)).toEqual(["api", "api", "api", "api"]);
-    expect(texts(out)).toEqual(["giants game", "github", "gif maker", "girl names"]);
+    expect(kinds(out)).toEqual(["api", "api", "api", "api", "api"]);
+    expect(texts(out)).toEqual(["giants game", "github", "gif maker", "girl names", "give"]);
   });
 
   it("orders sections: FT history, then API, then browser history", () => {
@@ -103,7 +103,7 @@ describe("blendSuggestions - sections and caps", () => {
     expect(texts(out)).toEqual(["github actions", "digital git"]);
   });
 
-  it("caps total output at 8", () => {
+  it("caps total output at 8, trimming the browser section first", () => {
     const out = blendSuggestions(
       makeInput({
         ftHistory: [ft("gi a", 1), ft("gi b", 2), ft("gi c", 3)],
@@ -115,7 +115,28 @@ describe("blendSuggestions - sections and caps", () => {
         ],
       }),
     );
-    expect(out.length).toBeLessThanOrEqual(8);
+    // "gi a" is the top hit; b/c fill the FT section; API caps at 4 because
+    // history rows are shown; the trailing browser row falls off the total cap.
+    expect(texts(out)).toEqual([
+      "gi a", "gi b", "gi c", "g1", "g2", "g3", "g4", "https://x.gi.example",
+    ]);
+  });
+
+  it("API section keeps today's cap of 5 when no history rows are shown", () => {
+    const out = blendSuggestions(
+      makeInput({ api: ["g1", "g2", "g3", "g4", "g5", "g6"] }),
+    );
+    expect(texts(out)).toEqual(["g1", "g2", "g3", "g4", "g5"]);
+  });
+
+  it("API section caps at 4 when any history row is shown", () => {
+    const out = blendSuggestions(
+      makeInput({
+        ftHistory: [ft("gi old", 70)],
+        api: ["g1", "g2", "g3", "g4", "g5"],
+      }),
+    );
+    expect(kinds(out)).toEqual(["history", "api", "api", "api", "api"]);
   });
 });
 
@@ -179,6 +200,16 @@ describe("blendSuggestions - top hit promotion", () => {
     );
     expect(out.every((i) => !i.topHit)).toBe(true);
   });
+
+  it("prefix matching normalizes stored whitespace/case", () => {
+    const out = blendSuggestions(
+      makeInput({
+        query: "news",
+        ftHistory: [ft("  News today ", 0)],
+      }),
+    );
+    expect(out[0].topHit).toBe(true);
+  });
 });
 
 describe("blendSuggestions - dedup", () => {
@@ -214,6 +245,30 @@ describe("blendSuggestions - dedup", () => {
       }),
     );
     expect(kinds(out)).toEqual(["api", "browser"]);
+  });
+
+  it("a browser entry whose URL matches an FT query is dropped (FT wins)", () => {
+    const out = blendSuggestions(
+      makeInput({
+        query: "github",
+        ftHistory: [ft("https://github.com/", 60)],
+        browserHistory: [bh("https://github.com/", { title: "GitHub", daysAgo: 1, visits: 50 })],
+      }),
+    );
+    expect(kinds(out)).toEqual(["history"]);
+  });
+
+  it("API dedups only against VISIBLE FT entries, not cap-hidden ones", () => {
+    const out = blendSuggestions(
+      makeInput({
+        query: "gi",
+        // Three matches; "gi one" (oldest) falls off the FT cap of 2.
+        ftHistory: [ft("gi one", 60), ft("gi two", 50), ft("gi three", 40)],
+        api: ["gi one", "gi fresh"],
+      }),
+    );
+    expect(texts(out)).toEqual(["gi three", "gi two", "gi one", "gi fresh"]);
+    expect(kinds(out)).toEqual(["history", "history", "api", "api"]);
   });
 });
 
@@ -271,6 +326,8 @@ describe("section navigation helpers", () => {
     // mid-section jumps to its own section start first
     expect(nextSectionStart(kindsArr, 2, -1)).toBe(1);
     expect(nextSectionStart(kindsArr, 1, -1)).toBe(0);
-    expect(nextSectionStart(kindsArr, 0, -1)).toBe(0);
+    // from the first row, up deselects (restores typed text) like plain ArrowUp
+    expect(nextSectionStart(kindsArr, 0, -1)).toBe(-1);
+    expect(nextSectionStart(kindsArr, -1, -1)).toBe(-1);
   });
 });

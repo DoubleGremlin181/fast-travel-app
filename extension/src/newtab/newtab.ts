@@ -827,7 +827,8 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
       } else if (item.kind === "browser" && item.url) {
         // Browser-history rows navigate straight to their URL — routing the
         // URL text through search parsing would turn it into a query.
-        if (!/^(https?|mailto|tel|file):/i.test(item.url)) return;
+        // http(s) only: extension pages can't navigate to file:// anyway.
+        if (!/^https?:/i.test(item.url)) return;
         chrome.runtime.sendMessage({
           type: "addHistory",
           value: { query: item.url, commandId: null, timestamp: Date.now() },

@@ -100,14 +100,20 @@ export async function renderSuggestionsScreen(main: HTMLElement): Promise<void> 
         "Also match your full browser history. Asks the browser for the optional “history” permission the first time.",
       checked: prefs.includeBrowserHistory && permissionGranted,
       onChange: (checkbox) => {
+        const desired = checkbox.checked;
         // The permission request MUST be the first async call in the gesture
         // handler — no awaits before it — or the browser rejects it.
-        applyBrowserHistoryToggle(checkbox.checked, {
+        applyBrowserHistoryToggle(desired, {
           request: requestHistoryPermission,
           setPrefs: setSuggestionsPrefs,
         })
           .then((finalState) => {
             checkbox.checked = finalState;
+            if (desired && !finalState) {
+              showSnackbar({
+                message: "Permission declined — browser history stays off",
+              });
+            }
           })
           .catch((err: unknown) => {
             checkbox.checked = false;
