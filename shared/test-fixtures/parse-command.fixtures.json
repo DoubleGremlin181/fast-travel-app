@@ -590,6 +590,16 @@
     }
   },
   {
+    "description": "URL detection negative - email-shaped input stays a search",
+    "input": { "rawQuery": "user@example.com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=user%40example.com",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
     "description": "URL detection negative - scheme with no host stays a search",
     "input": { "rawQuery": "http://", "device": "Linux" },
     "expected": {

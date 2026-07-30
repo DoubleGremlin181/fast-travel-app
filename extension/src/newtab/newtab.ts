@@ -401,7 +401,13 @@ function handleLuckySearch(): void {
     handleSearch();
     return;
   }
-  if (!/^(https?|mailto|tel|file):/i.test(lucky.url)) return;
+  // Tighter than the general allowlist: the luckyUrl contract is https?://
+  // everywhere it's validated (schema/validator/linter). A refused scheme
+  // falls back to a normal search rather than silently eating the keypress.
+  if (!/^https?:/i.test(lucky.url)) {
+    handleSearch();
+    return;
+  }
 
   chrome.runtime.sendMessage({
     type: "addHistory",
