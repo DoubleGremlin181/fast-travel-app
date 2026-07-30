@@ -1,6 +1,7 @@
 import { parseCommand, buildTriggerMap } from "../core/parser.js";
 import { fetchSuggestions } from "../core/suggestions.js";
 import { lintConfig } from "../core/config-linter.js";
+import { searchBrowserHistory } from "../core/browser-history.js";
 import {
   LATEST_RELEASE_KEY,
   RELEASES_API_URL,
@@ -637,6 +638,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message.type === "clearHistory") {
     clearHistory().then(() => sendResponse(true));
+    return true;
+  }
+  if (message.type === "queryBrowserHistory") {
+    // Purely local: results go straight back to the newtab dropdown and are
+    // never sent anywhere. Resolves [] without the optional permission.
+    searchBrowserHistory(message.query).then((items) => sendResponse(items));
     return true;
   }
   if (message.type === "refreshConfig") {
