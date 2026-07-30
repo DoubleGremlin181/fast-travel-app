@@ -169,7 +169,7 @@ sealed class SettingsRoute(val route: String) {
     }
     data object IgnoreList : SettingsRoute("config/ignoreList")
     data object SearchHistoryScreen : SettingsRoute("search_history")
-    data object LocalSearch : SettingsRoute("local_search")
+    data object Suggestions : SettingsRoute("suggestions")
     data object About : SettingsRoute("about")
     data object Configuration : SettingsRoute("configuration")
     data object ImportExport : SettingsRoute("import_export")
@@ -444,8 +444,8 @@ fun SettingsNavHost(
                 snackbarHostState = snackbarHostState,
             )
         }
-        composable(SettingsRoute.LocalSearch.route) {
-            LocalSearchScreen(
+        composable(SettingsRoute.Suggestions.route) {
+            SuggestionsScreen(
                 navController = navController,
                 themePrefs = themePrefs,
             )
@@ -583,9 +583,9 @@ fun SettingsHomeScreen(
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 NavigableListItem(
-                    headlineText = "Local search",
+                    headlineText = "Suggestions",
                     supportingText = "Installed apps",
-                    onClick = { navController.navigate(SettingsRoute.LocalSearch.route) },
+                    onClick = { navController.navigate(SettingsRoute.Suggestions.route) },
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 NavigableListItem(
@@ -610,18 +610,21 @@ fun SettingsHomeScreen(
     }
 }
 
-// ==================== Local Search Screen ====================
+// ==================== Suggestions Screen ====================
 
+// Named to match the extension's Settings → Suggestions screen (which houses
+// its suggestion-source toggles); this is the Android home for everything
+// that feeds search results beyond the config commands.
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocalSearchScreen(
+fun SuggestionsScreen(
     navController: NavHostController,
     themePrefs: ThemePreferences,
 ) {
     var installedAppsEnabled by remember { mutableStateOf(themePrefs.installedAppsEnabled) }
 
     Scaffold(
-        topBar = { SettingsTopBar(title = "Local search", onBack = { navController.popBackStack() }) },
+        topBar = { SettingsTopBar(title = "Suggestions", onBack = { navController.popBackStack() }) },
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) { innerPadding ->
         Column(
@@ -642,8 +645,9 @@ fun LocalSearchScreen(
                     },
                 )
             }
-            // Future on-device, non-web options (e.g. the `s` local file-search command,
-            // issue #25) will live on this screen.
+            // Future suggestion-source options (e.g. the `s` local file-search
+            // command from issue #25, or history blending per issue #61) will
+            // live on this screen.
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
