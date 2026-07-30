@@ -885,14 +885,20 @@ searchInput.addEventListener("blur", () => {
 
 // Typo-prompt shortcuts. The type-anywhere handler defers to these while a typo
 // is showing (see focusSearchInput), so the search box stays blurred and these
-// keys reach here. "g" and "n" both decline the suggestion and fall back to the
-// user's default engine (defaultSearch) — "n" ("no") is the engine-agnostic alias
-// and is intentionally not advertised in the UI.
+// keys reach here. Enter, "g" and "n" all decline the suggestion and fall back
+// to the user's default engine (defaultSearch): Enter is the advertised key
+// (the query was just submitted with Enter, so pressing it again reads as
+// "yes, really search this"); "g" and "n" ("no") are unadvertised aliases.
+// Enter defers to the search box when it's focused so editing the query and
+// resubmitting keeps working.
 document.addEventListener("keydown", (e) => {
   if (!currentTypo) return;
   if (e.key === "y" || e.key === "Y") {
     e.preventDefault();
     void acceptTypo();
+  } else if (e.key === "Enter" && e.target !== searchInput) {
+    e.preventDefault();
+    void defaultSearch();
   } else if (e.key === "g" || e.key === "G" || e.key === "n" || e.key === "N") {
     e.preventDefault();
     void defaultSearch();
