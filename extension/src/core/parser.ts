@@ -17,7 +17,7 @@ const COMMON_WORDS = new Set(
   (commonWordsData as string[]).map((w) => w.toLowerCase()),
 );
 
-const TLDS = new Set(tldsData as string[]);
+const TLDS = new Set((tldsData as string[]).map((t) => t.toLowerCase()));
 
 /**
  * Apply an ordered list of normalize transforms to the args string.
@@ -416,6 +416,10 @@ export function parseCommand(input: ParseInput): ParseOutput {
 const LABEL_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const PORT_RE = /^\d{1,5}$/;
 const OCTET_RE = /^\d{1,3}$/;
+// JS \s spelled out explicitly: Kotlin's \s is ASCII-only, so the Android port
+// mirrors this exact character class to keep URL detection identical.
+const URL_WS_RE =
+  /[ \t\n\r\f\v\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/;
 
 function isIPv4(host: string): boolean {
   const octets = host.split(".");
@@ -432,7 +436,7 @@ function isIPv4(host: string): boolean {
  * port can mirror it line for line. Returns null when the query is not a URL.
  */
 export function tryUrlDetection(query: string): ParseResult | null {
-  if (query === "" || /\s/.test(query)) return null;
+  if (query === "" || URL_WS_RE.test(query)) return null;
 
   const asUrl = (url: string): ParseResult => ({
     type: "redirect",

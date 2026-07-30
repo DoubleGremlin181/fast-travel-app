@@ -396,20 +396,18 @@ function handleLuckySearch(): void {
   const query = searchInput.value.trim();
   if (!query) return;
 
-  const luckyUrl = buildLuckyUrl(config, query);
-  if (!luckyUrl) {
+  const lucky = buildLuckyUrl(config, query);
+  if (!lucky) {
     handleSearch();
     return;
   }
-  if (!/^(https?|mailto|tel|file):/i.test(luckyUrl)) return;
+  if (!/^(https?|mailto|tel|file):/i.test(lucky.url)) return;
 
-  const commandId =
-    buildTriggerMap(config).get(config.defaultCommand.toLowerCase())?.id ?? null;
   chrome.runtime.sendMessage({
     type: "addHistory",
-    value: { query, commandId, timestamp: Date.now() },
+    value: { query, commandId: lucky.commandId, timestamp: Date.now() },
   });
-  window.location.href = luckyUrl;
+  window.location.href = lucky.url;
 }
 
 function showTypoSuggestion(typo: TypoResult): void {

@@ -478,5 +478,125 @@
       "commandId": "google",
       "matchType": "default-search"
     }
+  },
+  {
+    "description": "URL detection negative - unicode whitespace (NBSP) counts as whitespace on both platforms",
+    "input": { "rawQuery": "example.com/foo bar", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=example.com%2Ffoo%C2%A0bar",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection - hyphens allowed inside labels",
+    "input": { "rawQuery": "my-site.com", "device": "Linux" },
+    "expected": { "type": "redirect", "url": "https://my-site.com", "commandId": null, "matchType": "url" }
+  },
+  {
+    "description": "URL detection - plain IPv4 without port navigates",
+    "input": { "rawQuery": "192.168.1.1", "device": "Linux" },
+    "expected": { "type": "redirect", "url": "https://192.168.1.1", "commandId": null, "matchType": "url" }
+  },
+  {
+    "description": "URL detection - bare localhost navigates",
+    "input": { "rawQuery": "localhost", "device": "Linux" },
+    "expected": { "type": "redirect", "url": "https://localhost", "commandId": null, "matchType": "url" }
+  },
+  {
+    "description": "URL detection - five-digit port accepted",
+    "input": { "rawQuery": "example.com:99999", "device": "Linux" },
+    "expected": { "type": "redirect", "url": "https://example.com:99999", "commandId": null, "matchType": "url" }
+  },
+  {
+    "description": "URL detection negative - IPv4 octet out of range stays a search",
+    "input": { "rawQuery": "256.1.1.1", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=256.1.1.1",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - six-digit port stays a search",
+    "input": { "rawQuery": "example.com:123456", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=example.com%3A123456",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - empty port stays a search",
+    "input": { "rawQuery": "example.com:", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=example.com%3A",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - leading hyphen in label stays a search",
+    "input": { "rawQuery": "-example.com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=-example.com",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - trailing hyphen in label stays a search",
+    "input": { "rawQuery": "example-.com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=example-.com",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - leading dot (empty first label) stays a search",
+    "input": { "rawQuery": ".example.com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=.example.com",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - consecutive dots (empty middle label) stay a search",
+    "input": { "rawQuery": "example..com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=example..com",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - underscore in label stays a search",
+    "input": { "rawQuery": "foo_bar.com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=foo_bar.com",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - scheme with no host stays a search",
+    "input": { "rawQuery": "http://", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=http%3A%2F%2F",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
   }
 ]

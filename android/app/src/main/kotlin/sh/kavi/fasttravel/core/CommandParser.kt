@@ -371,7 +371,7 @@ object CommandParser {
      * Returns null when the query is not a URL.
      */
     fun tryUrlDetection(query: String): ParseOutput.RedirectResult? {
-        if (query.isEmpty() || query.contains(Regex("\\s"))) return null
+        if (query.isEmpty() || query.contains(URL_WS_RE)) return null
 
         fun asUrl(url: String) = ParseOutput.RedirectResult(
             url = url,
@@ -417,6 +417,12 @@ object CommandParser {
     private val LABEL_RE = Regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
     private val PORT_RE = Regex("^\\d{1,5}$")
     private val OCTET_RE = Regex("^\\d{1,3}$")
+
+    // Mirrors URL_WS_RE in extension/src/core/parser.ts: JS \s spelled out
+    // explicitly because Kotlin's \s is ASCII-only. Keep the two in sync.
+    private val URL_WS_RE = Regex(
+        "[ \\t\\n\\r\\u000C\\u000B\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]"
+    )
 
     private fun isIPv4(host: String): Boolean {
         val octets = host.split(".")

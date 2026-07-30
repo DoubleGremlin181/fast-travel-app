@@ -29,9 +29,10 @@ function makeConfig(luckyUrl?: string, defaultCommand = "g"): FastTravelConfig {
 describe("buildLuckyUrl", () => {
   it("substitutes the encoded query into the default command's luckyUrl", () => {
     const cfg = makeConfig("https://www.google.com/search?q={query}&btnI");
-    expect(buildLuckyUrl(cfg, "hello world")).toBe(
-      "https://www.google.com/search?q=hello%20world&btnI",
-    );
+    expect(buildLuckyUrl(cfg, "hello world")).toEqual({
+      url: "https://www.google.com/search?q=hello%20world&btnI",
+      commandId: "google",
+    });
   });
 
   it("returns null when the default command has no luckyUrl", () => {

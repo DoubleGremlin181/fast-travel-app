@@ -1,6 +1,11 @@
 import type { FastTravelConfig } from "./types.js";
 import { buildTriggerMap } from "./parser.js";
 
+export interface LuckyResult {
+  url: string;
+  commandId: string;
+}
+
 /**
  * Build the Ctrl+Enter "lucky" navigation URL: the default command's
  * luckyUrl template with {query} substituted. Returns null when the default
@@ -10,7 +15,7 @@ import { buildTriggerMap } from "./parser.js";
 export function buildLuckyUrl(
   config: FastTravelConfig,
   query: string,
-): string | null {
+): LuckyResult | null {
   const trimmed = query.trim();
   if (trimmed === "") return null;
 
@@ -19,5 +24,8 @@ export function buildLuckyUrl(
   );
   if (!defaultCmd?.luckyUrl) return null;
 
-  return defaultCmd.luckyUrl.replaceAll("{query}", encodeURIComponent(trimmed));
+  return {
+    url: defaultCmd.luckyUrl.replaceAll("{query}", encodeURIComponent(trimmed)),
+    commandId: defaultCmd.id,
+  };
 }

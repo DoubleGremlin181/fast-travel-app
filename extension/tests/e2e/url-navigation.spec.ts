@@ -12,8 +12,14 @@
  */
 
 import { test, expect } from "./fixtures";
+import type { BrowserContext } from "@playwright/test";
 
-async function readyNewtab(context: any, extensionId: string) {
+async function readyNewtab(context: BrowserContext, extensionId: string) {
+  // Abort all http(s) traffic: navigation assertions below use waitForRequest,
+  // which fires at request-issue time, so no external site is ever contacted.
+  // Scheme-anchored regex so the extension's own chrome-extension:// CSS/JS
+  // subresources are NOT intercepted (route("**/*") breaks page rendering).
+  await context.route(/^https?:\/\//, (route) => route.abort());
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
   await page.locator("html[data-ft-ready]").waitFor();
@@ -65,7 +71,7 @@ test("javascript: input searches instead of navigating", async ({ context, exten
   const page = await readyNewtab(context, extensionId);
 
   let dialogFired = false;
-  page.on("dialog", async (dialog: any) => {
+  page.on("dialog", async (dialog) => {
     dialogFired = true;
     await dialog.dismiss();
   });

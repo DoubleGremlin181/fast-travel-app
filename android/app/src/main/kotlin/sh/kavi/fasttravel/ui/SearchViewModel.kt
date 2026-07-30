@@ -2,6 +2,7 @@ package sh.kavi.fasttravel.ui
 
 import android.app.Application
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import sh.kavi.fasttravel.core.ChipRanking
@@ -321,8 +322,9 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 tlds.add(arr.getString(i))
             }
             CommandParser.setTlds(tlds)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // TLD list not available; URL detection falls back to search
+            Log.w("SearchViewModel", "Failed to load tlds.json; URL detection disabled", e)
         }
     }
 
