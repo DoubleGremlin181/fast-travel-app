@@ -8,6 +8,18 @@ async function getStoredConfig(context: import("@playwright/test").BrowserContex
   );
 }
 
+/**
+ * Storage snapshot that tolerates the fresh-profile startup race: onInstalled
+ * seeds fast-travel-config asynchronously, and on a slow runner a test's first
+ * read can win that race and see undefined. Poll until the seed lands.
+ */
+async function waitForSeededConfig(context: import("@playwright/test").BrowserContext, extensionId: string) {
+  await expect
+    .poll(async () => await getStoredConfig(context, extensionId), { timeout: 5000 })
+    .toBeTruthy();
+  return getStoredConfig(context, extensionId);
+}
+
 async function getDirtyFlag(context: import("@playwright/test").BrowserContext) {
   const sw = context.serviceWorkers()[0];
   return sw.evaluate(() =>
@@ -74,7 +86,7 @@ test("config: export produces valid JSON matching stored config", async ({ conte
   const path = await download.path();
   const exported = JSON.parse(fs.readFileSync(path, "utf-8"));
 
-  const stored = await getStoredConfig(context, extensionId);
+  const stored = await waitForSeededConfig(context, extensionId);
   expect(exported).toEqual(stored);
 });
 
@@ -82,10 +94,7 @@ test("config: importing a valid file replaces config", async ({ context, extensi
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options/options.html#/import-export`);
 
-  const sw = context.serviceWorkers()[0];
-  const original = await sw.evaluate(() =>
-    chrome.storage.local.get("fast-travel-config").then(v => v["fast-travel-config"])
-  );
+  const original = await waitForSeededConfig(context, extensionId);
   // Append a sentinel to ignoreList rather than mutating defaultCommand, which
   // would dangle (lintConfig rejects a defaultCommand that no command matches)
   // and the import would be refused before reaching storage.
