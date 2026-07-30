@@ -31,6 +31,13 @@ import {
 import { effectiveIgnoreList } from "../core/effective-ignore-list.js";
 import { addLocalIgnore, loadLocalIgnores } from "../core/local-ignore-store.js";
 import { rankByFrecency } from "../core/frecency.js";
+import { blendSuggestions, nextSectionStart } from "../core/blend.js";
+import {
+  getSuggestionsPrefs,
+  subscribeSuggestionsPrefs,
+  type SuggestionsPrefs,
+} from "../core/suggestions-prefs.js";
+import type { BrowserHistoryItem } from "../core/browser-history.js";
 
 interface HistoryEntry {
   query: string;
@@ -38,7 +45,7 @@ interface HistoryEntry {
   timestamp: number;
 }
 
-type SuggestionKind = "command" | "api" | "history";
+type SuggestionKind = "command" | "api" | "history" | "browser";
 
 interface SuggestionItem {
   text: string;
@@ -49,6 +56,10 @@ interface SuggestionItem {
   timestamp?: number;
   iconUrl?: string;
   groupColor?: string;
+  /** Frecency-promoted top-hit row (blended suggestions). */
+  topHit?: boolean;
+  /** Navigation target for browser-history rows. */
+  url?: string;
 }
 
 interface ResolvedCommand {
@@ -102,6 +113,10 @@ let localIgnores: string[] = [];
 let candidates: AutoIgnoreStore = {};
 let threshold = 3;
 let currentTypo: TypoResult | null = null;
+let suggestionsPrefs: SuggestionsPrefs = {
+  blendFtHistory: true,
+  includeBrowserHistory: false,
+};
 const device = detectDevice();
 
 async function refreshIgnoreState(): Promise<void> {
@@ -209,6 +224,11 @@ async function init(): Promise<void> {
     config = await chrome.runtime.sendMessage({ type: "getConfig" });
     await refreshIgnoreState();
     topChipHistory = (await chrome.runtime.sendMessage({ type: "getHistory" })) ?? [];
+    suggestionsPrefs = await getSuggestionsPrefs();
+    // React to settings changes without a reload (next keystroke re-blends).
+    subscribeSuggestionsPrefs((p) => {
+      suggestionsPrefs = p;
+    });
 
     // Omnibox search-provider path: ?q=<query> → resolve + navigate immediately.
     // The presence of ?q= proves Fast Travel is the active default search engine.
@@ -617,24 +637,80 @@ function showSuggestions(query: string): void {
   suggestionTimer = setTimeout(async () => {
     if (!config) return;
     try {
-      const apiSuggestions = await fetchSuggestions(query, config);
+      // All three sources fetch on the same debounce tick; the FT/browser
+      // history queries are local and add no meaningful latency. URL-shaped
+      // input (e.g. a browser-history row populated into the box) must NEVER
+      // reach the suggestions API — that would ship a history URL upstream
+      // and break the "your history never leaves this device" guarantee.
+      const isUrlInput = /^https?:\/\//i.test(query.trim());
+      const [apiSuggestions, ftHistory, browserHistory] = await Promise.all([
+        isUrlInput ? Promise.resolve([] as Suggestion[]) : fetchSuggestions(query, config),
+        suggestionsPrefs.blendFtHistory
+          ? (chrome.runtime.sendMessage({ type: "getHistory" }) as Promise<HistoryEntry[]>)
+          : Promise.resolve([] as HistoryEntry[]),
+        suggestionsPrefs.includeBrowserHistory
+          ? (chrome.runtime.sendMessage({
+              type: "queryBrowserHistory",
+              query,
+            }) as Promise<BrowserHistoryItem[]>)
+          : Promise.resolve([] as BrowserHistoryItem[]),
+      ]);
+      // Staleness guard must sit AFTER the awaits so a fast typist's earlier
+      // query can't render a stale blend over the current one.
       if (searchInput.value !== query) return;
-      const apiItems: SuggestionItem[] = apiSuggestions.slice(0, 5).map((s: Suggestion) => {
-        const groupColor = s.commandTrigger
-          ? findCommandColor(config!, (c) => c.triggers.includes(s.commandTrigger!))
-          : undefined;
-        const cmd = s.commandTrigger ? triggerMap.get(s.commandTrigger.toLowerCase()) : undefined;
+
+      const bySuggestionText = new Map(apiSuggestions.map((s) => [s.text, s]));
+      const blended = blendSuggestions({
+        query,
+        api: apiSuggestions.map((s) => s.text),
+        ftHistory: ftHistory ?? [],
+        browserHistory: browserHistory ?? [],
+        prefs: suggestionsPrefs,
+        now: Date.now(),
+      });
+
+      const blendedItems: SuggestionItem[] = blended.map((b) => {
+        if (b.kind === "api") {
+          const s = bySuggestionText.get(b.text);
+          const groupColor = s?.commandTrigger
+            ? findCommandColor(config!, (c) => c.triggers.includes(s.commandTrigger!))
+            : undefined;
+          const cmd = s?.commandTrigger
+            ? triggerMap.get(s.commandTrigger.toLowerCase())
+            : undefined;
+          return {
+            text: b.text,
+            display: s?.displayText ?? b.text,
+            kind: "api",
+            command: cmd,
+            matchedTrigger: s?.commandTrigger ?? undefined,
+            iconUrl: cmd ? resolveIconUrl(cmd, device) : undefined,
+            groupColor,
+          };
+        }
+        if (b.kind === "history") {
+          const rc = findResolvedById(config!, b.entry.commandId);
+          return {
+            text: b.entry.query,
+            display: b.entry.query,
+            kind: "history",
+            timestamp: b.entry.timestamp,
+            iconUrl: rc ? resolveIconUrl(rc.cmd, device) : undefined,
+            groupColor: rc?.groupColor,
+            command: rc?.cmd,
+            topHit: b.topHit,
+          };
+        }
         return {
-          text: s.text,
-          display: s.displayText,
-          kind: "api",
-          command: cmd,
-          matchedTrigger: s.commandTrigger ?? undefined,
-          iconUrl: cmd ? resolveIconUrl(cmd, device) : undefined,
-          groupColor,
+          text: b.entry.url,
+          display: b.entry.title || b.entry.url,
+          kind: "browser",
+          url: b.entry.url,
+          timestamp: b.entry.lastVisitTime || undefined,
+          topHit: b.topHit,
         };
       });
-      renderSuggestions([...commandItems, ...apiItems]);
+      renderSuggestions([...commandItems, ...blendedItems]);
     } catch {
       // keep command-only list
     }
@@ -717,6 +793,7 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
 
     const el = document.createElement("div");
     el.className = `suggestion-item suggestion-${item.kind}`;
+    if (item.topHit) el.classList.add("suggestion-top-hit");
     el.dataset.index = String(i);
     el.setAttribute("role", "option");
 
@@ -740,6 +817,19 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
       time.className = "suggestion-history-time";
       time.textContent = formatTimestamp(item.timestamp);
       el.appendChild(time);
+      el.appendChild(populateButton(item.text));
+    } else if (item.kind === "browser") {
+      const text = document.createElement("span");
+      text.className = "suggestion-browser-title";
+      text.textContent = item.display;
+      el.appendChild(text);
+
+      if (item.display !== item.url) {
+        const url = document.createElement("span");
+        url.className = "suggestion-browser-url";
+        url.textContent = item.url ?? "";
+        el.appendChild(url);
+      }
       el.appendChild(populateButton(item.text));
     } else if (item.kind === "command") {
       const tint = resolveGroupTint(item.groupColor);
@@ -767,6 +857,22 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
       if (item.kind === "command") {
         searchInput.focus();
         updateLeadingIcon(item.text);
+      } else if (item.kind === "browser" && item.url) {
+        // Browser-history rows navigate straight to their URL — routing the
+        // URL text through search parsing would turn it into a query.
+        // http(s) only: extension pages can't navigate to file:// anyway.
+        if (!/^https?:/i.test(item.url)) return;
+        const url = item.url;
+        // Await the write: navigating unloads the page and can drop the
+        // in-flight message (seen on Firefox especially).
+        void chrome.runtime
+          .sendMessage({
+            type: "addHistory",
+            value: { query: url, commandId: null, timestamp: Date.now() },
+          })
+          .finally(() => {
+            window.location.href = url;
+          });
       } else {
         handleSearch();
       }
@@ -820,7 +926,20 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
 //   Esc   restore the originally-typed text and close the dropdown.
 searchInput.addEventListener("keydown", (e) => {
   const items = suggestionsDropdown.querySelectorAll<HTMLElement>(".suggestion-item");
-  if (e.key === "ArrowDown" && items.length > 0) {
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && e.ctrlKey && items.length > 0) {
+    // Ctrl+Arrow jumps between section starts (command / history / api /
+    // browser) instead of stepping row by row.
+    e.preventDefault();
+    if (activeSuggestionIndex === -1) typedText = searchInput.value;
+    const kinds = currentSuggestionItems.map((it) => it.kind);
+    activeSuggestionIndex = nextSectionStart(
+      kinds,
+      activeSuggestionIndex,
+      e.key === "ArrowDown" ? 1 : -1,
+    );
+    updateActiveSuggestion(items);
+    autofillFromActive(items);
+  } else if (e.key === "ArrowDown" && items.length > 0) {
     e.preventDefault();
     if (activeSuggestionIndex === -1) typedText = searchInput.value;
     activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, items.length - 1);

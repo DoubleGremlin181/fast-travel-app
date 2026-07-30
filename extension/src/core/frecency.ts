@@ -16,6 +16,20 @@ const HALF_LIFE_DAYS = 7;
 const DAY_MS = 86_400_000;
 
 /**
+ * Sum of exponentially-decayed weights (7-day half-life) for a set of visit
+ * timestamps. One recent visit ≈ 1.0; the score halves every week. Shared by
+ * chip ranking below and the blended-suggestions top-hit scoring (blend.ts).
+ */
+export function decayScore(timestamps: number[], now: number): number {
+  let score = 0;
+  for (const t of timestamps) {
+    const ageDays = Math.max(0, (now - t) / DAY_MS);
+    score += Math.pow(0.5, ageDays / HALF_LIFE_DAYS);
+  }
+  return score;
+}
+
+/**
  * Rank `commandIds` (already in config order) by frecency, most relevant first.
  * Ties — including the all-zero cold-start case — fall back to config order.
  */
@@ -30,8 +44,7 @@ export function rankByFrecency(
   for (const entry of history) {
     const id = entry.commandId;
     if (id == null || !score.has(id)) continue;
-    const ageDays = Math.max(0, (now - entry.timestamp) / DAY_MS);
-    score.set(id, (score.get(id) as number) + Math.pow(0.5, ageDays / HALF_LIFE_DAYS));
+    score.set(id, (score.get(id) as number) + decayScore([entry.timestamp], now));
   }
 
   return commandIds

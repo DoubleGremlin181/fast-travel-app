@@ -11,6 +11,9 @@
     "tabs",
     "webNavigation"
   ],
+  "optional_permissions": [
+    "history"
+  ],
   "host_permissions": [
     "https://*/*",
     "http://*/*",

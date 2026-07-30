@@ -7,6 +7,7 @@ import { renderGroups } from "./screens/groups.js";
 import { renderIgnoreList } from "./screens/ignore-list.js";
 import { renderImportExport } from "./screens/import-export.js";
 import { renderHistory } from "./screens/history.js";
+import { renderSuggestionsScreen } from "./screens/suggestions.js";
 import { renderAbout } from "./screens/about.js";
 import { renderSearchEngine } from "./screens/search-engine.js";
 import { applyAppearance, getAppearance, subscribe as subscribeAppearance } from "../ui/appearance.js";
@@ -29,6 +30,7 @@ defineRoutes([
   { pattern: /^#\/ignore-list$/, render: (main) => renderIgnoreList(main) },
   { pattern: /^#\/import-export$/, render: (main) => renderImportExport(main) },
   { pattern: /^#\/history$/, render: (main) => renderHistory(main) },
+  { pattern: /^#\/suggestions$/, render: (main) => renderSuggestionsScreen(main) },
   { pattern: /^#\/search-engine$/, render: (main) => renderSearchEngine(main) },
   { pattern: /^#\/about$/, render: (main) => renderAbout(main) },
 ]);

@@ -1,13 +1,13 @@
 import { test, expect } from "./fixtures";
 
-test("settings: sidebar has 6 items in correct order", async ({ context, extensionId }) => {
+test("settings: sidebar has 7 items in correct order", async ({ context, extensionId }) => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options/options.html`);
   const links = page.locator(".sidebar-link");
-  await expect(links).toHaveCount(6);
+  await expect(links).toHaveCount(7);
   const texts = await links.allTextContents();
   const trimmed = texts.map(t => t.trim());
-  expect(trimmed).toEqual(["Appearance", "Configuration", "Ignore list", "History", "Set as default", "About"]);
+  expect(trimmed).toEqual(["Appearance", "Configuration", "Ignore list", "History", "Suggestions", "Set as default", "About"]);
 });
 
 test("settings: Configuration screen shows Commands, Groups, Default command, Import/Export", async ({ context, extensionId }) => {
