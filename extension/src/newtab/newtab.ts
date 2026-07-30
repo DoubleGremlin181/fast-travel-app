@@ -1,4 +1,5 @@
 import { parseCommand, buildTriggerMap } from "../core/parser.js";
+import { buildLuckyUrl } from "../core/lucky.js";
 import { fetchSuggestions } from "../core/suggestions.js";
 import { detectDevice } from "../core/device.js";
 import { resolveIconUrl } from "../core/icon.js";
@@ -385,6 +386,34 @@ function handleSearch(): void {
   } else if (result.type === "typo") {
     showTypoSuggestion(result);
   }
+}
+
+// Ctrl/Cmd+Enter: "I'm feeling lucky"-style navigation via the default
+// command's luckyUrl template. Falls back to a normal search when the
+// config doesn't define one.
+function handleLuckySearch(): void {
+  if (!config) return;
+  const query = searchInput.value.trim();
+  if (!query) return;
+
+  const lucky = buildLuckyUrl(config, query);
+  if (!lucky) {
+    handleSearch();
+    return;
+  }
+  // Tighter than the general allowlist: the luckyUrl contract is https?://
+  // everywhere it's validated (schema/validator/linter). A refused scheme
+  // falls back to a normal search rather than silently eating the keypress.
+  if (!/^https?:/i.test(lucky.url)) {
+    handleSearch();
+    return;
+  }
+
+  chrome.runtime.sendMessage({
+    type: "addHistory",
+    value: { query, commandId: lucky.commandId, timestamp: Date.now() },
+  });
+  window.location.href = lucky.url;
 }
 
 function showTypoSuggestion(typo: TypoResult): void {
@@ -808,7 +837,10 @@ searchInput.addEventListener("keydown", (e) => {
     const idx = activeSuggestionIndex >= 0 ? activeSuggestionIndex : 0;
     acceptSuggestion(currentSuggestionItems[idx]);
   } else if (e.key === "Enter") {
-    if (activeSuggestionIndex >= 0 && items.length > 0) {
+    if (e.ctrlKey || e.metaKey) {
+      hideSuggestions();
+      handleLuckySearch();
+    } else if (activeSuggestionIndex >= 0 && items.length > 0) {
       items[activeSuggestionIndex].click();
     } else {
       hideSuggestions();

@@ -67,6 +67,7 @@ object ConfigParser {
             iconUrl = obj.optStringOrNull("iconUrl"),
             iconOverrides = parseIconOverrides(obj.optJSONArray("iconOverrides")),
             suggestionsApi = obj.optStringOrNull("suggestionsApi"),
+            luckyUrl = obj.optStringOrNull("luckyUrl"),
             normalize = parseNormalize(obj.optJSONArray("normalize")),
             routes = parseRoutes(obj.getJSONArray("routes")),
         )

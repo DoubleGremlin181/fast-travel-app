@@ -35,7 +35,7 @@ const URL_LENGTH_MODIFIER_RE = /\{\w+:\d+(?:-\d+)?\}/g;
 const ALLOWED_KEYS = {
   root: new Set(["$schema", "version", "defaultCommand", "defaultSuggestionsApi", "groups", "ignoreList"]),
   group: new Set(["id", "name", "color", "description", "commands", "groups"]),
-  command: new Set(["id", "triggers", "name", "type", "description", "color", "iconUrl", "iconOverrides", "suggestionsApi", "normalize", "routes"]),
+  command: new Set(["id", "triggers", "name", "type", "description", "color", "iconUrl", "iconOverrides", "suggestionsApi", "luckyUrl", "normalize", "routes"]),
   iconOverride: new Set(["devices", "iconUrl"]),
   route: new Set(["devices", "browsers", "defaultUrl", "searchUrl", "patterns"]),
   pattern: new Set(["match", "url"]),
@@ -224,6 +224,9 @@ function validateCommand(c, path, errors, seenIds, seenTriggers) {
   }
   if (c.suggestionsApi !== undefined && (!isPlainString(c.suggestionsApi) || !HTTPS_QUERY_RE.test(c.suggestionsApi))) {
     errors.push(`${path}.suggestionsApi: must be http(s) URL containing {query} — got "${c.suggestionsApi}"`);
+  }
+  if (c.luckyUrl !== undefined && (!isPlainString(c.luckyUrl) || !HTTPS_QUERY_RE.test(c.luckyUrl))) {
+    errors.push(`${path}.luckyUrl: must be http(s) URL containing {query} — got "${c.luckyUrl}"`);
   }
 
   if (c.normalize !== undefined) {

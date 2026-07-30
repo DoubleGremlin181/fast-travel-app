@@ -38,6 +38,14 @@ class CommandParserTest {
     fun setup() {
         val configJson = resolveSharedFile("config/default-config.json").readText()
         config = ConfigParser.parseConfig(configJson)
+
+        val tldsJson = resolveSharedFile("config/tlds.json").readText()
+        val tldsArr = JSONArray(tldsJson)
+        val tlds = mutableSetOf<String>()
+        for (i in 0 until tldsArr.length()) {
+            tlds.add(tldsArr.getString(i))
+        }
+        CommandParser.setTlds(tlds)
     }
 
     private fun resolveSharedFile(relativePath: String): File {
@@ -310,5 +318,41 @@ class CommandParserTest {
         result as ParseOutput.RedirectResult
         assertEquals("https://home.example.com", result.url)
         assertEquals("home", result.commandId)
+    }
+
+    @Test
+    @DisplayName("A configured trigger that looks like a domain beats URL detection")
+    fun `domain-like trigger beats url detection`() {
+        val cfgJson = """
+            {
+              "version": 2,
+              "defaultCommand": "ex",
+              "groups": [
+                {
+                  "id": "grp",
+                  "name": "Test Group",
+                  "commands": [
+                    {
+                      "id": "ex",
+                      "triggers": ["example.com"],
+                      "name": "Example Redirect",
+                      "type": "redirect",
+                      "routes": [{ "devices": "*", "defaultUrl": "https://internal.example/portal" }]
+                    }
+                  ]
+                }
+              ],
+              "ignoreList": []
+            }
+        """.trimIndent()
+        val cfg = ConfigParser.parseConfig(cfgJson)
+        val result = CommandParser.parseCommand(
+            ParseInput(rawQuery = "example.com", device = DeviceType.fromString("Linux"), config = cfg)
+        )
+        assertTrue(result is ParseOutput.RedirectResult)
+        result as ParseOutput.RedirectResult
+        assertEquals("https://internal.example/portal", result.url)
+        assertEquals("ex", result.commandId)
+        assertEquals(MatchType.Exact, result.matchType)
     }
 }

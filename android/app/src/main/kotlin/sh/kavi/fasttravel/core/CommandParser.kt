@@ -21,6 +21,16 @@ object CommandParser {
     }
 
     /**
+     * Valid TLDs loaded from assets (shared/config/tlds.json), used by URL
+     * detection. Should be set once at app startup; unit tests set it directly.
+     */
+    private var tlds: Set<String> = emptySet()
+
+    fun setTlds(list: Set<String>) {
+        tlds = list.map { it.lowercase() }.toSet()
+    }
+
+    /**
      * Build a flat trigger-to-command lookup map from all groups (recursively).
      * Nesting is display-only; parsing uses flat trigger lookup.
      */
@@ -310,6 +320,12 @@ object CommandParser {
             )
         }
 
+        // 2b. Single-token URL? Navigate directly. Runs after command matching so a
+        // configured trigger always wins, and before typo detection so domain-like
+        // tokens are never "corrected" into a command.
+        val urlResult = tryUrlDetection(query)
+        if (urlResult != null) return urlResult
+
         // 3. No command match - check for typo.
         // Redirect-type typo only applies on hard match (no args). With args, skip typo
         // detection so "fof in sf" goes straight to default search, not "Did you mean fog?".
@@ -344,6 +360,74 @@ object CommandParser {
 
         // 4. Fall through to default command
         return makeDefaultSearch(input.config, input.device, query)
+    }
+
+    /**
+     * Detect a single-token URL: an explicit http(s) URL, or a bare
+     * hostname[:port][/path...] whose host is "localhost", an IPv4 address, or
+     * a domain whose final label is a known TLD (shared/config/tlds.json).
+     *
+     * Line-for-line port of tryUrlDetection in extension/src/core/parser.ts.
+     * Returns null when the query is not a URL.
+     */
+    fun tryUrlDetection(query: String): ParseOutput.RedirectResult? {
+        if (query.isEmpty() || query.contains(URL_WS_RE)) return null
+
+        fun asUrl(url: String) = ParseOutput.RedirectResult(
+            url = url,
+            commandId = null,
+            matchType = MatchType.Url,
+        )
+
+        // Explicit scheme: pass through verbatim (must have something after //).
+        if (Regex("^https?://", RegexOption.IGNORE_CASE).containsMatchIn(query)) {
+            return if (Regex("^https?://.", RegexOption.IGNORE_CASE).containsMatchIn(query)) {
+                asUrl(query)
+            } else {
+                null
+            }
+        }
+
+        // Split authority from path/query/hash.
+        val cutIdx = query.indexOfFirst { it == '/' || it == '?' || it == '#' }
+        val authority = if (cutIdx == -1) query else query.substring(0, cutIdx)
+
+        // Split optional :port.
+        var host = authority
+        val colonIdx = authority.indexOf(':')
+        if (colonIdx != -1) {
+            host = authority.substring(0, colonIdx)
+            if (!PORT_RE.matches(authority.substring(colonIdx + 1))) return null
+        }
+        if (host.isEmpty()) return null
+
+        val hostLower = host.lowercase()
+        if (hostLower == "localhost" || isIPv4(hostLower)) {
+            return asUrl("https://$query")
+        }
+
+        val labels = hostLower.split(".")
+        if (labels.size < 2) return null
+        if (!labels.all { LABEL_RE.matches(it) }) return null
+        if (labels.last() !in tlds) return null
+
+        return asUrl("https://$query")
+    }
+
+    private val LABEL_RE = Regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+    private val PORT_RE = Regex("^\\d{1,5}$")
+    private val OCTET_RE = Regex("^\\d{1,3}$")
+
+    // Mirrors URL_WS_RE in extension/src/core/parser.ts: JS \s spelled out
+    // explicitly because Kotlin's \s is ASCII-only. Keep the two in sync.
+    private val URL_WS_RE = Regex(
+        "[ \\t\\n\\r\\u000C\\u000B\\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]"
+    )
+
+    private fun isIPv4(host: String): Boolean {
+        val octets = host.split(".")
+        if (octets.size != 4) return false
+        return octets.all { OCTET_RE.matches(it) && it.toInt() <= 255 }
     }
 
     /**
