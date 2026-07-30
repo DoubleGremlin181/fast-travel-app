@@ -562,9 +562,10 @@ body:hover #settings-link {
   font-weight: 700;
 }
 
-/* ---- Onboarding hint ---- */
+/* ---- Onboarding + update hints ---- */
 
-#onboarding-hint {
+#onboarding-hint,
+#update-hint {
   margin-top: 28px;
   padding: 14px 16px 14px 18px;
   background: var(--surface);
@@ -578,7 +579,8 @@ body:hover #settings-link {
   animation: hint-in var(--duration-med) var(--ease);
 }
 
-#onboarding-hint.hidden {
+#onboarding-hint.hidden,
+#update-hint.hidden {
   display: none;
 }
 
@@ -587,14 +589,16 @@ body:hover #settings-link {
   to { opacity: 1; transform: translateY(0); }
 }
 
-#onboarding-hint-body {
+#onboarding-hint-body,
+#update-hint-body {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-#onboarding-hint-body p {
+#onboarding-hint-body p,
+#update-hint-body p {
   margin: 0;
   line-height: 1.5;
 }
@@ -608,19 +612,23 @@ body:hover #settings-link {
   color: var(--text);
 }
 
-#onboarding-hint-body a {
+#onboarding-hint-body a,
+#update-hint-body a {
   color: var(--primary);
   text-decoration: none;
   font-weight: 500;
 }
 
 #onboarding-hint-body a:hover,
-#onboarding-hint-body a:focus-visible {
+#onboarding-hint-body a:focus-visible,
+#update-hint-body a:hover,
+#update-hint-body a:focus-visible {
   text-decoration: underline;
   outline: none;
 }
 
-#onboarding-hint-dismiss {
+#onboarding-hint-dismiss,
+#update-hint-dismiss {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
@@ -635,7 +643,9 @@ body:hover #settings-link {
 }
 
 #onboarding-hint-dismiss:hover,
-#onboarding-hint-dismiss:focus-visible {
+#onboarding-hint-dismiss:focus-visible,
+#update-hint-dismiss:hover,
+#update-hint-dismiss:focus-visible {
   background: var(--surface-2);
   color: var(--text);
   outline: none;

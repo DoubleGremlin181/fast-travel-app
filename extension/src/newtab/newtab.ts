@@ -9,6 +9,13 @@ import type {
   Group,
 } from "../core/types.js";
 import type { Suggestion } from "../core/suggestions.js";
+import {
+  LATEST_RELEASE_KEY,
+  UPDATE_DISMISSED_KEY,
+  isSideloadedChromium,
+  shouldPromptUpdate,
+  type LatestRelease,
+} from "../core/update-check.js";
 import { resolveGroupTint } from "../ui/group-colors.js";
 import { renderFavicon } from "../ui/favicon.js";
 import { applyAppearance, getAppearance, subscribe as subscribeAppearance } from "../ui/appearance.js";
@@ -127,6 +134,35 @@ const defaultLeadingIcon = leadingIcon.innerHTML;
 const ONBOARDING_HINT_DISMISSED_KEY = "fast-travel-onboarding-hint-dismissed";
 const SEARCH_ENGINE_ACTIVE_KEY = "fast-travel-search-engine-active";
 
+// One-time per-version update hint for sideloaded (GitHub-installed) Chromium
+// builds — the service worker caches the latest GitHub Release daily; this
+// page only decides whether to surface it. Returns true when shown so the
+// onboarding hint can yield for this page load (both at once is clutter).
+async function setupUpdateHint(): Promise<boolean> {
+  const hint = document.getElementById("update-hint");
+  const versionEl = document.getElementById("update-hint-version");
+  const link = document.getElementById("update-hint-link") as HTMLAnchorElement | null;
+  const dismissBtn = document.getElementById("update-hint-dismiss");
+  if (!hint || !versionEl || !link || !dismissBtn) return false;
+  if (!isSideloadedChromium()) return false;
+  const stored = await chrome.storage.local.get([LATEST_RELEASE_KEY, UPDATE_DISMISSED_KEY]);
+  const latest = stored[LATEST_RELEASE_KEY] as LatestRelease | undefined;
+  const dismissed = stored[UPDATE_DISMISSED_KEY] as string | undefined;
+  if (!shouldPromptUpdate(chrome.runtime.getManifest().version, latest, dismissed)) return false;
+  versionEl.textContent = `v${latest!.version}`;
+  link.href = latest!.url;
+  const dismiss = async () => {
+    hint.classList.add("hidden");
+    await chrome.storage.local.set({ [UPDATE_DISMISSED_KEY]: latest!.version });
+  };
+  // Following the download link counts as acting on the prompt — don't show
+  // it again for this version.
+  link.addEventListener("click", () => void dismiss());
+  dismissBtn.addEventListener("click", () => void dismiss());
+  hint.classList.remove("hidden");
+  return true;
+}
+
 // Toggle `.tail-visible` based on whether the element's content overflows.
 // The class flips overflow to the start of the line so the tail (with a
 // leading ellipsis) stays visible. Used by the search input on blur and by
@@ -215,7 +251,9 @@ async function init(): Promise<void> {
     }
 
     if (config) renderQuickChips();
-    void setupOnboardingHint();
+    void setupUpdateHint().then((shown) => {
+      if (!shown) return setupOnboardingHint();
+    });
   } catch (e) {
     console.error("[fast-travel] newtab init failed:", e);
   } finally {
