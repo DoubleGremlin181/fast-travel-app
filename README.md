@@ -38,21 +38,35 @@ Every command is yours to configure — change the triggers, point them anywhere
 
 | Platform | Link |
 |---|---|
-| Chrome | *(coming soon — Chrome Web Store)* |
-| Firefox | *(coming soon — Firefox Add-ons)* |
-| Android | *(coming soon — Google Play)* |
+| Firefox | [![Firefox Add-ons](https://img.shields.io/amo/v/fast-travel?label=Firefox%20Add-ons&logo=firefoxbrowser)](https://addons.mozilla.org/firefox/addon/fast-travel/) |
+| Android | [![Google Play](https://img.shields.io/badge/Google%20Play-Fast%20Travel-green?logo=googleplay)](https://play.google.com/store/apps/details?id=sh.kavi.fasttravel) |
+| Chrome / Chromium | [GitHub Releases](https://github.com/DoubleGremlin181/fast-travel-app/releases/latest) — see below |
+
+### Chrome install (GitHub Releases)
+
+Fast Travel isn't on the Chrome Web Store: its single-purpose policy doesn't allow
+one extension to offer both a new tab page and search-engine integration, and
+splitting or stripping the extension would defeat the point. Install it from the
+[latest release](https://github.com/DoubleGremlin181/fast-travel-app/releases/latest)
+instead:
+
+1. Download `chrome-extension.zip` and extract it to a folder you'll keep around
+   (Chrome loads the extension from that folder).
+2. Open `chrome://extensions`, enable **Developer mode** (top right).
+3. Click **Load unpacked** and select the extracted folder.
+
+Heads up: unpacked extensions don't auto-update. Fast Travel shows a notice on the
+new tab page when a newer release is available — download the new zip, extract it
+over the same folder, and hit the reload icon on `chrome://extensions`.
 
 ### Direct download (GitHub Releases)
 
-Prefer the stores above when they're live, but every release also ships installable
-artifacts on the [Releases page](https://github.com/DoubleGremlin181/fast-travel-app/releases):
+Every release also ships installable artifacts on the
+[Releases page](https://github.com/DoubleGremlin181/fast-travel-app/releases):
 
 - **Android** — download `app-release.apk` and install it (you'll need to allow
   installs from your browser/file manager in Android settings). This is a signed,
   ready-to-run build.
-- **Chrome** — `chrome-extension.zip` is for loading **unpacked** via
-  `chrome://extensions` → *Developer mode* → *Load unpacked*. For a normal install,
-  use the Chrome Web Store.
 - **Firefox** — `firefox-extension.zip` is **unsigned**; release Firefox only installs
   signed add-ons, so use the Firefox Add-ons listing. (Developer/Nightly builds can
   load it as a temporary add-on.)

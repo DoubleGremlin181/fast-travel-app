@@ -82,7 +82,9 @@ Releases are fully automated via GitHub Actions. After merging to `main`:
 1. Go to **Actions → Release** in the GitHub UI
 2. Click **Run workflow**
 3. Select bump type: `patch`, `minor`, or `major`
-4. The workflow bumps versions, builds, signs, and publishes to all stores
+4. The workflow bumps versions, builds, signs, publishes to Firefox AMO and
+   Google Play, and attaches all artifacts (including `chrome-extension.zip`,
+   which is Chrome's only distribution channel — see issue #36) to a GitHub Release
 
 Do NOT manually edit version numbers in source files.
 
@@ -96,13 +98,14 @@ All secrets live in **GitHub → Settings → Secrets and variables → Actions*
 | `ANDROID_KEY_ALIAS` | Keystore key alias | Android keystore |
 | `ANDROID_KEY_PASSWORD` | Key password | Android keystore |
 | `ANDROID_STORE_PASSWORD` | Store password | Android keystore |
-| `CHROME_CLIENT_ID` | Chrome Web Store API | [Google Cloud Console](https://console.cloud.google.com) |
-| `CHROME_CLIENT_SECRET` | Chrome Web Store API | Google Cloud Console |
-| `CHROME_REFRESH_TOKEN` | Chrome Web Store OAuth | Google Cloud Console |
-| `CHROME_EXTENSION_ID` | Chrome extension ID | Chrome Web Store Dashboard |
 | `FIREFOX_API_KEY` | Firefox AMO API | [addons.mozilla.org/developers](https://addons.mozilla.org/developers/) |
 | `FIREFOX_API_SECRET` | Firefox AMO API | addons.mozilla.org |
 | `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Play Store publish | [Google Play Console](https://play.google.com/console) |
+
+The four `CHROME_*` secrets (client id/secret, refresh token, extension id) were
+retired in July 2026: the Chrome Web Store rejected the extension under the
+Single Purpose policy (issue #36), so the Chrome build is distributed via the
+`chrome-extension.zip` asset on each GitHub Release instead.
 
 ## Key Architecture Decisions
 
