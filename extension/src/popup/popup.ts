@@ -15,6 +15,10 @@ function openSettings(): void {
 openSettingsBtn?.addEventListener("click", openSettings);
 
 async function init(): Promise<void> {
+  // Version comes from the manifest so it can never drift from the release —
+  // this was a hardcoded string once and showed a stale 2.0.0.
+  const versionEl = document.querySelector(".popup-version");
+  if (versionEl) versionEl.textContent = chrome.runtime.getManifest().version;
   applyAppearance(await getAppearance());
   subscribeAppearance(applyAppearance);
 }

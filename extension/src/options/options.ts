@@ -36,6 +36,11 @@ defineRoutes([
 const mainEl = document.getElementById("main");
 if (mainEl) init(mainEl, "#/appearance");
 
+// Version comes from the manifest so it can never drift from the release —
+// this was a hardcoded string once and showed a stale 2.0.0.
+const sidebarVersion = document.querySelector(".sidebar-version");
+if (sidebarVersion) sidebarVersion.textContent = `v${chrome.runtime.getManifest().version}`;
+
 // Theme the whole options surface on load (not just the #/appearance route) and
 // keep it live — mirrors newtab.ts / popup.ts. Reads chrome.storage.sync (the
 // source of truth) and corrects the pre-paint shim's OS fallback.
