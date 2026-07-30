@@ -104,6 +104,7 @@ enum class MatchType(val value: String) {
     Prefix("prefix"),
     Pattern("pattern"),
     Search("search"),
+    Url("url"),
     DefaultSearch("default-search");
 
     companion object {
@@ -112,6 +113,7 @@ enum class MatchType(val value: String) {
             "prefix" -> Prefix
             "pattern" -> Pattern
             "search" -> Search
+            "url" -> Url
             "default-search" -> DefaultSearch
             else -> throw IllegalArgumentException("Unknown match type: $value")
         }

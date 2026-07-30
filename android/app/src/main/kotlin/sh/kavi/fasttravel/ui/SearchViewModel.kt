@@ -100,6 +100,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         loadCommonWords(application)
+        loadTlds(application)
         themePrefs.registerListener(prefsListener)
 
         viewModelScope.launch {
@@ -306,6 +307,22 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             CommandParser.setCommonWords(words)
         } catch (_: Exception) {
             // Common words file not available, continue without it
+        }
+    }
+
+    private fun loadTlds(application: Application) {
+        try {
+            val json = application.assets.open("tlds.json")
+                .bufferedReader()
+                .use { it.readText() }
+            val arr = JSONArray(json)
+            val tlds = mutableSetOf<String>()
+            for (i in 0 until arr.length()) {
+                tlds.add(arr.getString(i))
+            }
+            CommandParser.setTlds(tlds)
+        } catch (_: Exception) {
+            // TLD list not available; URL detection falls back to search
         }
     }
 
