@@ -40,6 +40,7 @@ data class Command(
     val iconUrl: String? = null,
     val iconOverrides: List<IconOverride> = emptyList(),
     val suggestionsApi: String? = null,
+    val luckyUrl: String? = null,
     val normalize: List<NormalizeStep> = emptyList(),
     val routes: List<Route>,
 )
@@ -104,6 +105,7 @@ enum class MatchType(val value: String) {
     Prefix("prefix"),
     Pattern("pattern"),
     Search("search"),
+    Url("url"),
     DefaultSearch("default-search");
 
     companion object {
@@ -112,6 +114,7 @@ enum class MatchType(val value: String) {
             "prefix" -> Prefix
             "pattern" -> Pattern
             "search" -> Search
+            "url" -> Url
             "default-search" -> DefaultSearch
             else -> throw IllegalArgumentException("Unknown match type: $value")
         }

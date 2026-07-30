@@ -186,3 +186,35 @@ describe("config-linter: existing checks still work", () => {
     expect(errors.some((e) => e.path.includes("defaultUrl"))).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// luckyUrl validation
+// ---------------------------------------------------------------------------
+
+describe("config-linter: luckyUrl", () => {
+  it("accepts an http(s) luckyUrl containing {query}", () => {
+    const cfg = makeConfig();
+    cfg.groups[0].commands[0].luckyUrl = "https://www.google.com/search?q={query}&btnI";
+    const errors = lintConfig(cfg);
+    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(0);
+  });
+
+  it("rejects a luckyUrl without {query}", () => {
+    const cfg = makeConfig();
+    cfg.groups[0].commands[0].luckyUrl = "https://www.google.com/search?btnI";
+    const errors = lintConfig(cfg);
+    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(1);
+  });
+
+  it("rejects a non-http luckyUrl", () => {
+    const cfg = makeConfig();
+    cfg.groups[0].commands[0].luckyUrl = "javascript:alert('{query}')";
+    const errors = lintConfig(cfg);
+    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(1);
+  });
+
+  it("ignores commands without a luckyUrl", () => {
+    const errors = lintConfig(makeConfig());
+    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(0);
+  });
+});

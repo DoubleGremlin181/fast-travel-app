@@ -47,6 +47,7 @@ export interface Command {
   iconUrl?: string;
   iconOverrides?: IconOverride[];
   suggestionsApi?: string;
+  luckyUrl?: string;
   normalize?: NormalizeStep[];
   routes: Route[];
 }
@@ -77,6 +78,7 @@ export type MatchType =
   | "prefix"
   | "pattern"
   | "search"
+  | "url"
   | "default-search";
 
 export interface ParseResult {

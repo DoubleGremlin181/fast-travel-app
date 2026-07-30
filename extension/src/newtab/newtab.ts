@@ -1,4 +1,5 @@
 import { parseCommand, buildTriggerMap } from "../core/parser.js";
+import { buildLuckyUrl } from "../core/lucky.js";
 import { fetchSuggestions } from "../core/suggestions.js";
 import { detectDevice } from "../core/device.js";
 import { resolveIconUrl } from "../core/icon.js";
@@ -405,6 +406,34 @@ function handleSearch(): void {
   } else if (result.type === "typo") {
     showTypoSuggestion(result);
   }
+}
+
+// Ctrl/Cmd+Enter: "I'm feeling lucky"-style navigation via the default
+// command's luckyUrl template. Falls back to a normal search when the
+// config doesn't define one.
+function handleLuckySearch(): void {
+  if (!config) return;
+  const query = searchInput.value.trim();
+  if (!query) return;
+
+  const lucky = buildLuckyUrl(config, query);
+  if (!lucky) {
+    handleSearch();
+    return;
+  }
+  // Tighter than the general allowlist: the luckyUrl contract is https?://
+  // everywhere it's validated (schema/validator/linter). A refused scheme
+  // falls back to a normal search rather than silently eating the keypress.
+  if (!/^https?:/i.test(lucky.url)) {
+    handleSearch();
+    return;
+  }
+
+  chrome.runtime.sendMessage({
+    type: "addHistory",
+    value: { query, commandId: lucky.commandId, timestamp: Date.now() },
+  });
+  window.location.href = lucky.url;
 }
 
 function showTypoSuggestion(typo: TypoResult): void {
@@ -927,7 +956,10 @@ searchInput.addEventListener("keydown", (e) => {
     const idx = activeSuggestionIndex >= 0 ? activeSuggestionIndex : 0;
     acceptSuggestion(currentSuggestionItems[idx]);
   } else if (e.key === "Enter") {
-    if (activeSuggestionIndex >= 0 && items.length > 0) {
+    if (e.ctrlKey || e.metaKey) {
+      hideSuggestions();
+      handleLuckySearch();
+    } else if (activeSuggestionIndex >= 0 && items.length > 0) {
       items[activeSuggestionIndex].click();
     } else {
       hideSuggestions();
@@ -1004,14 +1036,20 @@ searchInput.addEventListener("blur", () => {
 
 // Typo-prompt shortcuts. The type-anywhere handler defers to these while a typo
 // is showing (see focusSearchInput), so the search box stays blurred and these
-// keys reach here. "g" and "n" both decline the suggestion and fall back to the
-// user's default engine (defaultSearch) — "n" ("no") is the engine-agnostic alias
-// and is intentionally not advertised in the UI.
+// keys reach here. Enter, "g" and "n" all decline the suggestion and fall back
+// to the user's default engine (defaultSearch): Enter is the advertised key
+// (the query was just submitted with Enter, so pressing it again reads as
+// "yes, really search this"); "g" and "n" ("no") are unadvertised aliases.
+// Enter defers to the search box when it's focused so editing the query and
+// resubmitting keeps working.
 document.addEventListener("keydown", (e) => {
   if (!currentTypo) return;
   if (e.key === "y" || e.key === "Y") {
     e.preventDefault();
     void acceptTypo();
+  } else if (e.key === "Enter" && e.target !== searchInput) {
+    e.preventDefault();
+    void defaultSearch();
   } else if (e.key === "g" || e.key === "G" || e.key === "n" || e.key === "N") {
     e.preventDefault();
     void defaultSearch();

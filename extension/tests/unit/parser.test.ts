@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { parseCommand, levenshtein, buildTriggerMap, findRoute } from "../../src/core/parser.js";
+import { parseCommand, levenshtein, buildTriggerMap, findRoute, tryUrlDetection } from "../../src/core/parser.js";
 import type { FastTravelConfig, ParseResult, TypoResult, DeviceType } from "../../src/core/types.js";
 
 /** Minimal config factory for pattern-match unit tests. */
@@ -438,5 +438,110 @@ describe("repeated placeholder substitution", () => {
     expect((result as ParseResult).url).toBe(
       "https://example.com/myrepo/view/myrepo",
     );
+  });
+});
+
+describe("tryUrlDetection", () => {
+  it("detects a bare domain and prepends https", () => {
+    expect(tryUrlDetection("gmail.com")).toEqual({
+      type: "redirect",
+      url: "https://gmail.com",
+      commandId: null,
+      matchType: "url",
+    });
+  });
+
+  it("passes an explicit scheme through unchanged, case-insensitively", () => {
+    expect(tryUrlDetection("HTTP://EXAMPLE.COM/Path?x=1#y")?.url).toBe(
+      "HTTP://EXAMPLE.COM/Path?x=1#y",
+    );
+  });
+
+  it("rejects a scheme with no host after it", () => {
+    expect(tryUrlDetection("http://")).toBeNull();
+    expect(tryUrlDetection("https://")).toBeNull();
+  });
+
+  it("rejects any input containing whitespace", () => {
+    expect(tryUrlDetection("node.js install")).toBeNull();
+  });
+
+  it("accepts bare localhost", () => {
+    expect(tryUrlDetection("localhost")?.url).toBe("https://localhost");
+  });
+
+  it("rejects a bare single label that is not localhost", () => {
+    expect(tryUrlDetection("com")).toBeNull();
+    expect(tryUrlDetection("gmail")).toBeNull();
+  });
+
+  it("accepts ports of 1-5 digits and rejects longer", () => {
+    expect(tryUrlDetection("example.com:99999")?.url).toBe(
+      "https://example.com:99999",
+    );
+    expect(tryUrlDetection("example.com:123456")).toBeNull();
+    expect(tryUrlDetection("example.com:")).toBeNull();
+  });
+
+  it("accepts valid IPv4 and rejects out-of-range octets", () => {
+    expect(tryUrlDetection("192.168.1.1")?.url).toBe("https://192.168.1.1");
+    expect(tryUrlDetection("255.255.255.255")?.url).toBe(
+      "https://255.255.255.255",
+    );
+    expect(tryUrlDetection("256.1.1.1")).toBeNull();
+    expect(tryUrlDetection("999.999.999.999")).toBeNull();
+  });
+
+  it("rejects hyphens at label edges but accepts them inside", () => {
+    expect(tryUrlDetection("my-site.com")?.url).toBe("https://my-site.com");
+    expect(tryUrlDetection("-example.com")).toBeNull();
+    expect(tryUrlDetection("example-.com")).toBeNull();
+  });
+
+  it("rejects labels with invalid characters", () => {
+    expect(tryUrlDetection("foo_bar.com")).toBeNull();
+    expect(tryUrlDetection("exa mple.com")).toBeNull();
+  });
+
+  it("rejects unknown TLDs and empty labels", () => {
+    expect(tryUrlDetection("file.txt")).toBeNull();
+    expect(tryUrlDetection("example.com.")).toBeNull();
+    expect(tryUrlDetection(".example.com")).toBeNull();
+    expect(tryUrlDetection("example..com")).toBeNull();
+  });
+
+  it("never treats non-http schemes as URLs", () => {
+    expect(tryUrlDetection("javascript:alert(1)")).toBeNull();
+    expect(tryUrlDetection("data:text/html,hi")).toBeNull();
+  });
+});
+
+describe("URL detection precedence", () => {
+  it("a configured trigger that looks like a domain beats URL detection", () => {
+    const cfg: FastTravelConfig = {
+      version: 2,
+      defaultCommand: "ex",
+      groups: [
+        {
+          id: "grp",
+          name: "Test Group",
+          commands: [
+            {
+              id: "ex",
+              triggers: ["example.com"],
+              name: "Example Redirect",
+              type: "redirect",
+              routes: [{ devices: "*", defaultUrl: "https://internal.example/portal" }],
+            },
+          ],
+        },
+      ],
+      ignoreList: [],
+    };
+    const result = parseCommand({ rawQuery: "example.com", device: "Linux", config: cfg });
+    expect(result.type).toBe("redirect");
+    expect((result as ParseResult).url).toBe("https://internal.example/portal");
+    expect((result as ParseResult).commandId).toBe("ex");
+    expect((result as ParseResult).matchType).toBe("exact");
   });
 });

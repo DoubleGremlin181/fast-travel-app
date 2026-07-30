@@ -41,4 +41,43 @@ class ConfigParserTest {
         assertNotNull(config)
         assertEquals(emptyList<String>(), config.ignoreList)
     }
+
+    @Test
+    fun `luckyUrl survives a parse-write-parse round trip`() {
+        val json = """
+            {
+              "version": 2,
+              "defaultCommand": "g",
+              "groups": [
+                {
+                  "id": "grp",
+                  "name": "Group",
+                  "commands": [
+                    {
+                      "id": "google",
+                      "triggers": ["g"],
+                      "name": "Google",
+                      "type": "standard",
+                      "luckyUrl": "https://www.google.com/search?q={query}&btnI",
+                      "routes": [{ "devices": "*", "defaultUrl": "https://www.google.com" }]
+                    }
+                  ]
+                }
+              ],
+              "ignoreList": []
+            }
+        """.trimIndent()
+
+        val parsed = ConfigParser.parseConfig(json)
+        assertEquals(
+            "https://www.google.com/search?q={query}&btnI",
+            parsed.groups[0].commands[0].luckyUrl,
+        )
+
+        val rewritten = ConfigParser.parseConfig(ConfigWriter.writeConfig(parsed))
+        assertEquals(
+            "https://www.google.com/search?q={query}&btnI",
+            rewritten.groups[0].commands[0].luckyUrl,
+        )
+    }
 }
