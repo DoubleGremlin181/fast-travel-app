@@ -1,6 +1,13 @@
 import { parseCommand, buildTriggerMap } from "../core/parser.js";
 import { fetchSuggestions } from "../core/suggestions.js";
 import { lintConfig } from "../core/config-linter.js";
+import {
+  LATEST_RELEASE_KEY,
+  RELEASES_API_URL,
+  isSideloadedChromium,
+  isUpdateCheckDue,
+  parseLatestRelease,
+} from "../core/update-check.js";
 import { detectDevice } from "../core/device.js";
 import type { FastTravelConfig, TypoResult } from "../core/types.js";
 import bundledConfig from "../../../shared/config/default-config.json";
@@ -14,6 +21,8 @@ const CONFIG_URL_KEY = "fast-travel-config-url";
 const REFRESH_INTERVAL_KEY = "fast-travel-refresh-interval";
 const LAST_SYNCED_KEY = "fast-travel-last-synced";
 const REFRESH_ALARM = "config-refresh";
+const UPDATE_ALARM = "update-check";
+const UPDATE_CHECK_PERIOD_MINUTES = 24 * 60;
 const CONFIG_FETCH_TIMEOUT_MS = 5000;
 const APPEARANCE_KEY = "fast-travel-appearance";
 
@@ -310,6 +319,46 @@ if (chrome.webNavigation?.onBeforeNavigate) {
   );
 }
 
+// Sideloaded (GitHub-installed) Chromium builds never auto-update, so poll the
+// latest GitHub Release and cache it; the new tab page turns the cached value
+// into a one-time per-version update hint. Store builds skip all of this.
+// Checks run at most once a day: startup calls are throttled against the last
+// check's timestamp, and only the daily alarm passes force=true.
+async function checkForUpdate(force = false): Promise<void> {
+  if (!isSideloadedChromium()) return;
+  if (!force) {
+    const stored = await chrome.storage.local.get(LATEST_RELEASE_KEY);
+    if (!isUpdateCheckDue(stored[LATEST_RELEASE_KEY], Date.now())) return;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CONFIG_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(RELEASES_API_URL, {
+      signal: controller.signal,
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!response.ok) return;
+    const latest = parseLatestRelease(await response.json(), Date.now());
+    if (latest) {
+      await chrome.storage.local.set({ [LATEST_RELEASE_KEY]: latest });
+    }
+  } catch (e) {
+    console.warn("[fast-travel] update check failed:", e);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function scheduleUpdateCheck(): Promise<void> {
+  if (!isSideloadedChromium()) return;
+  // Don't reset the countdown on every worker spin-up — only create the alarm
+  // if a prior one isn't already pending (alarms persist across restarts).
+  const existing = await chrome.alarms.get(UPDATE_ALARM);
+  if (!existing) {
+    chrome.alarms.create(UPDATE_ALARM, { periodInMinutes: UPDATE_CHECK_PERIOD_MINUTES });
+  }
+}
+
 // Run on every service-worker startup (not just onInstalled/onStartup, which
 // don't fire on a plain reload): on Chrome this REMOVES any stale redirect rule
 // a prior build left behind (issue #44); on Firefox it (re)installs it.
@@ -329,6 +378,8 @@ chrome.runtime.onInstalled.addListener(async () => {
   scheduleRefresh();
   installSearchRedirectRule();
   initToolbarIcon();
+  scheduleUpdateCheck();
+  checkForUpdate();
 });
 
 // Reinstall the rule on every worker startup — dynamic rules persist across
@@ -341,6 +392,8 @@ chrome.runtime.onStartup.addListener(async () => {
     fetchAndStoreConfig();
   }
   initToolbarIcon();
+  scheduleUpdateCheck();
+  checkForUpdate();
 });
 
 // When the refresh interval changes in settings, reschedule the alarm. When the
@@ -361,6 +414,9 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === REFRESH_ALARM) {
     if (!(await isDirty())) await fetchAndStoreConfig();
+  }
+  if (alarm.name === UPDATE_ALARM) {
+    await checkForUpdate(true);
   }
 });
 
