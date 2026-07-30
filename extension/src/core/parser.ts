@@ -11,10 +11,13 @@ import type {
   TypoResult,
 } from "./types.js";
 import commonWordsData from "../../../shared/config/common-words.json";
+import tldsData from "../../../shared/config/tlds.json";
 
 const COMMON_WORDS = new Set(
   (commonWordsData as string[]).map((w) => w.toLowerCase()),
 );
+
+const TLDS = new Set(tldsData as string[]);
 
 /**
  * Apply an ordered list of normalize transforms to the args string.
@@ -365,6 +368,12 @@ export function parseCommand(input: ParseInput): ParseOutput {
     };
   }
 
+  // 2b. Single-token URL? Navigate directly. Runs after command matching so a
+  // configured trigger always wins, and before typo detection so domain-like
+  // tokens are never "corrected" into a command.
+  const urlResult = tryUrlDetection(query);
+  if (urlResult) return urlResult;
+
   // 3. No command match - check for typo. Redirect-type typo only applies on hard match.
   const mergedIgnoreList = [
     ...config.ignoreList,
@@ -402,6 +411,65 @@ export function parseCommand(input: ParseInput): ParseOutput {
 
   // 4. Fall through to default command
   return makeDefaultSearch(config, device, query);
+}
+
+const LABEL_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+const PORT_RE = /^\d{1,5}$/;
+const OCTET_RE = /^\d{1,3}$/;
+
+function isIPv4(host: string): boolean {
+  const octets = host.split(".");
+  if (octets.length !== 4) return false;
+  return octets.every((o) => OCTET_RE.test(o) && parseInt(o, 10) <= 255);
+}
+
+/**
+ * Detect a single-token URL: an explicit http(s) URL, or a bare
+ * hostname[:port][/path...] whose host is "localhost", an IPv4 address, or a
+ * domain whose final label is a known TLD (shared/config/tlds.json).
+ *
+ * Deliberately string/regex based (no URL API) so the Android CommandParser
+ * port can mirror it line for line. Returns null when the query is not a URL.
+ */
+export function tryUrlDetection(query: string): ParseResult | null {
+  if (query === "" || /\s/.test(query)) return null;
+
+  const asUrl = (url: string): ParseResult => ({
+    type: "redirect",
+    url,
+    commandId: null,
+    matchType: "url",
+  });
+
+  // Explicit scheme: pass through verbatim (must have something after //).
+  if (/^https?:\/\//i.test(query)) {
+    return /^https?:\/\/./i.test(query) ? asUrl(query) : null;
+  }
+
+  // Split authority from path/query/hash.
+  const cutIdx = query.search(/[/?#]/);
+  const authority = cutIdx === -1 ? query : query.slice(0, cutIdx);
+
+  // Split optional :port.
+  let host = authority;
+  const colonIdx = authority.indexOf(":");
+  if (colonIdx !== -1) {
+    host = authority.slice(0, colonIdx);
+    if (!PORT_RE.test(authority.slice(colonIdx + 1))) return null;
+  }
+  if (host === "") return null;
+
+  const hostLower = host.toLowerCase();
+  if (hostLower === "localhost" || isIPv4(hostLower)) {
+    return asUrl("https://" + query);
+  }
+
+  const labels = hostLower.split(".");
+  if (labels.length < 2) return null;
+  if (!labels.every((label) => LABEL_RE.test(label))) return null;
+  if (!TLDS.has(labels[labels.length - 1])) return null;
+
+  return asUrl("https://" + query);
 }
 
 /**

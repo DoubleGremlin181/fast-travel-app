@@ -368,5 +368,115 @@
       "commandId": "google",
       "matchType": "search"
     }
+  },
+  {
+    "description": "URL detection - bare domain navigates directly with https prepended",
+    "input": { "rawQuery": "gmail.com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://gmail.com",
+      "commandId": null,
+      "matchType": "url"
+    }
+  },
+  {
+    "description": "URL detection - domain with path navigates",
+    "input": { "rawQuery": "github.com/kavi/fast-travel", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://github.com/kavi/fast-travel",
+      "commandId": null,
+      "matchType": "url"
+    }
+  },
+  {
+    "description": "URL detection - localhost with port and path navigates",
+    "input": { "rawQuery": "localhost:3000/admin", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://localhost:3000/admin",
+      "commandId": null,
+      "matchType": "url"
+    }
+  },
+  {
+    "description": "URL detection - IPv4 with port navigates",
+    "input": { "rawQuery": "192.168.1.1:8080", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://192.168.1.1:8080",
+      "commandId": null,
+      "matchType": "url"
+    }
+  },
+  {
+    "description": "URL detection - explicit http scheme is preserved",
+    "input": { "rawQuery": "http://example.com", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "http://example.com",
+      "commandId": null,
+      "matchType": "url"
+    }
+  },
+  {
+    "description": "URL detection - explicit scheme with query and hash passes through unchanged",
+    "input": { "rawQuery": "https://example.com/search?q=1#top", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://example.com/search?q=1#top",
+      "commandId": null,
+      "matchType": "url"
+    }
+  },
+  {
+    "description": "URL detection negative - multi-token query with domain-like word stays a search",
+    "input": { "rawQuery": "node.js install", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=node.js%20install",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - dotted token whose suffix is not a TLD stays a search",
+    "input": { "rawQuery": "file.txt", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=file.txt",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection negative - javascript scheme is never treated as a URL",
+    "input": { "rawQuery": "javascript:alert(1)", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=javascript%3Aalert(1)",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
+  },
+  {
+    "description": "URL detection - TLD check is case-insensitive, input casing preserved",
+    "input": { "rawQuery": "GitHub.COM", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://GitHub.COM",
+      "commandId": null,
+      "matchType": "url"
+    }
+  },
+  {
+    "description": "URL detection negative - trailing dot leaves an empty final label, stays a search",
+    "input": { "rawQuery": "example.com.", "device": "Linux" },
+    "expected": {
+      "type": "redirect",
+      "url": "https://www.google.com/search?q=example.com.",
+      "commandId": "google",
+      "matchType": "default-search"
+    }
   }
 ]

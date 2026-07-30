@@ -77,6 +77,7 @@ export type MatchType =
   | "prefix"
   | "pattern"
   | "search"
+  | "url"
   | "default-search";
 
 export interface ParseResult {

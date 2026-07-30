@@ -150,7 +150,7 @@ val syncSharedConfig = tasks.register<Copy>("syncSharedConfig") {
     description = "Copies shared/config/*.json into Android assets/."
     group = "build"
     from(sharedConfigDir) {
-        include("default-config.json", "common-words.json")
+        include("default-config.json", "common-words.json", "tlds.json")
     }
     into(bundledAssetsDir)
 }
