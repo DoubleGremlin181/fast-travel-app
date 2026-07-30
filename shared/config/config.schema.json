@@ -140,6 +140,11 @@
           "pattern": "^https?://.*\\{query\\}.*$",
           "description": "URL template for command-specific autocomplete. Must be https? and contain {query}."
         },
+        "luckyUrl": {
+          "type": "string",
+          "pattern": "^https?://.*\\{query\\}.*$",
+          "description": "Optional 'I'm Feeling Lucky'-style URL template used by Ctrl+Enter on the default command (e.g. Google's &btnI). Must be https? and contain {query}."
+        },
         "normalize": {
           "type": "array",
           "items": {

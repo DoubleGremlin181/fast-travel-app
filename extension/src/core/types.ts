@@ -47,6 +47,7 @@ export interface Command {
   iconUrl?: string;
   iconOverrides?: IconOverride[];
   suggestionsApi?: string;
+  luckyUrl?: string;
   normalize?: NormalizeStep[];
   routes: Route[];
 }

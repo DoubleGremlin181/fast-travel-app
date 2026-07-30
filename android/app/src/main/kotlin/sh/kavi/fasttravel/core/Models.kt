@@ -40,6 +40,7 @@ data class Command(
     val iconUrl: String? = null,
     val iconOverrides: List<IconOverride> = emptyList(),
     val suggestionsApi: String? = null,
+    val luckyUrl: String? = null,
     val normalize: List<NormalizeStep> = emptyList(),
     val routes: List<Route>,
 )

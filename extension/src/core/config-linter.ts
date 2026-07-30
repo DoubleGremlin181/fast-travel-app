@@ -51,8 +51,23 @@ export function lintConfig(config: FastTravelConfig): LintError[] {
   checkNormalize(commands, errors);
   checkEmptyStrings(commands, errors);
   checkUrlSchemes(commands, errors);
+  checkLuckyUrls(commands, errors);
 
   return errors;
+}
+
+const HTTPS_QUERY_RE = /^https?:\/\/.*\{query\}.*$/;
+
+function checkLuckyUrls(commands: Command[], errors: LintError[]): void {
+  for (const cmd of commands) {
+    if (cmd.luckyUrl === undefined) continue;
+    if (!HTTPS_QUERY_RE.test(cmd.luckyUrl)) {
+      errors.push({
+        path: `commands.${cmd.id}.luckyUrl`,
+        message: `luckyUrl must be an http(s) URL containing {query} — got "${cmd.luckyUrl}"`,
+      });
+    }
+  }
 }
 
 function checkDuplicateTriggers(
