@@ -153,15 +153,11 @@ jobs:
       # No Chrome Web Store publish: the CWS rejected the extension under the
       # Single Purpose policy (NTP + search-engine integration, see issue #36).
       # The Chrome build ships as chrome-extension.zip on the GitHub Release.
-      - name: Publish to Firefox AMO
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          npx web-ext sign \
-            --source-dir extension/dist \
-            --api-key ${{ secrets.FIREFOX_API_KEY }} \
-            --api-secret ${{ secrets.FIREFOX_API_SECRET }} \
-            --channel listed
-
+      #
+      # Play publishes BEFORE AMO: AMO version numbers are permanent even when
+      # the run later fails and rolls back (v2.1.9 was burned this way), while
+      # a failed Play edit commits nothing. Put the step most likely to fail
+      # first so a failure can't strand a half-published version.
       - name: Publish to Google Play
         if: github.event_name == 'workflow_dispatch'
         run: ./gradlew publishBundle
@@ -172,6 +168,15 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: /tmp/play-credentials.json
+
+      - name: Publish to Firefox AMO
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          npx web-ext sign \
+            --source-dir extension/dist \
+            --api-key ${{ secrets.FIREFOX_API_KEY }} \
+            --api-secret ${{ secrets.FIREFOX_API_SECRET }} \
+            --channel listed
 
       # ── GitHub Release (workflow_dispatch only) ────────────────────────────
       - name: Create GitHub Release
