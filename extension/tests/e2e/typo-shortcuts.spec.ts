@@ -78,6 +78,29 @@ test("pressing N declines the typo and searches on the default engine (hidden al
   expect(new URL(request.url()).searchParams.get("q")).toBe("scholor");
 });
 
+test("pressing Enter declines the typo and searches on the default engine", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
+  await showTypoPrompt(page);
+
+  // Enter mirrors the "Default search" button: the query was just submitted
+  // with Enter, so pressing it again reads as "yes, really search this".
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (r) =>
+        r.isNavigationRequest() &&
+        r.frame() === page.mainFrame() &&
+        /google\.com\/search\?q=/.test(r.url()),
+      { timeout: 8000 },
+    ),
+    page.keyboard.press("Enter"),
+  ]);
+  expect(new URL(request.url()).searchParams.get("q")).toBe("scholor");
+});
+
 // PS: declining a typo must route to the user's configured default engine, not a
 // hard-coded Google. That fallback is pure parser logic (parseCommand →
 // makeDefaultSearch using config.defaultCommand), verified deterministically in the
