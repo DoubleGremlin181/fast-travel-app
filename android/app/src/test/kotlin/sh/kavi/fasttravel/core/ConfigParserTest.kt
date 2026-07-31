@@ -43,11 +43,12 @@ class ConfigParserTest {
     }
 
     @Test
-    fun `luckyUrl survives a parse-write-parse round trip`() {
+    fun `defaultLuckyUrl survives a parse-write-parse round trip`() {
         val json = """
             {
               "version": 2,
               "defaultCommand": "g",
+              "defaultLuckyUrl": "https://www.google.com/search?q={query}&btnI",
               "groups": [
                 {
                   "id": "grp",
@@ -58,7 +59,6 @@ class ConfigParserTest {
                       "triggers": ["g"],
                       "name": "Google",
                       "type": "standard",
-                      "luckyUrl": "https://www.google.com/search?q={query}&btnI",
                       "routes": [{ "devices": "*", "defaultUrl": "https://www.google.com" }]
                     }
                   ]
@@ -71,13 +71,13 @@ class ConfigParserTest {
         val parsed = ConfigParser.parseConfig(json)
         assertEquals(
             "https://www.google.com/search?q={query}&btnI",
-            parsed.groups[0].commands[0].luckyUrl,
+            parsed.defaultLuckyUrl,
         )
 
         val rewritten = ConfigParser.parseConfig(ConfigWriter.writeConfig(parsed))
         assertEquals(
             "https://www.google.com/search?q={query}&btnI",
-            rewritten.groups[0].commands[0].luckyUrl,
+            rewritten.defaultLuckyUrl,
         )
     }
 }

@@ -33,9 +33,9 @@ const PLACEHOLDER_RE = /\{(\w+)(?::\d+(?:-\d+)?)?\}/g;
 const URL_LENGTH_MODIFIER_RE = /\{\w+:\d+(?:-\d+)?\}/g;
 
 const ALLOWED_KEYS = {
-  root: new Set(["$schema", "version", "defaultCommand", "defaultSuggestionsApi", "groups", "ignoreList"]),
+  root: new Set(["$schema", "version", "defaultCommand", "defaultSuggestionsApi", "defaultLuckyUrl", "groups", "ignoreList"]),
   group: new Set(["id", "name", "color", "description", "commands", "groups"]),
-  command: new Set(["id", "triggers", "name", "type", "description", "color", "iconUrl", "iconOverrides", "suggestionsApi", "luckyUrl", "normalize", "routes"]),
+  command: new Set(["id", "triggers", "name", "type", "description", "color", "iconUrl", "iconOverrides", "suggestionsApi", "normalize", "routes"]),
   iconOverride: new Set(["devices", "iconUrl"]),
   route: new Set(["devices", "browsers", "defaultUrl", "searchUrl", "patterns"]),
   pattern: new Set(["match", "url"]),
@@ -225,9 +225,6 @@ function validateCommand(c, path, errors, seenIds, seenTriggers) {
   if (c.suggestionsApi !== undefined && (!isPlainString(c.suggestionsApi) || !HTTPS_QUERY_RE.test(c.suggestionsApi))) {
     errors.push(`${path}.suggestionsApi: must be http(s) URL containing {query} — got "${c.suggestionsApi}"`);
   }
-  if (c.luckyUrl !== undefined && (!isPlainString(c.luckyUrl) || !HTTPS_QUERY_RE.test(c.luckyUrl))) {
-    errors.push(`${path}.luckyUrl: must be http(s) URL containing {query} — got "${c.luckyUrl}"`);
-  }
 
   if (c.normalize !== undefined) {
     if (!Array.isArray(c.normalize) || c.normalize.length === 0) {
@@ -295,6 +292,10 @@ export function validateConfig(cfg) {
   if (cfg.defaultSuggestionsApi !== undefined &&
       (!isPlainString(cfg.defaultSuggestionsApi) || !HTTPS_QUERY_RE.test(cfg.defaultSuggestionsApi))) {
     errors.push(`config.defaultSuggestionsApi: must be http(s) URL containing {query}`);
+  }
+  if (cfg.defaultLuckyUrl !== undefined &&
+      (!isPlainString(cfg.defaultLuckyUrl) || !HTTPS_QUERY_RE.test(cfg.defaultLuckyUrl))) {
+    errors.push(`config.defaultLuckyUrl: must be http(s) URL containing {query}`);
   }
   if (cfg.ignoreList !== undefined) {
     if (!Array.isArray(cfg.ignoreList)) {

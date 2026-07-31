@@ -40,7 +40,6 @@ data class Command(
     val iconUrl: String? = null,
     val iconOverrides: List<IconOverride> = emptyList(),
     val suggestionsApi: String? = null,
-    val luckyUrl: String? = null,
     val normalize: List<NormalizeStep> = emptyList(),
     val routes: List<Route>,
 )
@@ -89,6 +88,7 @@ data class FastTravelConfig(
     val version: Int,
     val defaultCommand: String,
     val defaultSuggestionsApi: String? = null,
+    val defaultLuckyUrl: String? = null,
     val groups: List<Group>,
     val ignoreList: List<String>,
 )

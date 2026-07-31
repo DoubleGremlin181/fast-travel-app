@@ -19,6 +19,7 @@ object ConfigValidator {
     private val SCHEME_REGEX = Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:.*")
     private val PLACEHOLDER_REGEX =
         Regex("\\{([a-zA-Z0-9_]+)(?::(\\d+)(?:-(\\d+))?)?\\}")
+    private val QUERY_URL_REGEX = Regex("^https?://.*\\{query\\}.*$")
     private const val MAX_PATTERN_LENGTH = 64
 
     fun validate(cfg: FastTravelConfig): List<String> {
@@ -40,6 +41,10 @@ object ConfigValidator {
             errors += "Default command is required."
         } else if (!triggers.containsKey(cfg.defaultCommand.lowercase())) {
             errors += "Default command '${cfg.defaultCommand}' does not match any command trigger."
+        }
+
+        if (!cfg.defaultLuckyUrl.isNullOrBlank() && !QUERY_URL_REGEX.matches(cfg.defaultLuckyUrl)) {
+            errors += "Default lucky URL must be an http(s) URL containing {query}."
         }
 
         return errors

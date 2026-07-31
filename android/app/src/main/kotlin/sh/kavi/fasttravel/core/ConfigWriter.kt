@@ -16,6 +16,9 @@ object ConfigWriter {
         if (!cfg.defaultSuggestionsApi.isNullOrBlank()) {
             obj.put("defaultSuggestionsApi", cfg.defaultSuggestionsApi)
         }
+        if (!cfg.defaultLuckyUrl.isNullOrBlank()) {
+            obj.put("defaultLuckyUrl", cfg.defaultLuckyUrl)
+        }
         obj.put("groups", writeGroups(cfg.groups))
         obj.put("ignoreList", writeStringList(cfg.ignoreList))
         return obj.toString(2)
@@ -64,7 +67,6 @@ object ConfigWriter {
             obj.put("iconOverrides", arr)
         }
         if (!c.suggestionsApi.isNullOrBlank()) obj.put("suggestionsApi", c.suggestionsApi)
-        if (!c.luckyUrl.isNullOrBlank()) obj.put("luckyUrl", c.luckyUrl)
         if (c.normalize.isNotEmpty()) {
             val nArr = JSONArray()
             for (step in c.normalize) nArr.put(step.value)

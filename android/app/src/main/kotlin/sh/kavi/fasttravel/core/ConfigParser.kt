@@ -28,6 +28,7 @@ object ConfigParser {
             version = obj.getInt("version"),
             defaultCommand = obj.getString("defaultCommand"),
             defaultSuggestionsApi = obj.optStringOrNull("defaultSuggestionsApi"),
+            defaultLuckyUrl = obj.optStringOrNull("defaultLuckyUrl"),
             groups = parseGroups(obj.getJSONArray("groups")),
             ignoreList = if (obj.has("ignoreList")) parseStringList(obj.getJSONArray("ignoreList")) else emptyList(),
         )
@@ -67,7 +68,6 @@ object ConfigParser {
             iconUrl = obj.optStringOrNull("iconUrl"),
             iconOverrides = parseIconOverrides(obj.optJSONArray("iconOverrides")),
             suggestionsApi = obj.optStringOrNull("suggestionsApi"),
-            luckyUrl = obj.optStringOrNull("luckyUrl"),
             normalize = parseNormalize(obj.optJSONArray("normalize")),
             routes = parseRoutes(obj.getJSONArray("routes")),
         )

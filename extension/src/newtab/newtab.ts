@@ -408,9 +408,9 @@ function handleSearch(): void {
   }
 }
 
-// Ctrl/Cmd+Enter: "I'm feeling lucky"-style navigation via the default
-// command's luckyUrl template. Falls back to a normal search when the
-// config doesn't define one.
+// Ctrl/Cmd+Enter: "I'm feeling lucky"-style navigation via the top-level
+// defaultLuckyUrl template. Falls back to a normal search when the config
+// doesn't define one.
 function handleLuckySearch(): void {
   if (!config) return;
   const query = searchInput.value.trim();
@@ -421,8 +421,8 @@ function handleLuckySearch(): void {
     handleSearch();
     return;
   }
-  // Tighter than the general allowlist: the luckyUrl contract is https?://
-  // everywhere it's validated (schema/validator/linter). A refused scheme
+  // Tighter than the general allowlist: the defaultLuckyUrl contract is
+  // https?:// everywhere it's validated (schema/validator/linter). A refused scheme
   // falls back to a normal search rather than silently eating the keypress.
   if (!/^https?:/i.test(lucky.url)) {
     handleSearch();

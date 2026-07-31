@@ -7,10 +7,10 @@ export interface LuckyResult {
 }
 
 /**
- * Build the Ctrl+Enter "lucky" navigation URL: the default command's
- * luckyUrl template with {query} substituted. Returns null when the default
- * command has no luckyUrl (callers fall back to a normal search) or the
- * query is empty.
+ * Build the Ctrl+Enter "lucky" navigation URL: the top-level defaultLuckyUrl
+ * template with {query} substituted. Returns null when the config has no
+ * defaultLuckyUrl (callers fall back to a normal search), the default
+ * command doesn't resolve, or the query is empty.
  */
 export function buildLuckyUrl(
   config: FastTravelConfig,
@@ -19,13 +19,16 @@ export function buildLuckyUrl(
   const trimmed = query.trim();
   if (trimmed === "") return null;
 
+  const luckyUrl = config.defaultLuckyUrl?.trim();
+  if (!luckyUrl) return null;
+
   const defaultCmd = buildTriggerMap(config).get(
     config.defaultCommand.toLowerCase(),
   );
-  if (!defaultCmd?.luckyUrl) return null;
+  if (!defaultCmd) return null;
 
   return {
-    url: defaultCmd.luckyUrl.replaceAll("{query}", encodeURIComponent(trimmed)),
+    url: luckyUrl.replaceAll("{query}", encodeURIComponent(trimmed)),
     commandId: defaultCmd.id,
   };
 }
