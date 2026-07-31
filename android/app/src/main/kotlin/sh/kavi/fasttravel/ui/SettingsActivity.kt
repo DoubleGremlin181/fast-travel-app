@@ -757,6 +757,32 @@ fun ConfigurationScreen(
                             },
                         )
                     }
+                    var defaultLuckyUrlText by remember(config.defaultLuckyUrl) {
+                        mutableStateOf(config.defaultLuckyUrl ?: "")
+                    }
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        OutlinedTextFieldS(
+                            value = defaultLuckyUrlText,
+                            onValueChange = { defaultLuckyUrlText = it },
+                            label = { Text("Default lucky URL (optional)") },
+                            placeholder = { Text("https://www.google.com/search?q={query}&btnI") },
+                            supportingText = { Text("Use {query}. Ctrl+Enter (hardware keyboard) opens the first result.") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            trailingIcon = {
+                                if (defaultLuckyUrlText.trim() != (config.defaultLuckyUrl ?: "")) {
+                                    IconButton(onClick = {
+                                        val url = defaultLuckyUrlText.trim().ifEmpty { null }
+                                        editableStore.saveLocalConfig(config.copy(defaultLuckyUrl = url))
+                                        markDirtyAndCancelRefresh(context, themePrefs)
+                                        onConfigChanged()
+                                    }) {
+                                        Icon(Icons.Default.Check, contentDescription = "Save")
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 NavigableListItem(

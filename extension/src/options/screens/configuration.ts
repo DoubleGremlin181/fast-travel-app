@@ -38,6 +38,14 @@ export async function renderConfiguration(main: HTMLElement): Promise<void> {
     });
     card.appendChild(apiRow);
     card.appendChild(el("div", { class: "card-divider" }));
+
+    const luckyRow = defaultLuckyUrlRow(config, async (url) => {
+      const current = await getConfig();
+      if (!current) return;
+      await setConfig({ ...current, defaultLuckyUrl: url || undefined });
+    });
+    card.appendChild(luckyRow);
+    card.appendChild(el("div", { class: "card-divider" }));
   }
 
   // Import / Export row — its subtitle surfaces sync state (mirrors Android):
@@ -90,6 +98,24 @@ function defaultSuggestionsApiRow(
   input.addEventListener("change", () => void onSave(input.value.trim()));
   row.appendChild(input);
   row.appendChild(el("div", { class: "form-hint" }, "Fallback when a command has no suggestions URL. Include {query}."));
+  return row;
+}
+
+function defaultLuckyUrlRow(
+  config: FastTravelConfig,
+  onSave: (url: string) => Promise<void>,
+): HTMLElement {
+  const row = el("div", { class: "form-row", style: "padding:12px 16px;" });
+  row.appendChild(el("label", { for: "default-lucky-url" }, "Default lucky URL (optional)"));
+  const input = el("input", {
+    id: "default-lucky-url",
+    type: "text",
+    placeholder: "https://www.google.com/search?q={query}&btnI",
+    value: config.defaultLuckyUrl ?? "",
+  }) as HTMLInputElement;
+  input.addEventListener("change", () => void onSave(input.value.trim()));
+  row.appendChild(input);
+  row.appendChild(el("div", { class: "form-hint" }, "Must include {query}. Ctrl+Enter opens the first result via this URL."));
   return row;
 }
 
