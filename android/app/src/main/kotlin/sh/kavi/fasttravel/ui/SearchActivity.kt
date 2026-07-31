@@ -129,6 +129,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import sh.kavi.fasttravel.core.Command
+import sh.kavi.fasttravel.core.CommandParser
 import sh.kavi.fasttravel.core.CommandType
 import sh.kavi.fasttravel.core.DeviceType
 import sh.kavi.fasttravel.core.InstalledApp
@@ -177,6 +178,24 @@ internal fun ChevronMark(
             lineTo(102f * scale, 140f * scale)
         }
         drawPath(front, color = accent, style = stroke)
+    }
+}
+
+/** Globe icon for URL-shaped rows — parity with the extension's 🌐 rows. */
+@Composable
+private fun UrlGlobeIcon(size: Dp, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "🌐",
+            fontSize = (size.value * 0.72f).sp,
+            textAlign = TextAlign.Center,
+            style = LocalTextStyle.current.copy(
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+            ),
+        )
     }
 }
 
@@ -1085,6 +1104,9 @@ private fun HistoryRow(
     val groupColorHex = matchedCommand?.let { groupColorMap[it.id] }
     val triggerForMonogram = suggestion.commandTrigger
         ?: suggestion.displayText.trim().ifEmpty { "?" }
+    val isUrlShaped = remember(suggestion.text) {
+        CommandParser.tryUrlDetection(suggestion.text) != null
+    }
 
     Row(
         modifier = Modifier
@@ -1114,6 +1136,8 @@ private fun HistoryRow(
                 contentDescription = "${launchableApp.label} icon",
                 modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
             )
+        } else if (suggestion.commandIconUrl == null && matchedCommand == null && isUrlShaped) {
+            UrlGlobeIcon(size = 24.dp)
         } else {
             CommandFavicon(
                 iconUrl = favicon,
@@ -1226,6 +1250,9 @@ private fun SuggestionRow(
     val groupColorHex = matchedCommand?.let { groupColorMap[it.id] }
     val triggerForMonogram = suggestion.commandTrigger
         ?: suggestion.displayText.trim().ifEmpty { "?" }
+    val isUrlShaped = remember(suggestion.text) {
+        CommandParser.tryUrlDetection(suggestion.text) != null
+    }
 
     Row(
         modifier = Modifier
@@ -1235,12 +1262,16 @@ private fun SuggestionRow(
             .semantics { contentDescription = "Search for ${suggestion.displayText}" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CommandFavicon(
-            iconUrl = favicon,
-            trigger = triggerForMonogram,
-            groupColorHex = groupColorHex,
-            size = 24.dp,
-        )
+        if (suggestion.commandIconUrl == null && matchedCommand == null && isUrlShaped) {
+            UrlGlobeIcon(size = 24.dp)
+        } else {
+            CommandFavicon(
+                iconUrl = favicon,
+                trigger = triggerForMonogram,
+                groupColorHex = groupColorHex,
+                size = 24.dp,
+            )
+        }
         Spacer(modifier = Modifier.width(12.dp))
         TailText(
             text = suggestion.displayText,
