@@ -87,6 +87,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -587,6 +588,7 @@ fun SearchScreen(
                 leadingCommandGroupColor = leadingCommand?.let { groupColorMap[it.id] },
                 typoActive = searchState is SearchState.TypoSuggestion,
                 onDeclineTypo = { viewModel.fallbackSearchAfterTypo() },
+                onLuckySearch = { viewModel.onLuckySearch(query) },
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -695,6 +697,7 @@ private fun SearchBarPill(
     leadingCommandGroupColor: String? = null,
     typoActive: Boolean = false,
     onDeclineTypo: () -> Unit = {},
+    onLuckySearch: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val appearance = LocalAppearance.current
@@ -771,7 +774,16 @@ private fun SearchBarPill(
                     // mirroring the browser's hidden decline shortcut. Consumed here so
                     // the letter isn't also typed into the field. Not advertised in the UI.
                     .onPreviewKeyEvent { event ->
-                        if (typoActive &&
+                        if (event.type == KeyEventType.KeyDown &&
+                            (event.key == Key.Enter || event.key == Key.NumPadEnter) &&
+                            event.isCtrlPressed
+                        ) {
+                            // Hardware-keyboard Ctrl+Enter "I'm feeling lucky", mirroring the
+                            // extension's shortcut. Consumed here so the IME action doesn't
+                            // also fire and double-navigate. Not advertised in the UI.
+                            onLuckySearch()
+                            true
+                        } else if (typoActive &&
                             event.type == KeyEventType.KeyDown &&
                             event.key == Key.N
                         ) {
