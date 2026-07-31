@@ -160,6 +160,30 @@ test("blend: Ctrl+ArrowDown jumps to the next section start", async ({
   await expect(page.locator(".suggestion-item.active")).toHaveClass(/suggestion-history/);
 });
 
+test("URL-shaped history rows show the globe icon", async ({ context, extensionId }) => {
+  await stubSuggestApi(context);
+  const page = await openNewtab(context, extensionId);
+  await seedHistory(page, [
+    { query: "github.com/foo", commandId: null, timestamp: Date.now() },
+    { query: "gitlab pipelines", commandId: null, timestamp: Date.now() - 86_400_000 },
+  ]);
+  await page.reload();
+  await page.locator("html[data-ft-ready]").waitFor();
+
+  await page.locator("#search-input").fill("gi");
+
+  const globeIcons = page.locator(".suggestion-item .suggestion-favicon.globe");
+  await expect(globeIcons).toHaveCount(1, { timeout: 5000 });
+  await expect(globeIcons).toHaveText("🌐");
+
+  const plainRow = page.locator(".suggestion-item.suggestion-history", {
+    hasText: "gitlab pipelines",
+  });
+  const plainFavicon = plainRow.locator(".suggestion-favicon");
+  await expect(plainFavicon).toHaveClass(/monogram/);
+  await expect(plainFavicon).not.toHaveClass(/globe/);
+});
+
 test("settings: Suggestions screen defaults — FT on, browser history off", async ({
   context,
   extensionId,
