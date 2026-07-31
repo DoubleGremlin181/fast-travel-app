@@ -1,12 +1,14 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { buildLuckyUrl } from "../../src/core/lucky.js";
 import type { FastTravelConfig } from "../../src/core/types.js";
 
-function makeConfig(defaultLuckyUrl?: string, defaultCommand = "g"): FastTravelConfig {
+function makeConfig(defaultLuckyUrl?: string | null, defaultCommand = "g"): FastTravelConfig {
   return {
     version: 2,
     defaultCommand,
-    ...(defaultLuckyUrl !== undefined ? { defaultLuckyUrl } : {}),
+    ...(defaultLuckyUrl != null ? { defaultLuckyUrl } : {}),
     groups: [
       {
         id: "grp",
@@ -49,4 +51,27 @@ describe("buildLuckyUrl", () => {
     expect(buildLuckyUrl(cfg, "")).toBeNull();
     expect(buildLuckyUrl(cfg, "   ")).toBeNull();
   });
+});
+
+interface LuckyFixture {
+  description: string;
+  input: { defaultLuckyUrl: string | null; defaultCommand: string; query: string };
+  expected: { url: string; commandId: string } | null;
+}
+
+const luckyFixtures: LuckyFixture[] = JSON.parse(
+  readFileSync(
+    resolve(__dirname, "../../../shared/test-fixtures/lucky.fixtures.json"),
+    "utf-8",
+  ),
+);
+
+describe("buildLuckyUrl — shared fixtures", () => {
+  for (const fixture of luckyFixtures) {
+    it(fixture.description, () => {
+      const cfg = makeConfig(fixture.input.defaultLuckyUrl, fixture.input.defaultCommand);
+      const result = buildLuckyUrl(cfg, fixture.input.query);
+      expect(result).toEqual(fixture.expected);
+    });
+  }
 });

@@ -1,15 +1,23 @@
 package sh.kavi.fasttravel.core
 
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
+import java.io.File
+import java.util.stream.Stream
 
 /**
- * Minimal hand-written coverage for [Lucky.buildLuckyUrl]. A later task adds a
- * fixture-driven @ParameterizedTest block here (shared/test-fixtures) that exercises
- * the extension and Android ports against the same cases — kept as plain @Test
- * functions for now so that block can be added alongside without restructuring.
+ * Coverage for [Lucky.buildLuckyUrl]: hand-written cases plus a fixture-driven
+ * block (shared/test-fixtures/lucky.fixtures.json) that exercises the extension
+ * and Android ports against the same cases to pin cross-platform parity.
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class LuckyTest {
 
     private fun command(id: String, trigger: String) = Command(
@@ -66,5 +74,75 @@ class LuckyTest {
     @Test
     fun `returns null when the default command does not resolve`() {
         assertNull(Lucky.buildLuckyUrl(config(defaultCommand = "missing"), "cat pics"))
+    }
+
+    /** Get an optional string field, returning null if absent (not the empty string). */
+    private fun JSONObject.optStringOrNull(key: String): String? =
+        if (has(key) && !isNull(key)) getString(key) else null
+
+    private fun resolveSharedFile(relativePath: String): File {
+        // Try multiple base paths - Gradle may run from android/ or android/app/
+        val candidates = listOf(
+            File("../shared/$relativePath"),
+            File("../../shared/$relativePath"),
+            File("shared/$relativePath"),
+        )
+        return candidates.firstOrNull { it.exists() }
+            ?: throw IllegalStateException(
+                "Cannot find shared/$relativePath. Tried: ${candidates.map { it.absolutePath }}"
+            )
+    }
+
+    data class LuckyFixture(
+        val description: String,
+        val defaultLuckyUrl: String?,
+        val defaultCommand: String,
+        val query: String,
+        val expectedUrl: String?,
+        val expectedCommandId: String?,
+    )
+
+    private fun loadLuckyFixtures(): Stream<LuckyFixture> {
+        val json = resolveSharedFile("test-fixtures/lucky.fixtures.json").readText()
+        val arr = JSONArray(json)
+        val fixtures = mutableListOf<LuckyFixture>()
+
+        for (i in 0 until arr.length()) {
+            val obj = arr.getJSONObject(i)
+            val input = obj.getJSONObject("input")
+            val expected = obj.optJSONObject("expected")
+            fixtures.add(
+                LuckyFixture(
+                    description = obj.getString("description"),
+                    defaultLuckyUrl = input.optStringOrNull("defaultLuckyUrl"),
+                    defaultCommand = input.getString("defaultCommand"),
+                    query = input.getString("query"),
+                    expectedUrl = expected?.optStringOrNull("url"),
+                    expectedCommandId = expected?.optStringOrNull("commandId"),
+                )
+            )
+        }
+
+        return fixtures.stream()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("loadLuckyFixtures")
+    @DisplayName("Lucky URL fixtures")
+    fun `lucky url fixtures`(fixture: LuckyFixture) {
+        val result = Lucky.buildLuckyUrl(
+            config(defaultCommand = fixture.defaultCommand, defaultLuckyUrl = fixture.defaultLuckyUrl),
+            fixture.query,
+        )
+
+        if (fixture.expectedUrl == null) {
+            assertNull(result, "${fixture.description}: expected null")
+        } else {
+            assertEquals(
+                LuckyResult(url = fixture.expectedUrl, commandId = fixture.expectedCommandId),
+                result,
+                fixture.description,
+            )
+        }
     }
 }

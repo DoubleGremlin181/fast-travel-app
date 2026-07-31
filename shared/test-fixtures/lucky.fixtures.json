@@ -1,0 +1,95 @@
+[
+  {
+    "description": "Basic substitution - encoded query dropped into the template",
+    "input": {
+      "defaultLuckyUrl": "https://www.google.com/search?q={query}&btnI",
+      "defaultCommand": "g",
+      "query": "hello world"
+    },
+    "expected": {
+      "url": "https://www.google.com/search?q=hello%20world&btnI",
+      "commandId": "google"
+    }
+  },
+  {
+    "description": "Every {query} occurrence in the template is replaced",
+    "input": {
+      "defaultLuckyUrl": "https://x.example/{query}?q={query}",
+      "defaultCommand": "g",
+      "query": "a"
+    },
+    "expected": {
+      "url": "https://x.example/a?q=a",
+      "commandId": "google"
+    }
+  },
+  {
+    "description": "Encoding parity - percent-encoding matches JS encodeURIComponent exactly",
+    "input": {
+      "defaultLuckyUrl": "https://example.com/?q={query}",
+      "defaultCommand": "g",
+      "query": "c++ & äöü (~'!)"
+    },
+    "expected": {
+      "url": "https://example.com/?q=c%2B%2B%20%26%20%C3%A4%C3%B6%C3%BC%20(~'!)",
+      "commandId": "google"
+    }
+  },
+  {
+    "description": "Null when defaultLuckyUrl is absent (null)",
+    "input": {
+      "defaultLuckyUrl": null,
+      "defaultCommand": "g",
+      "query": "hello"
+    },
+    "expected": null
+  },
+  {
+    "description": "Null when defaultLuckyUrl is blank/whitespace",
+    "input": {
+      "defaultLuckyUrl": "   ",
+      "defaultCommand": "g",
+      "query": "hello"
+    },
+    "expected": null
+  },
+  {
+    "description": "Null for an empty query",
+    "input": {
+      "defaultLuckyUrl": "https://example.com/?q={query}",
+      "defaultCommand": "g",
+      "query": ""
+    },
+    "expected": null
+  },
+  {
+    "description": "Null for a whitespace-only query",
+    "input": {
+      "defaultLuckyUrl": "https://example.com/?q={query}",
+      "defaultCommand": "g",
+      "query": "   "
+    },
+    "expected": null
+  },
+  {
+    "description": "Query is trimmed before substitution",
+    "input": {
+      "defaultLuckyUrl": "https://example.com/?q={query}",
+      "defaultCommand": "g",
+      "query": "  hi  "
+    },
+    "expected": {
+      "url": "https://example.com/?q=hi",
+      "commandId": "google"
+    }
+  },
+  {
+    "description": "Null when defaultCommand matches no trigger",
+    "input": {
+      "defaultLuckyUrl": "https://example.com/?q={query}",
+      "defaultCommand": "missing",
+      "query": "hello"
+    },
+    "expected": null
+  }
+]
