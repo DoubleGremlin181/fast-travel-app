@@ -1262,6 +1262,8 @@ private fun SuggestionRow(
             .semantics { contentDescription = "Search for ${suggestion.displayText}" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // URL-shaped API suggestions (no commandTrigger/commandIconUrl) intentionally get the
+        // globe on Android; the extension currently monograms these (parity gap accepted).
         if (suggestion.commandIconUrl == null && matchedCommand == null && isUrlShaped) {
             UrlGlobeIcon(size = 24.dp)
         } else {

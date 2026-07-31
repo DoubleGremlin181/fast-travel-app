@@ -773,9 +773,17 @@ fun ConfigurationScreen(
                                 if (defaultLuckyUrlText.trim() != (config.defaultLuckyUrl ?: "")) {
                                     IconButton(onClick = {
                                         val url = defaultLuckyUrlText.trim().ifEmpty { null }
-                                        editableStore.saveLocalConfig(config.copy(defaultLuckyUrl = url))
-                                        markDirtyAndCancelRefresh(context, themePrefs)
-                                        onConfigChanged()
+                                        val updated = config.copy(defaultLuckyUrl = url)
+                                        val errors = ConfigValidator.validate(updated)
+                                        if (errors.isNotEmpty()) {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(errors.first())
+                                            }
+                                        } else {
+                                            editableStore.saveLocalConfig(updated)
+                                            markDirtyAndCancelRefresh(context, themePrefs)
+                                            onConfigChanged()
+                                        }
                                     }) {
                                         Icon(Icons.Default.Check, contentDescription = "Save")
                                     }

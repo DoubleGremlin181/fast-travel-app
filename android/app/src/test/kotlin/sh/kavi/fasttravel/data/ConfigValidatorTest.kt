@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test
 import sh.kavi.fasttravel.core.Command
 import sh.kavi.fasttravel.core.CommandType
 import sh.kavi.fasttravel.core.DeviceType
+import sh.kavi.fasttravel.core.FastTravelConfig
+import sh.kavi.fasttravel.core.Group
 import sh.kavi.fasttravel.core.IconOverride
 import sh.kavi.fasttravel.core.Route
 import sh.kavi.fasttravel.core.RouteDevices
@@ -22,6 +24,51 @@ class ConfigValidatorTest {
             Route(devices = RouteDevices.Wildcard, defaultUrl = "https://example.com"),
         ),
     )
+
+    /** Minimal valid whole-config fixture; each test overrides just what it needs. */
+    private fun baseConfig(defaultLuckyUrl: String? = null) = FastTravelConfig(
+        version = 1,
+        defaultCommand = "t",
+        defaultLuckyUrl = defaultLuckyUrl,
+        groups = listOf(Group(id = "g", name = "G", commands = listOf(baseCommand()))),
+        ignoreList = emptyList(),
+    )
+
+    @Test
+    fun `defaultLuckyUrl null is valid`() {
+        val errors = ConfigValidator.validate(baseConfig(defaultLuckyUrl = null))
+        assertEquals(emptyList<String>(), errors)
+    }
+
+    @Test
+    fun `defaultLuckyUrl with query placeholder is valid`() {
+        val errors = ConfigValidator.validate(
+            baseConfig(defaultLuckyUrl = "https://www.google.com/search?q={query}&btnI"),
+        )
+        assertEquals(emptyList<String>(), errors)
+    }
+
+    @Test
+    fun `defaultLuckyUrl missing query placeholder is rejected`() {
+        val errors = ConfigValidator.validate(
+            baseConfig(defaultLuckyUrl = "https://www.google.com/search?q=foo"),
+        )
+        assertTrue(
+            errors.any { it.contains("Default lucky URL") },
+            "expected a Default lucky URL error, got: $errors",
+        )
+    }
+
+    @Test
+    fun `defaultLuckyUrl with non-http scheme is rejected`() {
+        val errors = ConfigValidator.validate(
+            baseConfig(defaultLuckyUrl = "ftp://example.com/{query}"),
+        )
+        assertTrue(
+            errors.any { it.contains("Default lucky URL") },
+            "expected a Default lucky URL error, got: $errors",
+        )
+    }
 
     @Test
     fun `valid iconOverrides pass validation`() {
