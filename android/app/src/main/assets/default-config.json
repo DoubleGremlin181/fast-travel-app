@@ -3,6 +3,7 @@
   "version": 2,
   "defaultCommand": "g",
   "defaultSuggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&q={query}",
+  "defaultLuckyUrl": "https://www.google.com/search?q={query}&btnI",
   "groups": [
     {
       "id": "search-engines",
@@ -18,7 +19,6 @@
           "type": "standard",
           "iconUrl": "https://www.google.com/s2/favicons?domain=google.com&sz=128",
           "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&q={query}",
-          "luckyUrl": "https://www.google.com/search?q={query}&btnI",
           "routes": [
             {
               "devices": "*",

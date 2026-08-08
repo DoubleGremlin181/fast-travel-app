@@ -5,7 +5,7 @@
  *   1. Typing a bare domain navigates directly (no search engine round-trip)
  *   2. A multi-token query containing a domain-like word still searches
  *   3. javascript: input never navigates (complements xss-javascript-url.spec.ts)
- *   4. Ctrl+Enter routes through the default command's luckyUrl template
+ *   4. Ctrl+Enter routes through the top-level defaultLuckyUrl template
  *
  * Navigation assertions use waitForRequest so tests resolve when the request
  * is issued, without depending on external sites actually loading.
@@ -94,25 +94,22 @@ test("javascript: input searches instead of navigating", async ({ context, exten
   expect(dialogFired).toBe(false);
 });
 
-test("Ctrl+Enter routes through the default command's luckyUrl", async ({
+test("Ctrl+Enter routes through the top-level defaultLuckyUrl", async ({
   context,
   extensionId,
 }) => {
   const page = await readyNewtab(context, extensionId);
 
   // Seed the config directly: the service worker refreshes config from the
-  // repo's main branch on install, which may not carry luckyUrl yet. Direct
-  // storage write keeps this test hermetic (same pattern as the xss spec).
+  // repo's main branch on install, which may not carry defaultLuckyUrl yet.
+  // Direct storage write keeps this test hermetic (same pattern as the xss spec).
   const sw = context.serviceWorkers()[0];
   await sw.evaluate(() =>
     chrome.storage.local
       .get("fast-travel-config")
       .then((v: Record<string, any>) => {
         const cfg = v["fast-travel-config"];
-        const google = cfg.groups
-          .flatMap((g: any) => g.commands)
-          .find((c: any) => c.id === "google");
-        google.luckyUrl = "https://www.google.com/search?q={query}&btnI";
+        cfg.defaultLuckyUrl = "https://www.google.com/search?q={query}&btnI";
         return chrome.storage.local.set({ "fast-travel-config": cfg });
       }),
   );

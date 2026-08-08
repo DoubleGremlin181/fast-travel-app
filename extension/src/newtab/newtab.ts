@@ -1,4 +1,4 @@
-import { parseCommand, buildTriggerMap } from "../core/parser.js";
+import { parseCommand, buildTriggerMap, tryUrlDetection } from "../core/parser.js";
 import { buildLuckyUrl } from "../core/lucky.js";
 import { fetchSuggestions } from "../core/suggestions.js";
 import { detectDevice } from "../core/device.js";
@@ -60,6 +60,8 @@ interface SuggestionItem {
   topHit?: boolean;
   /** Navigation target for browser-history rows. */
   url?: string;
+  /** True when the row's underlying text/URL is URL-shaped; shows a 🌐 icon instead of a monogram. */
+  isUrl?: boolean;
 }
 
 interface ResolvedCommand {
@@ -408,9 +410,9 @@ function handleSearch(): void {
   }
 }
 
-// Ctrl/Cmd+Enter: "I'm feeling lucky"-style navigation via the default
-// command's luckyUrl template. Falls back to a normal search when the
-// config doesn't define one.
+// Ctrl/Cmd+Enter: "I'm feeling lucky"-style navigation via the top-level
+// defaultLuckyUrl template. Falls back to a normal search when the config
+// doesn't define one.
 function handleLuckySearch(): void {
   if (!config) return;
   const query = searchInput.value.trim();
@@ -421,8 +423,8 @@ function handleLuckySearch(): void {
     handleSearch();
     return;
   }
-  // Tighter than the general allowlist: the luckyUrl contract is https?://
-  // everywhere it's validated (schema/validator/linter). A refused scheme
+  // Tighter than the general allowlist: the defaultLuckyUrl contract is
+  // https?:// everywhere it's validated (schema/validator/linter). A refused scheme
   // falls back to a normal search rather than silently eating the keypress.
   if (!/^https?:/i.test(lucky.url)) {
     handleSearch();
@@ -578,6 +580,7 @@ async function showHistory(): Promise<void> {
         iconUrl: rc ? resolveIconUrl(rc.cmd, device) : undefined,
         groupColor: rc?.groupColor,
         command: rc?.cmd,
+        isUrl: h.commandId === null ? tryUrlDetection(h.query) !== null : undefined,
       };
     });
 
@@ -699,6 +702,7 @@ function showSuggestions(query: string): void {
             groupColor: rc?.groupColor,
             command: rc?.cmd,
             topHit: b.topHit,
+            isUrl: b.entry.commandId === null ? tryUrlDetection(b.entry.query) !== null : undefined,
           };
         }
         return {
@@ -708,6 +712,7 @@ function showSuggestions(query: string): void {
           url: b.entry.url,
           timestamp: b.entry.lastVisitTime || undefined,
           topHit: b.topHit,
+          isUrl: true,
         };
       });
       renderSuggestions([...commandItems, ...blendedItems]);
@@ -799,12 +804,17 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
 
     const favicon = document.createElement("div");
     favicon.className = "suggestion-favicon";
-    renderFavicon(favicon, {
-      iconUrl: item.iconUrl,
-      trigger: item.matchedTrigger ?? item.command?.triggers[0] ?? item.display.charAt(0),
-      groupColor: item.groupColor,
-      size: 20,
-    });
+    if (item.isUrl && !item.iconUrl) {
+      favicon.classList.add("globe");
+      favicon.textContent = "🌐";
+    } else {
+      renderFavicon(favicon, {
+        iconUrl: item.iconUrl,
+        trigger: item.matchedTrigger ?? item.command?.triggers[0] ?? item.display.charAt(0),
+        groupColor: item.groupColor,
+        size: 20,
+      });
+    }
     el.appendChild(favicon);
 
     if (item.kind === "history") {

@@ -23,6 +23,11 @@
       "pattern": "^https?://.*\\{query\\}.*$",
       "description": "URL template for default autocomplete suggestions. Must be https? and contain {query}."
     },
+    "defaultLuckyUrl": {
+      "type": "string",
+      "pattern": "^https?://.*\\{query\\}.*$",
+      "description": "Ctrl+Enter 'I'm Feeling Lucky'-style URL template used by the default search (e.g. Google's &btnI). Must be https? and contain {query}."
+    },
     "groups": {
       "type": "array",
       "minItems": 1,
@@ -139,11 +144,6 @@
           "type": "string",
           "pattern": "^https?://.*\\{query\\}.*$",
           "description": "URL template for command-specific autocomplete. Must be https? and contain {query}."
-        },
-        "luckyUrl": {
-          "type": "string",
-          "pattern": "^https?://.*\\{query\\}.*$",
-          "description": "Optional 'I'm Feeling Lucky'-style URL template used by Ctrl+Enter on the default command (e.g. Google's &btnI). Must be https? and contain {query}."
         },
         "normalize": {
           "type": "array",

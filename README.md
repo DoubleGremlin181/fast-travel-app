@@ -27,6 +27,7 @@ Every command is yours to configure — change the triggers, point them anywhere
 
 - **Command-based navigation** — short triggers route to any site or search you set up.
 - **Inline suggestions** — autocomplete as you type, per command, from the search engines you choose.
+- **"I'm feeling lucky"** — Ctrl/Cmd+Enter jumps straight to the first result via the `defaultLuckyUrl` config field (browser extension, and Android with a hardware keyboard).
 - **Bring your own config** — keep your commands in a JSON file you host yourself and sync the same setup across every device and browser, or use the built-in defaults and edit them in-app.
 - **Device-aware routing** — one command can resolve to the right destination per device (e.g. `apps` opens Steam on desktop, the Play Store on Android).
 - **Groups & themes** — organize and personalize your command set, with light/dark modes and multiple styles.

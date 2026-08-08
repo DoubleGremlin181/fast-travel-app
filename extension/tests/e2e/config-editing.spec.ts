@@ -90,6 +90,58 @@ test("config: export produces valid JSON matching stored config", async ({ conte
   expect(exported).toEqual(stored);
 });
 
+// onInstalled kicks off a non-blocking fetch of the remote default config
+// (unless dirty) that can race with — and silently overwrite — the freshly
+// seeded bundled config the assertions below depend on (see
+// project_config_dirty_pause.md / fetchAndStoreConfig in service-worker.ts).
+// Block that request so the bundled shipped values load deterministically.
+async function blockRemoteConfigFetch(context: import("@playwright/test").BrowserContext) {
+  await context.route("https://raw.githubusercontent.com/**", (route) => route.abort());
+}
+
+const SHIPPED_LUCKY_URL = "https://www.google.com/search?q={query}&btnI";
+
+test("config: default lucky URL field is pre-filled, editable, and persists", async ({ context, extensionId }) => {
+  await blockRemoteConfigFetch(context);
+
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options/options.html#/configuration`);
+
+  const luckyInput = inputByLabel(page, "Default lucky URL (optional)");
+  await expect(luckyInput).toHaveValue(SHIPPED_LUCKY_URL);
+
+  const customUrl = "https://www.bing.com/search?q={query}&btnI";
+  await luckyInput.fill(customUrl);
+  await luckyInput.blur();
+
+  await expect
+    .poll(async () => (await getStoredConfig(context, extensionId)).defaultLuckyUrl)
+    .toBe(customUrl);
+
+  await page.reload();
+  await expect(inputByLabel(page, "Default lucky URL (optional)")).toHaveValue(customUrl);
+});
+
+test("config: invalid default lucky URL is rejected and not persisted", async ({ context, extensionId }) => {
+  await blockRemoteConfigFetch(context);
+
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/options/options.html#/configuration`);
+
+  const before = await waitForSeededConfig(context, extensionId);
+  const luckyInput = inputByLabel(page, "Default lucky URL (optional)");
+  await expect(luckyInput).toHaveValue(before.defaultLuckyUrl);
+
+  await luckyInput.fill("ftp://x");
+  await luckyInput.blur();
+
+  // The background rejects the lint failure and never persists it — the
+  // stored config should remain exactly what it was before the edit.
+  await page.waitForTimeout(300);
+  const after = await getStoredConfig(context, extensionId);
+  expect(after.defaultLuckyUrl).toBe(before.defaultLuckyUrl);
+});
+
 test("config: importing a valid file replaces config", async ({ context, extensionId }) => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/options/options.html#/import-export`);

@@ -87,6 +87,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -128,6 +129,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import sh.kavi.fasttravel.core.Command
+import sh.kavi.fasttravel.core.CommandParser
 import sh.kavi.fasttravel.core.CommandType
 import sh.kavi.fasttravel.core.DeviceType
 import sh.kavi.fasttravel.core.InstalledApp
@@ -176,6 +178,24 @@ internal fun ChevronMark(
             lineTo(102f * scale, 140f * scale)
         }
         drawPath(front, color = accent, style = stroke)
+    }
+}
+
+/** Globe icon for URL-shaped rows — parity with the extension's 🌐 rows. */
+@Composable
+private fun UrlGlobeIcon(size: Dp, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "🌐",
+            fontSize = (size.value * 0.72f).sp,
+            textAlign = TextAlign.Center,
+            style = LocalTextStyle.current.copy(
+                platformStyle = PlatformTextStyle(includeFontPadding = false),
+            ),
+        )
     }
 }
 
@@ -587,6 +607,7 @@ fun SearchScreen(
                 leadingCommandGroupColor = leadingCommand?.let { groupColorMap[it.id] },
                 typoActive = searchState is SearchState.TypoSuggestion,
                 onDeclineTypo = { viewModel.fallbackSearchAfterTypo() },
+                onLuckySearch = { viewModel.onLuckySearch(query) },
                 modifier = Modifier.fillMaxWidth(),
             )
 
@@ -695,6 +716,7 @@ private fun SearchBarPill(
     leadingCommandGroupColor: String? = null,
     typoActive: Boolean = false,
     onDeclineTypo: () -> Unit = {},
+    onLuckySearch: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val appearance = LocalAppearance.current
@@ -771,7 +793,16 @@ private fun SearchBarPill(
                     // mirroring the browser's hidden decline shortcut. Consumed here so
                     // the letter isn't also typed into the field. Not advertised in the UI.
                     .onPreviewKeyEvent { event ->
-                        if (typoActive &&
+                        if (event.type == KeyEventType.KeyDown &&
+                            (event.key == Key.Enter || event.key == Key.NumPadEnter) &&
+                            event.isCtrlPressed
+                        ) {
+                            // Hardware-keyboard Ctrl+Enter "I'm feeling lucky", mirroring the
+                            // extension's shortcut. Consumed here so the IME action doesn't
+                            // also fire and double-navigate. Not advertised in the UI.
+                            onLuckySearch()
+                            true
+                        } else if (typoActive &&
                             event.type == KeyEventType.KeyDown &&
                             event.key == Key.N
                         ) {
@@ -1073,6 +1104,9 @@ private fun HistoryRow(
     val groupColorHex = matchedCommand?.let { groupColorMap[it.id] }
     val triggerForMonogram = suggestion.commandTrigger
         ?: suggestion.displayText.trim().ifEmpty { "?" }
+    val isUrlShaped = remember(suggestion.text) {
+        CommandParser.tryUrlDetection(suggestion.text) != null
+    }
 
     Row(
         modifier = Modifier
@@ -1102,6 +1136,8 @@ private fun HistoryRow(
                 contentDescription = "${launchableApp.label} icon",
                 modifier = Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)),
             )
+        } else if (suggestion.commandIconUrl == null && matchedCommand == null && isUrlShaped) {
+            UrlGlobeIcon(size = 24.dp)
         } else {
             CommandFavicon(
                 iconUrl = favicon,
@@ -1214,6 +1250,9 @@ private fun SuggestionRow(
     val groupColorHex = matchedCommand?.let { groupColorMap[it.id] }
     val triggerForMonogram = suggestion.commandTrigger
         ?: suggestion.displayText.trim().ifEmpty { "?" }
+    val isUrlShaped = remember(suggestion.text) {
+        CommandParser.tryUrlDetection(suggestion.text) != null
+    }
 
     Row(
         modifier = Modifier
@@ -1223,12 +1262,18 @@ private fun SuggestionRow(
             .semantics { contentDescription = "Search for ${suggestion.displayText}" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        CommandFavicon(
-            iconUrl = favicon,
-            trigger = triggerForMonogram,
-            groupColorHex = groupColorHex,
-            size = 24.dp,
-        )
+        // URL-shaped API suggestions (no commandTrigger/commandIconUrl) intentionally get the
+        // globe on Android; the extension currently monograms these (parity gap accepted).
+        if (suggestion.commandIconUrl == null && matchedCommand == null && isUrlShaped) {
+            UrlGlobeIcon(size = 24.dp)
+        } else {
+            CommandFavicon(
+                iconUrl = favicon,
+                trigger = triggerForMonogram,
+                groupColorHex = groupColorHex,
+                size = 24.dp,
+            )
+        }
         Spacer(modifier = Modifier.width(12.dp))
         TailText(
             text = suggestion.displayText,

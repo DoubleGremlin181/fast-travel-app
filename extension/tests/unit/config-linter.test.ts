@@ -188,33 +188,30 @@ describe("config-linter: existing checks still work", () => {
 });
 
 // ---------------------------------------------------------------------------
-// luckyUrl validation
+// defaultLuckyUrl validation
 // ---------------------------------------------------------------------------
 
-describe("config-linter: luckyUrl", () => {
-  it("accepts an http(s) luckyUrl containing {query}", () => {
-    const cfg = makeConfig();
-    cfg.groups[0].commands[0].luckyUrl = "https://www.google.com/search?q={query}&btnI";
+describe("config-linter: defaultLuckyUrl", () => {
+  it("accepts an http(s) defaultLuckyUrl containing {query}", () => {
+    const cfg = makeConfig({ defaultLuckyUrl: "https://www.google.com/search?q={query}&btnI" });
     const errors = lintConfig(cfg);
-    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(0);
+    expect(errors.filter((e) => e.path.includes("defaultLuckyUrl"))).toHaveLength(0);
   });
 
-  it("rejects a luckyUrl without {query}", () => {
-    const cfg = makeConfig();
-    cfg.groups[0].commands[0].luckyUrl = "https://www.google.com/search?btnI";
+  it("rejects a defaultLuckyUrl without {query}", () => {
+    const cfg = makeConfig({ defaultLuckyUrl: "https://www.google.com/search?btnI" });
     const errors = lintConfig(cfg);
-    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(1);
+    expect(errors.filter((e) => e.path.includes("defaultLuckyUrl"))).toHaveLength(1);
   });
 
-  it("rejects a non-http luckyUrl", () => {
-    const cfg = makeConfig();
-    cfg.groups[0].commands[0].luckyUrl = "javascript:alert('{query}')";
+  it("rejects a non-http defaultLuckyUrl", () => {
+    const cfg = makeConfig({ defaultLuckyUrl: "javascript:alert('{query}')" });
     const errors = lintConfig(cfg);
-    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(1);
+    expect(errors.filter((e) => e.path.includes("defaultLuckyUrl"))).toHaveLength(1);
   });
 
-  it("ignores commands without a luckyUrl", () => {
+  it("ignores an absent defaultLuckyUrl", () => {
     const errors = lintConfig(makeConfig());
-    expect(errors.filter((e) => e.path.includes("luckyUrl"))).toHaveLength(0);
+    expect(errors.filter((e) => e.path.includes("defaultLuckyUrl"))).toHaveLength(0);
   });
 });

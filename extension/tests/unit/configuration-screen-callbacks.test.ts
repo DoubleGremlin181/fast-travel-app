@@ -61,7 +61,13 @@ function makeCallbacks(
     await setConfig({ ...current, defaultSuggestionsApi: url || undefined });
   }
 
-  return { onDefaultCommandChange, onDefaultSuggestionsApiChange };
+  async function onDefaultLuckyUrlChange(url: string): Promise<void> {
+    const current = await getConfig();
+    if (!current) return;
+    await setConfig({ ...current, defaultLuckyUrl: url || undefined });
+  }
+
+  return { onDefaultCommandChange, onDefaultSuggestionsApiChange, onDefaultLuckyUrlChange };
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +131,19 @@ describe("configuration screen callbacks — fixed (fetch-at-call-time)", () => 
 
     await callbacks.onDefaultSuggestionsApiChange("");
     expect(store.snapshot().defaultSuggestionsApi).toBeUndefined();
+  });
+
+  it("onDefaultLuckyUrlChange saves the new lucky URL", async () => {
+    await callbacks.onDefaultLuckyUrlChange("https://www.bing.com/search?q={query}&btnI");
+    expect(store.snapshot().defaultLuckyUrl).toBe("https://www.bing.com/search?q={query}&btnI");
+  });
+
+  it("onDefaultLuckyUrlChange with empty string clears the field (stores undefined)", async () => {
+    store = makeConfigStore({ ...baseConfig, defaultLuckyUrl: "https://old.example.com?q={query}" });
+    callbacks = makeCallbacks(store.getConfig, store.setConfig);
+
+    await callbacks.onDefaultLuckyUrlChange("");
+    expect(store.snapshot().defaultLuckyUrl).toBeUndefined();
   });
 
   it("sequential changes both persist — the core regression test", async () => {

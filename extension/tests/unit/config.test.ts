@@ -174,13 +174,13 @@ describe("config schema validation", () => {
   });
 });
 
-describe("mergeConfig - luckyUrl preservation", () => {
-  it("keeps the default command's luckyUrl through an unrelated override", () => {
+describe("mergeConfig - defaultLuckyUrl preservation", () => {
+  it("keeps the top-level defaultLuckyUrl through an unrelated override", () => {
     const merged = mergeConfig(config, {
       overrideCommands: [{ id: "google", name: "Google Renamed" }],
     });
     const google = flattenCommands(merged).find((c) => c.id === "google");
     expect(google?.name).toBe("Google Renamed");
-    expect(google?.luckyUrl).toBe("https://www.google.com/search?q={query}&btnI");
+    expect(merged.defaultLuckyUrl).toBe("https://www.google.com/search?q={query}&btnI");
   });
 });

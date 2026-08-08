@@ -15,6 +15,7 @@ import sh.kavi.fasttravel.core.Frecency
 import sh.kavi.fasttravel.core.Group
 import sh.kavi.fasttravel.core.InstalledApp
 import sh.kavi.fasttravel.core.InstalledAppResolver
+import sh.kavi.fasttravel.core.Lucky
 import sh.kavi.fasttravel.core.ParseInput
 import sh.kavi.fasttravel.core.ParseOutput
 import sh.kavi.fasttravel.core.Suggestion
@@ -37,6 +38,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+
+// Mirrors the scheme guard in newtab.ts's handleLuckySearch.
+private val LUCKY_URL_SCHEME_RE = Regex("^https?:", RegexOption.IGNORE_CASE)
 
 sealed class SearchState {
     data object Idle : SearchState()
@@ -452,6 +456,31 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 _searchState.value = SearchState.TypoSuggestion(result)
             }
         }
+    }
+
+    /**
+     * Ctrl+Enter (hardware keyboard only): "I'm feeling lucky"-style navigation
+     * via the top-level defaultLuckyUrl template. Falls back to a normal search when
+     * the config doesn't define one, the default command doesn't resolve, or the
+     * built URL fails the scheme guard. Mirrors handleLuckySearch in newtab.ts.
+     */
+    fun onLuckySearch(searchQuery: String) {
+        val cfg = config ?: return
+        if (searchQuery.isBlank()) return
+
+        val lucky = Lucky.buildLuckyUrl(effectiveConfig(cfg), searchQuery)
+        // Tighter than the general allowlist: the defaultLuckyUrl contract is
+        // https?:// everywhere it's validated (schema/validator/linter). A refused
+        // scheme falls back to a normal search rather than silently eating the keypress.
+        if (lucky == null || !LUCKY_URL_SCHEME_RE.containsMatchIn(lucky.url)) {
+            onSearch(searchQuery)
+            return
+        }
+
+        _suggestions.value = emptyList()
+        searchHistory.addEntry(searchQuery, lucky.commandId)
+        updateChipCommands()
+        _searchState.value = SearchState.Navigate(lucky.url)
     }
 
     fun acceptTypo() {

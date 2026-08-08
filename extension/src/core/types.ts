@@ -14,6 +14,7 @@ export interface FastTravelConfig {
   version: 2;
   defaultCommand: string;
   defaultSuggestionsApi?: string;
+  defaultLuckyUrl?: string;
   groups: Group[];
   ignoreList: string[];
 }
@@ -47,7 +48,6 @@ export interface Command {
   iconUrl?: string;
   iconOverrides?: IconOverride[];
   suggestionsApi?: string;
-  luckyUrl?: string;
   normalize?: NormalizeStep[];
   routes: Route[];
 }
