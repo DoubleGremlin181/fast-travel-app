@@ -21,6 +21,13 @@ export const test = base.extend<{
         "--no-default-browser-check",
       ],
     });
+    // onInstalled kicks off a non-blocking fetch of the remote default config
+    // (see fetchAndStoreConfig in service-worker.ts). When it lands — typically
+    // ~500ms after launch — it replaces the entire config key, silently wiping
+    // anything a test wrote to storage before then. That made tests fail or pass
+    // depending on network latency. Block it here, before the worker starts, so
+    // every test runs deterministically against the bundled config.
+    await context.route("https://raw.githubusercontent.com/**", (route) => route.abort());
     await use(context);
     await context.close();
     fs.rmSync(userDataDir, { recursive: true, force: true });

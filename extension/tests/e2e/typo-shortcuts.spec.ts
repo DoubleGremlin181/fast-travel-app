@@ -86,6 +86,21 @@ test("pressing Enter declines the typo and searches on the default engine", asyn
   await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
   await showTypoPrompt(page);
 
+  // showTypoSuggestion() blurs the search box, but focusSearchInput() also
+  // registers a window "focus" handler that re-grabs it. In headed Chromium that
+  // event can land after the prompt renders, and Enter is the only shortcut
+  // gated on the box being blurred (newtab.ts: `e.key === "Enter" && e.target
+  // !== searchInput`), so it would silently defer and the test would time out.
+  // Pin the documented precondition instead of racing that handler.
+  // The grab fires once when the window takes focus, so a single blur() can be
+  // undone right after it lands. Re-blur until it sticks.
+  await expect
+    .poll(async () => {
+      await page.locator("#search-input").blur();
+      return page.locator("#search-input").evaluate((el) => el === document.activeElement);
+    })
+    .toBe(false);
+
   // Enter mirrors the "Default search" button: the query was just submitted
   // with Enter, so pressing it again reads as "yes, really search this".
   const [request] = await Promise.all([
