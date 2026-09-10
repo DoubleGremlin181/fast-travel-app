@@ -37,10 +37,13 @@ class SearchViewModelTypoIgnoreTest {
 
     private val app: Application = ApplicationProvider.getApplicationContext()
     private val scheduler = TestCoroutineScheduler()
+    // Shared by Main and the ViewModel's io/work dispatchers so advanceUntilIdle()
+    // drives the whole startup pipeline (asset + config loads now run off Main).
+    private val dispatcher = StandardTestDispatcher(scheduler)
 
     @Before
     fun setUp() {
-        Dispatchers.setMain(StandardTestDispatcher(scheduler))
+        Dispatchers.setMain(dispatcher)
 
         // The user is on the REMOTE config (not dirty) with a fresh cache that
         // contains the "scholar" command, so "scholr" is a detectable typo.
@@ -66,7 +69,7 @@ class SearchViewModelTypoIgnoreTest {
 
     @Test
     fun `ignoring a typo persists it device-locally without dirtying the config`() {
-        val vm = SearchViewModel(app)
+        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher)
         scheduler.advanceUntilIdle() // let init load the cached config
 
         // Precondition: the typo card appears (detection works).
@@ -100,7 +103,7 @@ class SearchViewModelTypoIgnoreTest {
 
     @Test
     fun `declining a typo to the threshold auto-ignores it`() {
-        val vm = SearchViewModel(app)
+        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher)
         scheduler.advanceUntilIdle() // let init load the cached config
 
         val threshold = ThemePreferences(app).autoIgnoreThreshold // default 3

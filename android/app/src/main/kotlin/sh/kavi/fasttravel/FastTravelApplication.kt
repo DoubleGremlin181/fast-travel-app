@@ -32,17 +32,23 @@ class FastTravelApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        val themePrefs = ThemePreferences(this)
+
         // Re-broadcast a widget update so pinned widgets pick up the latest
         // PendingIntent (e.g. after an app upgrade that changed intent flags).
+        // Gated on the version code: the receiver builds the RemoteViews and
+        // renders the chevron/background bitmaps on this process's main thread,
+        // and firing it on every cold start dropped that work onto the launch
+        // path (during the keyboard-open animation) for no visual change.
         // Skip on WorkManager background process starts — WorkManager runs in
         // the same process space and triggers onCreate() on each job, but the
-        // widget bitmap/PendingIntent is already up-to-date; re-rendering it
-        // every background refresh wastes memory and CPU for no visual change.
-        if (!isWorkManagerProcess()) {
+        // widget bitmap/PendingIntent is already up-to-date.
+        if (!isWorkManagerProcess() && themePrefs.widgetRefreshedForVersion != BuildConfig.VERSION_CODE) {
             sh.kavi.fasttravel.ui.SearchWidgetProvider.refreshAll(this)
+            themePrefs.widgetRefreshedForVersion = BuildConfig.VERSION_CODE
         }
 
-        ConfigRefreshScheduler.schedule(this, ThemePreferences(this).configRefreshInterval)
+        ConfigRefreshScheduler.schedule(this, themePrefs.configRefreshInterval)
 
         // Drop the launcher-app cache whenever a package is installed/removed/
         // changed so the suggestion list reflects what's actually on the device.

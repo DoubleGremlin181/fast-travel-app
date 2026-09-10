@@ -3,6 +3,7 @@ package sh.kavi.fasttravel.data
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -15,7 +16,19 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-class ConfigRepository(private val context: Context) {
+/**
+ * Loads the active config: local edits > cached remote > remote fetch > bundled.
+ *
+ * Every load runs on [io]. The cached/local config is a ~40KB JSON document and
+ * its parse + validation (plus the SharedPreferences disk read on a cold process)
+ * is far too slow for the main thread — it used to run there and stalled the
+ * keyboard-open animation on cold starts. [io] is injectable so unit tests can
+ * drive it with a TestDispatcher.
+ */
+class ConfigRepository(
+    private val context: Context,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
+) {
 
     companion object {
         private const val TAG = "ConfigRepository"
@@ -33,7 +46,15 @@ class ConfigRepository(private val context: Context) {
     private val editableStore = EditableConfigStore(context)
     private val fetchMutex = Mutex()
 
-    suspend fun getConfig(): FastTravelConfig {
+    /**
+     * Resolve the active config.
+     *
+     * @param allowStale Serve a cached remote config even when it is older than the
+     *   refresh interval instead of blocking on a network fetch. Callers that need
+     *   the UI populated immediately (SearchViewModel on launch) pass true and then
+     *   call [refreshRemote] in the background when [needsRemoteRefresh] says so.
+     */
+    suspend fun getConfig(allowStale: Boolean = false): FastTravelConfig = withContext(io) {
         // Local edits (direct-edit model) win over any remote/bundled base — but
         // ONLY when the user actually has local edits (dirty). A non-dirty
         // editable snapshot (e.g. one left behind by "Fetch & Import" or
@@ -41,22 +62,48 @@ class ConfigRepository(private val context: Context) {
         // auto-refresh silently freezes on that stale snapshot.
         if (themePreferences.configSourceDirty) {
             editableStore.getLocalConfig()
-                ?.let { if (validate(it, "local")) return it }
+                ?.let { if (validate(it, "local")) return@withContext it }
         }
 
         // Cached remote (if fresh enough) — re-validate every load so a corrupt
         // entry doesn't survive forever.
-        getCachedConfig()
-            ?.let { if (validate(it, "cache")) return it }
+        getCachedConfig(allowStale)
+            ?.let { if (validate(it, "cache")) return@withContext it }
 
         // Serialize remote fetches so concurrent callers don't double-fetch and
         // so the second writer can't overwrite a fresh response with a stale one.
-        return fetchMutex.withLock {
-            getCachedConfig()?.let { if (validate(it, "cache")) return@withLock it }
+        fetchMutex.withLock {
+            getCachedConfig(allowStale)?.let { if (validate(it, "cache")) return@withLock it }
             fetchFromGitHub()
                 ?.let { if (validate(it, "remote")) return@withLock it }
+            // The refresh failed (offline, timeout, bad URL). The last known-good
+            // remote config is a far better fallback than the bundled default,
+            // which would silently swap the user's commands for the stock set.
+            getCachedConfig(allowStale = true)
+                ?.let { if (validate(it, "expired cache")) return@withLock it }
             loadBundledConfig()
         }
+    }
+
+    /**
+     * True when the user is on the remote config and the cached copy is older than
+     * the configured refresh interval — i.e. a `getConfig(allowStale = true)` call
+     * served an expired cache and the caller should [refreshRemote] in the
+     * background. False in manual-refresh mode, with local edits, or with no cache
+     * at all (that case already fetched inside [getConfig]).
+     */
+    fun needsRemoteRefresh(): Boolean {
+        if (themePreferences.configSourceDirty) return false
+        if (!prefs.contains(KEY_CACHED_CONFIG)) return false
+        return isExpired(prefs.getLong(KEY_CACHE_TIMESTAMP, 0L))
+    }
+
+    /**
+     * Fetch + validate + cache the remote config. Returns null when the fetch fails
+     * or the response is invalid, in which case the cache is left untouched.
+     */
+    suspend fun refreshRemote(): FastTravelConfig? = fetchMutex.withLock {
+        fetchFromGitHub()?.takeIf { validate(it, "remote") }
     }
 
     /** Run the validator and log; returns true if config is usable. */
@@ -67,7 +114,7 @@ class ConfigRepository(private val context: Context) {
         return false
     }
 
-    suspend fun fetchFromUrl(url: String): FastTravelConfig? = withContext(Dispatchers.IO) {
+    suspend fun fetchFromUrl(url: String): FastTravelConfig? = withContext(io) {
         try {
             val connection = URL(url).openConnection() as HttpURLConnection
             connection.connectTimeout = CONNECT_TIMEOUT_MS
@@ -84,7 +131,7 @@ class ConfigRepository(private val context: Context) {
         } catch (_: Exception) { null }
     }
 
-    suspend fun fetchFromGitHub(): FastTravelConfig? = withContext(Dispatchers.IO) {
+    suspend fun fetchFromGitHub(): FastTravelConfig? = withContext(io) {
         try {
             val url = URL(themePreferences.configUrl)
             val connection = url.openConnection() as HttpURLConnection
@@ -133,19 +180,17 @@ class ConfigRepository(private val context: Context) {
         cacheConfig(ConfigWriter.writeConfig(config))
     }
 
-    private fun getCachedConfig(): FastTravelConfig? {
+    private fun getCachedConfig(allowStale: Boolean): FastTravelConfig? {
         val json = prefs.getString(KEY_CACHED_CONFIG, null) ?: return null
-        val timestamp = prefs.getLong(KEY_CACHE_TIMESTAMP, 0L)
-        val interval = themePreferences.configRefreshInterval
-        val maxAgeMs = interval.hours?.let { it * 60 * 60 * 1000L }
-
-        // Manual refresh mode keeps cached config indefinitely.
-        if (maxAgeMs != null) {
-            val age = System.currentTimeMillis() - timestamp
-            if (age > maxAgeMs) return null
-        }
-
+        if (!allowStale && isExpired(prefs.getLong(KEY_CACHE_TIMESTAMP, 0L))) return null
         return ConfigParser.safeParseConfig(json)
+    }
+
+    /** Manual refresh mode keeps cached config indefinitely. */
+    private fun isExpired(timestamp: Long): Boolean {
+        val hours = themePreferences.configRefreshInterval.hours ?: return false
+        val maxAgeMs = hours * 60 * 60 * 1000L
+        return System.currentTimeMillis() - timestamp > maxAgeMs
     }
 
     fun lastSyncedAt(): Long? {

@@ -29,6 +29,7 @@ import sh.kavi.fasttravel.data.ConfigRepository
 import sh.kavi.fasttravel.data.LocalIgnoreStore
 import sh.kavi.fasttravel.data.SearchHistory
 import sh.kavi.fasttravel.data.ThemePreferences
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -48,9 +49,17 @@ sealed class SearchState {
     data class Navigate(val url: String) : SearchState()
 }
 
-class SearchViewModel(application: Application) : AndroidViewModel(application) {
+class SearchViewModel @JvmOverloads constructor(
+    application: Application,
+    /** Disk + network work: asset JSON, cached config parse, remote fetch. */
+    private val io: CoroutineDispatcher = Dispatchers.IO,
+    /** CPU + PackageManager work: history resolution, chip ranking, installed-app
+     *  lookups and icon loads. Both dispatchers are injectable so unit tests can
+     *  run the whole startup pipeline on a TestDispatcher. */
+    private val work: CoroutineDispatcher = Dispatchers.Default,
+) : AndroidViewModel(application) {
 
-    private val configRepository = ConfigRepository(application)
+    private val configRepository = ConfigRepository(application, io)
     private val searchHistory = SearchHistory(application)
     private val themePrefs = ThemePreferences(application)
 
@@ -92,7 +101,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             }
             // Toggling installed apps changes whether app launches show under "Recent".
             if (key == ThemePreferences.KEY_INSTALLED_APPS_ENABLED && _query.value.isBlank()) {
-                config?.let { _suggestions.value = getHistorySuggestions(it) }
+                refreshRecent()
             }
         }
 
@@ -104,21 +113,65 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
     private val localIgnoreStore = LocalIgnoreStore(application)
 
     init {
-        loadCommonWords(application)
-        loadTlds(application)
         themePrefs.registerListener(prefsListener)
 
+        // Keep the main thread free during launch. viewModelScope is
+        // Main.immediate, so everything in this block that isn't explicitly
+        // moved to [io]/[work] runs synchronously on the UI thread. Before this
+        // was restructured, that meant ~60KB of asset JSON, the ~40KB cached
+        // config parse + validation, the history parse and — worst of all — a
+        // queryIntentActivities sweep with label + icon loads for every launcher
+        // app (InstalledAppResolver) all ran on Main. On a cold process that is
+        // hundreds of milliseconds, and whenever the config cache had expired it
+        // landed the moment the network fetch returned: right in the middle of
+        // the keyboard-open animation, which is the intermittent launch stutter.
         viewModelScope.launch {
-            config = configRepository.getConfig()
-            config?.let { cfg ->
-                _groupColorMap.value = buildGroupColorMap(cfg.groups)
-                // Populate history suggestions immediately so the focused-empty state
-                // shows the "Recent" list on first open without requiring a keystroke.
-                if (_query.value.isBlank()) {
-                    _suggestions.value = getHistorySuggestions(cfg)
+            withContext(io) {
+                loadCommonWords(application)
+                loadTlds(application)
+            }
+            // Serve whatever config we already have — even one past its refresh
+            // interval — so the Recent list and chips never wait on the network.
+            val initial = configRepository.getConfig(allowStale = true)
+            applyConfig(initial)
+            // Then refresh in the background. Only re-derive UI state when the
+            // remote actually changed (data-class equality): a no-op refresh must
+            // not cause a recomposition burst mid-animation.
+            val expired = withContext(io) { configRepository.needsRemoteRefresh() }
+            if (expired) {
+                configRepository.refreshRemote()?.let { fresh ->
+                    if (fresh != initial) applyConfig(fresh)
                 }
             }
-            updateChipCommands()
+        }
+    }
+
+    /**
+     * Derive every config-dependent piece of UI state on [work] and publish it on
+     * the caller's (Main) context. The "Recent" list is only touched while the
+     * search bar is empty so an in-flight query's suggestions aren't clobbered.
+     */
+    private suspend fun applyConfig(cfg: FastTravelConfig) {
+        chipJob?.cancel()
+        val colors = buildGroupColorMap(cfg.groups)
+        val (recent, chips) = withContext(work) {
+            val recent = if (_query.value.isBlank()) getHistorySuggestions(cfg) else null
+            recent to computeChipItems(cfg)
+        }
+        config = cfg
+        _groupColorMap.value = colors
+        // Populate history suggestions immediately so the focused-empty state
+        // shows the "Recent" list on first open without requiring a keystroke.
+        if (recent != null && _query.value.isBlank()) _suggestions.value = recent
+        _chipItems.value = chips
+    }
+
+    /** Recompute the "Recent" list off the main thread and publish it if the bar is still empty. */
+    private fun refreshRecent() {
+        val cfg = config ?: return
+        viewModelScope.launch {
+            val recent = withContext(work) { getHistorySuggestions(cfg) }
+            if (_query.value.isBlank()) _suggestions.value = recent
         }
     }
 
@@ -155,6 +208,18 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun updateChipCommands() {
         val cfg = config ?: return
+        chipJob?.cancel()
+        chipJob = viewModelScope.launch {
+            val items = withContext(work) { computeChipItems(cfg) }
+            _chipItems.value = items
+        }
+    }
+
+    /**
+     * Rank the shortcut chips. Parses the history JSON and, for launched-app chips,
+     * hits PackageManager for labels + icons — always call this on [work].
+     */
+    private fun computeChipItems(cfg: FastTravelConfig): List<ChipItem> {
         val standardCommands = flattenCommands(cfg.groups).filter { it.type == CommandType.Standard }
 
         // ~4 chips per row fits the Figma spec's pill grid.
@@ -177,11 +242,9 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
         )
         val byId = standardCommands.associateBy { it.id }
 
-        // Fast path: no app chips (cold start or toggle off) — resolve synchronously.
-        chipJob?.cancel()
+        // No app chips (cold start or toggle off): no PackageManager work needed.
         if (rankedIds.none { isInstalledAppId(it) }) {
-            _chipItems.value = rankedIds.mapNotNull { id -> byId[id]?.let { ChipItem.Cmd(it) } }
-            return
+            return rankedIds.mapNotNull { id -> byId[id]?.let { ChipItem.Cmd(it) } }
         }
 
         // Most-recent stored label per app id, used as the chip label (and the placeholder
@@ -192,24 +255,18 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             if (isInstalledAppId(c) && c !in appLabels) appLabels[c!!] = h.query
         }
 
-        // App chips need a PackageManager lookup + icon decode — resolve off the main thread.
-        chipJob = viewModelScope.launch {
-            val items = withContext(Dispatchers.Default) {
-                rankedIds.mapNotNull { id ->
-                    if (isInstalledAppId(id)) {
-                        val (pkg, activity) = parseInstalledAppId(id) ?: return@mapNotNull null
-                        // Keep ranking a launched app even while uninstalled (placeholder
-                        // icon); the chip toasts if it's still gone when tapped.
-                        val app = InstalledAppResolver.resolveForHistory(
-                            getApplication(), pkg, activity, appLabels[id] ?: pkg,
-                        )
-                        ChipItem.App(app)
-                    } else {
-                        byId[id]?.let { ChipItem.Cmd(it) }
-                    }
-                }
+        return rankedIds.mapNotNull { id ->
+            if (isInstalledAppId(id)) {
+                val (pkg, activity) = parseInstalledAppId(id) ?: return@mapNotNull null
+                // Keep ranking a launched app even while uninstalled (placeholder
+                // icon); the chip toasts if it's still gone when tapped.
+                val app = InstalledAppResolver.resolveForHistory(
+                    getApplication(), pkg, activity, appLabels[id] ?: pkg,
+                )
+                ChipItem.App(app)
+            } else {
+                byId[id]?.let { ChipItem.Cmd(it) }
             }
-            _chipItems.value = items
         }
     }
 
@@ -232,6 +289,11 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
      * Called from the Activity's `onStop()` so the state is already clean on the next
      * resume's first frame (no flash). Suggestions are restored to the "Recent" list
      * immediately (no debounce) so the resumed empty state matches a cold open.
+     *
+     * This deliberately stays synchronous on the caller's thread: it runs while the
+     * app is off-screen (nothing to jank) and by then every cache it touches —
+     * SharedPreferences, the installed-app list, PackageManager's icon cache — is
+     * warm, so it's a few milliseconds. The cold-cache work lives in [applyConfig].
      */
     fun resetForFreshStart() {
         suggestionJob?.cancel()
@@ -359,7 +421,7 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
                 // Debounce + dedupe to stop the per-keystroke icon flicker when the
                 // result set hasn't actually changed.
                 delay(120)
-                val results = withContext(Dispatchers.Default) {
+                val results = withContext(work) {
                     InstalledAppResolver.query(getApplication(), newQuery)
                 }
                 val currentKey = _installedApps.value.map { it.packageName to it.activityName }
@@ -375,7 +437,8 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
             delay(200)
             val resolved = config ?: return@launch
             if (newQuery.isBlank()) {
-                _suggestions.value = getHistorySuggestions(resolved)
+                // Resolving app rows touches PackageManager (labels + icons) — off Main.
+                _suggestions.value = withContext(work) { getHistorySuggestions(resolved) }
                 return@launch
             }
             val trimmed = newQuery.trim()
@@ -581,9 +644,6 @@ class SearchViewModel(application: Application) : AndroidViewModel(application) 
      */
     fun removeHistoryEntry(query: String) {
         searchHistory.remove(query)
-        if (_query.value.isBlank()) {
-            val cfg = config ?: return
-            _suggestions.value = getHistorySuggestions(cfg)
-        }
+        if (_query.value.isBlank()) refreshRecent()
     }
 }

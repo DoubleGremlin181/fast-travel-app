@@ -35,10 +35,13 @@ class SearchViewModelLuckyTest {
 
     private val app: Application = ApplicationProvider.getApplicationContext()
     private val scheduler = TestCoroutineScheduler()
+    // Shared by Main and the ViewModel's io/work dispatchers so advanceUntilIdle()
+    // drives the whole startup pipeline (asset + config loads now run off Main).
+    private val dispatcher = StandardTestDispatcher(scheduler)
 
     @Before
     fun setUp() {
-        Dispatchers.setMain(StandardTestDispatcher(scheduler))
+        Dispatchers.setMain(dispatcher)
 
         val themePrefs = ThemePreferences(app)
         themePrefs.configSourceDirty = false
@@ -71,7 +74,7 @@ class SearchViewModelLuckyTest {
         // default-config.json ships defaultLuckyUrl = "https://www.google.com/search?q={query}&btnI".
         cacheConfig(defaultConfigJson().toString())
 
-        val vm = SearchViewModel(app)
+        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher)
         scheduler.advanceUntilIdle() // let init load the cached config
 
         vm.onLuckySearch("cat pics")
@@ -89,7 +92,7 @@ class SearchViewModelLuckyTest {
         val configJson = defaultConfigJson().apply { remove("defaultLuckyUrl") }
         cacheConfig(configJson.toString())
 
-        val vm = SearchViewModel(app)
+        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher)
         scheduler.advanceUntilIdle() // let init load the cached config
 
         // "scholr" is a detectable typo of the "scholar" trigger (per
