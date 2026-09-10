@@ -314,6 +314,43 @@ describe("blendSuggestions - degradation", () => {
   });
 });
 
+// #84: clicking a browser-history row stores its raw URL as an FT history
+// query, so Fast Travel's own redirect pages can end up in FT history too.
+// Filtering on read hides entries already in storage.
+describe("blendSuggestions - Fast Travel redirect pages", () => {
+  it("drops a v1 redirect page stored in FT history", () => {
+    const out = blendSuggestions(
+      makeInput({
+        query: "gh",
+        ftHistory: [ft("https://fast-travel.kavi.sh/?q=gh", 0), ft("gh issues", 1)],
+      }),
+    );
+    expect(texts(out)).toEqual(["gh issues"]);
+  });
+
+  it("does not promote a redirect page to the top hit", () => {
+    const out = blendSuggestions(
+      makeInput({
+        query: "http",
+        // Recent enough to clear the top-hit floor and a prefix match, so only
+        // the filter can keep it out.
+        ftHistory: [ft("https://fast-travel.kavi.sh/?q=gh", 0)],
+      }),
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("keeps FT history entries that merely mention fast-travel", () => {
+    const out = blendSuggestions(
+      makeInput({
+        query: "fast",
+        ftHistory: [ft("fast travel tips", 1), ft("https://kavi.sh/fast-travel-app/", 2)],
+      }),
+    );
+    expect(texts(out)).toEqual(["fast travel tips", "https://kavi.sh/fast-travel-app/"]);
+  });
+});
+
 describe("section navigation helpers", () => {
   it("sectionStarts returns the first index of each kind run", () => {
     expect(sectionStarts(["command", "history", "history", "api", "api", "browser"]))
@@ -327,9 +364,6 @@ describe("section navigation helpers", () => {
     expect(nextSectionStart(kindsArr, 0, 1)).toBe(1);
     expect(nextSectionStart(kindsArr, 1, 1)).toBe(3);
     expect(nextSectionStart(kindsArr, 2, 1)).toBe(3);
-    // already in the last section: stay put
-    expect(nextSectionStart(kindsArr, 3, 1)).toBe(3);
-    expect(nextSectionStart(kindsArr, 4, 1)).toBe(4);
   });
 
   it("nextSectionStart moves up to the previous section start", () => {
@@ -341,6 +375,39 @@ describe("section navigation helpers", () => {
     expect(nextSectionStart(kindsArr, 1, -1)).toBe(0);
     // from the first row, up deselects (restores typed text) like plain ArrowUp
     expect(nextSectionStart(kindsArr, 0, -1)).toBe(-1);
-    expect(nextSectionStart(kindsArr, -1, -1)).toBe(-1);
+  });
+
+  // #83: the section cycle wraps through -1 ("typed text") at both ends, so
+  // Ctrl+Arrow behaves like plain arrow navigation.
+  it("nextSectionStart wraps past the last section to the typed text", () => {
+    const kindsArr = ["command", "history", "history", "api", "api"];
+    expect(nextSectionStart(kindsArr, 3, 1)).toBe(-1);
+    expect(nextSectionStart(kindsArr, 4, 1)).toBe(-1);
+  });
+
+  it("nextSectionStart wraps up from the typed text to the last section", () => {
+    const kindsArr = ["command", "history", "history", "api", "api"];
+    expect(nextSectionStart(kindsArr, -1, -1)).toBe(3);
+  });
+
+  it("nextSectionStart round-trips across the wrap in both directions", () => {
+    const kindsArr = ["command", "history", "history", "api", "api"];
+    // down off the bottom, then back up
+    expect(nextSectionStart(kindsArr, nextSectionStart(kindsArr, 3, 1), -1)).toBe(3);
+    // up off the top, then back down
+    expect(nextSectionStart(kindsArr, nextSectionStart(kindsArr, -1, -1), 1)).toBe(-1);
+  });
+
+  it("nextSectionStart with a single section still cycles", () => {
+    const kindsArr = ["api", "api", "api"];
+    expect(nextSectionStart(kindsArr, -1, 1)).toBe(0);
+    expect(nextSectionStart(kindsArr, 0, 1)).toBe(-1);
+    expect(nextSectionStart(kindsArr, -1, -1)).toBe(0);
+    expect(nextSectionStart(kindsArr, 0, -1)).toBe(-1);
+  });
+
+  it("nextSectionStart holds position when there are no sections", () => {
+    expect(nextSectionStart([], 2, 1)).toBe(2);
+    expect(nextSectionStart([], 2, -1)).toBe(2);
   });
 });

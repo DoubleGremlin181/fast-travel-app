@@ -16,6 +16,7 @@
  */
 
 import { decayScore } from "./frecency.js";
+import { isFastTravelRedirectUrl } from "./self-referential-url.js";
 
 export interface FtHistoryEntry {
   query: string;
@@ -105,6 +106,10 @@ export function blendSuggestions(input: BlendInput): BlendedItem[] {
   // keeping the newest, like the empty-input history dropdown does.
   const ftAll = input.prefs.blendFtHistory
     ? input.ftHistory
+        // Clicking a browser-history row stores its raw URL as an FT query, so
+        // v1 redirect pages can land here too — filter on read so entries
+        // already in storage disappear without a migration (#84).
+        .filter((e) => !isFastTravelRedirectUrl(e.query))
         .filter((e) => normalizeText(e.query).includes(q))
         .sort((a, b) => b.timestamp - a.timestamp)
         .filter(
@@ -185,10 +190,13 @@ export function sectionStarts(kinds: string[]): number[] {
 
 /**
  * Index to jump to when moving one section down (dir=1) or up (dir=-1) from
- * `currentIndex`. Down goes to the next section's first item and clamps at
- * the last section; up goes to the previous section start (a mid-section
- * index first snaps to its own section start), and from the first row
- * returns -1 — "no selection", restoring the typed text like plain ArrowUp.
+ * `currentIndex`. Down goes to the next section's first item; up goes to the
+ * previous section start (a mid-section index first snaps to its own section
+ * start). -1 means "no selection", restoring the typed text like plain ArrowUp.
+ *
+ * The cycle wraps through -1 at both ends (#83), so it mirrors plain arrow
+ * navigation: past the last section lands on the typed text, and pressing up
+ * from the typed text jumps straight to the last section.
  */
 export function nextSectionStart(
   kinds: string[],
@@ -199,10 +207,12 @@ export function nextSectionStart(
   if (starts.length === 0) return currentIndex;
   if (dir === 1) {
     for (const s of starts) if (s > currentIndex) return s;
-    return currentIndex;
+    return -1; // past the last section → typed text
   }
   for (let i = starts.length - 1; i >= 0; i--) {
     if (starts[i] < currentIndex) return starts[i];
   }
-  return -1;
+  // Nothing above: from the first section start fall back to the typed text;
+  // from the typed text itself, wrap around to the last section.
+  return currentIndex === -1 ? starts[starts.length - 1] : -1;
 }

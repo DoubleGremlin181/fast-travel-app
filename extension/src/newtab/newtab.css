@@ -382,15 +382,21 @@ body:hover #settings-link {
   white-space: nowrap;
 }
 
-/* Frecency-promoted top hit: subtle tint + weight so it reads as "the" match
-   without shouting. */
-.suggestion-item.suggestion-top-hit {
-  background: color-mix(in srgb, var(--primary) 8%, transparent);
-}
-
+/* Frecency-promoted top hit: bold text plus the "Top hit" badge, and nothing
+   else. It carries NO background, border or accent rule — every one of those
+   reads as "this row is selected", but the row is not selected and Enter still
+   searches the typed text (#82). Selection is .active's fill, exclusively. */
 .suggestion-item.suggestion-top-hit .suggestion-history-text,
 .suggestion-item.suggestion-top-hit .suggestion-browser-title {
   font-weight: 600;
+}
+
+.suggestion-top-hit-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .suggestion-clear-history {

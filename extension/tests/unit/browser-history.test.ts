@@ -72,6 +72,26 @@ describe("searchBrowserHistory", () => {
     expect(out.map((r) => r.url)).toEqual(["http://a.com"]);
   });
 
+  // #84: Fast Travel's own search-redirect pages are a dead round-trip through
+  // the redirector, not a destination.
+  it("drops Fast Travel redirect pages", async () => {
+    install({
+      granted: true,
+      results: [
+        { url: "https://fast-travel.kavi.sh/?q=gh" },
+        { url: "https://someone.github.io/fast-travel/?q=gh" },
+        { url: "https://fast-travel-omnibox.invalid/search?q=gh" },
+        { url: "https://github.com/" },
+        { url: "https://kavi.sh/fast-travel-app/" },
+      ],
+    });
+    const out = await searchBrowserHistory("gh");
+    expect(out.map((r) => r.url)).toEqual([
+      "https://github.com/",
+      "https://kavi.sh/fast-travel-app/",
+    ]);
+  });
+
   it("passes the query text and caps results", async () => {
     const getQuery = install({ granted: true, results: [] });
     await searchBrowserHistory("kittens");
