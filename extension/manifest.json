@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fast Travel",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArHXK3OQmZRtMEaFgibAVyxTPn2wPkgz9HF6VHfOePDVTv4NFlABQ41dLsbegb7lD5EOrXt+XzzhIX351261dnZQlGPOI6MDoEKenQBFVeZ0vDWIejwUUTaY0VmTOJtuRbDWhf+eoB/sSxUAsvHBtNIiqrBvWOaUygBciO29PL8ES+Mxguw2vqOJCH4JMVoxqL0YXLq/rAFsdmqmQoNs/turwMiIBMKiD5Gg0IZzBI5PESMPXrMWSDN8it2IXmUvl7TV1b9ADH1rfVaMGCPaA0uZS9DyHSvWW0TVdDYm8xvx7UuHdMzaJUhDUPgkGLbruJ/SQGjDyXNrGcpkKCrlX2wIDAQAB",
   "default_locale": "en",
   "description": "Turn your search bar into a command line for the web. Define short triggers and jump straight to the sites and searches you use.",
