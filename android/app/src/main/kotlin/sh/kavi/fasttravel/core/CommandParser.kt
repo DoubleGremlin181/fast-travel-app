@@ -10,6 +10,8 @@ object CommandParser {
      * Common words loaded from assets. These are skipped during typo detection
      * to avoid false positives (e.g. "go" being suggested as "g").
      */
+    // @Volatile: set from a background thread at startup (SearchViewModel), read on Main.
+    @Volatile
     private var commonWords: Set<String> = emptySet()
 
     /**
@@ -24,6 +26,7 @@ object CommandParser {
      * Valid TLDs loaded from assets (shared/config/tlds.json), used by URL
      * detection. Should be set once at app startup; unit tests set it directly.
      */
+    @Volatile
     private var tlds: Set<String> = emptySet()
 
     fun setTlds(list: Set<String>) {

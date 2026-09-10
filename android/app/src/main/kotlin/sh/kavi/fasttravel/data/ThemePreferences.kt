@@ -36,6 +36,7 @@ class ThemePreferences(private val prefs: SharedPreferences) {
         private const val KEY_CONFIG_SOURCE_DIRTY = "config_source_dirty"
         const val KEY_INSTALLED_APPS_ENABLED = "installed_apps_enabled"
         const val KEY_THEMED_ICON_ENABLED = "themed_icon_enabled"
+        private const val KEY_WIDGET_REFRESHED_VERSION = "widget_refreshed_version"
         const val DEFAULT_AUTO_IGNORE_THRESHOLD = 3
         const val AUTO_IGNORE_THRESHOLD_MIN = 1
         const val AUTO_IGNORE_THRESHOLD_MAX = 20
@@ -104,6 +105,12 @@ class ThemePreferences(private val prefs: SharedPreferences) {
     var themedIconEnabled: Boolean
         get() = prefs.getBoolean(KEY_THEMED_ICON_ENABLED, false)
         set(value) { prefs.edit().putBoolean(KEY_THEMED_ICON_ENABLED, value).apply() }
+
+    /** versionCode that last re-broadcast a widget update from Application.onCreate
+     *  (see FastTravelApplication). -1 until the first launch. */
+    var widgetRefreshedForVersion: Int
+        get() = prefs.getInt(KEY_WIDGET_REFRESHED_VERSION, -1)
+        set(value) { prefs.edit().putInt(KEY_WIDGET_REFRESHED_VERSION, value).apply() }
 
     var shortcutRows: Int
         get() = prefs.getInt(KEY_SHORTCUT_ROWS, 2)
