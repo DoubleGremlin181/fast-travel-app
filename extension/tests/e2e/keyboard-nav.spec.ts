@@ -95,3 +95,71 @@ test("Tab accepts the top suggestion into the box without searching", async ({
   // Tab must NOT navigate away from the new-tab page.
   expect(page.url()).toContain(`chrome-extension://${extensionId}/newtab/newtab.html`);
 });
+
+// Issue #83: the highlight cycles through the typed-text state, so the last
+// row is one keystroke away instead of a held ArrowDown.
+
+test("ArrowUp with nothing highlighted wraps to the last suggestion", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openNewtab(context, extensionId);
+  const input = page.locator("#search-input");
+
+  await input.fill("g");
+  await page.locator(".suggestion-item.suggestion-command").first().waitFor({ state: "visible" });
+  // Let the debounced API rows land so the list stops re-rendering under us.
+  await page.waitForTimeout(600);
+  const rows = page.locator(".suggestion-item");
+  const count = await rows.count();
+  expect(count).toBeGreaterThan(1);
+
+  await input.press("ArrowUp");
+
+  await expect(page.locator(".suggestion-item.active")).toHaveCount(1);
+  await expect(rows.nth(count - 1)).toHaveClass(/active/);
+});
+
+test("ArrowDown off the bottom wraps back to the typed text", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openNewtab(context, extensionId);
+  const input = page.locator("#search-input");
+
+  await input.fill("g");
+  await page.locator(".suggestion-item.suggestion-command").first().waitFor({ state: "visible" });
+  await page.waitForTimeout(600);
+
+  // ArrowUp lands on the last row; ArrowDown from there completes the cycle.
+  await input.press("ArrowUp");
+  await expect(input).not.toHaveValue("g");
+  await input.press("ArrowDown");
+
+  await expect(page.locator(".suggestion-item.active")).toHaveCount(0);
+  await expect(input).toHaveValue("g");
+});
+
+test("ArrowUp then ArrowDown returns to where it started", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await openNewtab(context, extensionId);
+  const input = page.locator("#search-input");
+
+  await input.fill("g");
+  await page.locator(".suggestion-item.suggestion-command").first().waitFor({ state: "visible" });
+  await page.waitForTimeout(600);
+
+  // Step down onto the first row, then wrap up through the typed text and back
+  // down — the highlight must land on the first row again.
+  await input.press("ArrowDown");
+  const firstValue = await input.inputValue();
+  await input.press("ArrowUp"); // -> typed text
+  await expect(input).toHaveValue("g");
+  await input.press("ArrowUp"); // -> wraps to the last row
+  await input.press("ArrowDown"); // -> back to the typed text
+  await expect(input).toHaveValue("g");
+  await input.press("ArrowDown"); // -> first row again
+  await expect(input).toHaveValue(firstValue);
+});

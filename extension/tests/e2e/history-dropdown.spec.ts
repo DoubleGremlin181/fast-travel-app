@@ -41,3 +41,35 @@ test("recent-history dropdown does not show a scrollbar for a full 8-item list",
   expect(scroll.vScroll).toBe(false);
   expect(scroll.hScroll).toBe(false);
 });
+
+// Issue #84: Fast Travel's own search-redirect pages are a dead round-trip
+// through the redirector. The empty-input recent-history dropdown builds its
+// rows directly (not via blendSuggestions), so it needs the filter too.
+test("recent-history dropdown hides Fast Travel redirect pages", async ({
+  context,
+  extensionId,
+}) => {
+  let worker = context.serviceWorkers()[0];
+  if (!worker) worker = await context.waitForEvent("serviceworker");
+  const now = Date.now();
+  const entries = [
+    { query: "https://fast-travel.kavi.sh/?q=gh", commandId: null, timestamp: now },
+    { query: "https://someone.github.io/fast-travel/?q=gh", commandId: null, timestamp: now - 1000 },
+    { query: "a real search", commandId: null, timestamp: now - 2000 },
+    { query: "https://github.com/", commandId: null, timestamp: now - 3000 },
+  ];
+  await worker.evaluate(
+    ([key, data]) => chrome.storage.local.set({ [key]: data }),
+    [HISTORY_KEY, entries] as [string, typeof entries],
+  );
+
+  const page = await context.newPage();
+  await page.goto(`chrome-extension://${extensionId}/newtab/newtab.html`);
+  await page.locator(".quick-chip").first().waitFor({ state: "visible", timeout: 5000 });
+  await page.locator("#search-input").blur();
+  await page.locator("#search-input").focus();
+  await page.locator(".suggestion-history-text").first().waitFor({ state: "visible" });
+
+  const rows = await page.locator(".suggestion-history-text").allTextContents();
+  expect(rows).toEqual(["a real search", "https://github.com/"]);
+});

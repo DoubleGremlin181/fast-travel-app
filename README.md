@@ -60,6 +60,10 @@ Heads up: unpacked extensions don't auto-update. Fast Travel shows a notice on t
 new tab page when a newer release is available — download the new zip, extract it
 over the same folder, and hit the reload icon on `chrome://extensions`.
 
+Fast Travel pins its extension ID, so your commands, history, and settings follow
+the extension rather than the folder it was extracted into. Extracting a new
+release somewhere else won't lose them.
+
 ### Direct download (GitHub Releases)
 
 Every release also ships installable artifacts on the

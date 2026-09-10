@@ -1,4 +1,5 @@
 import { hasHistoryPermission } from "./permissions.js";
+import { isFastTravelRedirectUrl } from "./self-referential-url.js";
 
 /** A browser-history match, normalized for the blend pipeline. */
 export interface BrowserHistoryItem {
@@ -33,6 +34,8 @@ export async function searchBrowserHistory(
       // http(s) only: file://, about: etc. can't be navigated to from an
       // extension page, so surfacing them would produce dead rows.
       .filter((r) => typeof r.url === "string" && /^https?:/i.test(r.url))
+      // Fast Travel's own search-redirect pages are a dead round-trip (#84).
+      .filter((r) => !isFastTravelRedirectUrl(r.url as string))
       .map((r) => ({
         url: r.url as string,
         title: r.title ?? "",

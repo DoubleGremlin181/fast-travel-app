@@ -122,6 +122,12 @@ if (isFirefox) {
   } catch {
     // Firefox overrides may not exist yet
   }
+  // `key` pins the CHROME extension ID (without it Chrome derives the ID from
+  // the unpacked folder path, so moving folders wipes chrome.storage — #81).
+  // Firefox has no such field: it uses browser_specific_settings.gecko.id, and
+  // web-ext lint / AMO reject the unknown property. deepMerge can only add
+  // keys, so the removal has to be explicit.
+  delete manifest.key;
 }
 
 writeFileSync(resolve(dist, "manifest.json"), JSON.stringify(manifest, null, 2));

@@ -29,6 +29,7 @@ import {
   type AutoIgnoreStore,
 } from "../core/auto-ignore-store.js";
 import { effectiveIgnoreList } from "../core/effective-ignore-list.js";
+import { isFastTravelRedirectUrl } from "../core/self-referential-url.js";
 import { addLocalIgnore, loadLocalIgnores } from "../core/local-ignore-store.js";
 import { rankByFrecency } from "../core/frecency.js";
 import { blendSuggestions, nextSectionStart } from "../core/blend.js";
@@ -120,6 +121,9 @@ let suggestionsPrefs: SuggestionsPrefs = {
   includeBrowserHistory: false,
 };
 const device = detectDevice();
+// Section-jump modifier: Cmd on macOS, Ctrl elsewhere. Ctrl+Arrow is Mission
+// Control / App Exposé on macOS, so the browser never sees it there.
+const IS_MAC = device === "MacOS" || device === "iOS";
 
 async function refreshIgnoreState(): Promise<void> {
   // Baseline ignoreList shipped in the config (normally empty) …
@@ -564,6 +568,9 @@ async function showHistory(): Promise<void> {
 
   const seen = new Set<string>();
   const items: SuggestionItem[] = history
+    // Same read-side filter the typed-query blend applies (#84) — this
+    // dropdown builds its rows directly, so it needs it too.
+    .filter((h) => !isFastTravelRedirectUrl(h.query))
     .filter((h) => {
       if (seen.has(h.query)) return false;
       seen.add(h.query);
@@ -754,6 +761,16 @@ function arrowIcon(): SVGSVGElement {
   return svg;
 }
 
+// Explicit "Top hit" label for the frecency-promoted row. The row is NOT
+// keyboard-selected — Enter still searches the typed text — so it must not be
+// styled like a selection; the badge says what the accent rule means (#82).
+function topHitBadge(): HTMLSpanElement {
+  const badge = document.createElement("span");
+  badge.className = "suggestion-top-hit-badge";
+  badge.textContent = "Top hit";
+  return badge;
+}
+
 // Trailing populate-only button: fills the search input with the suggestion's
 // text without submitting, mirroring the IconButton on Android. The row's
 // own click handler still searches; this button stops propagation so a click
@@ -823,6 +840,8 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
       text.textContent = item.display;
       el.appendChild(text);
 
+      if (item.topHit) el.appendChild(topHitBadge());
+
       const time = document.createElement("span");
       time.className = "suggestion-history-time";
       time.textContent = formatTimestamp(item.timestamp);
@@ -840,6 +859,9 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
         url.textContent = item.url ?? "";
         el.appendChild(url);
       }
+      // After the URL (which is the flexible column here) so the badge lands
+      // right-aligned, matching where the timestamp sits on history rows.
+      if (item.topHit) el.appendChild(topHitBadge());
       el.appendChild(populateButton(item.text));
     } else if (item.kind === "command") {
       const tint = resolveGroupTint(item.groupColor);
@@ -926,6 +948,10 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
 //   ↑/↓  move the highlight and autofill the input with the highlighted
 //        suggestion (caret at end); arrowing back above the first row restores
 //        the originally-typed text. Continuing to type refines from there.
+//        The list cycles (#83): the typed text is part of the loop, so ↑ from
+//        no selection jumps to the last row and ↓ off the bottom comes back to
+//        the typed text. Cmd+↑/↓ (macOS) / Ctrl+↑/↓ wraps the same way
+//        between sections.
 //   Enter same as clicking the row (kind-aware): a command fills + keeps
 //        editing; an engine/history suggestion searches. No selection → search
 //        the typed text.
@@ -936,9 +962,10 @@ function renderSuggestions(items: SuggestionItem[], showClearHistory = false): v
 //   Esc   restore the originally-typed text and close the dropdown.
 searchInput.addEventListener("keydown", (e) => {
   const items = suggestionsDropdown.querySelectorAll<HTMLElement>(".suggestion-item");
-  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && e.ctrlKey && items.length > 0) {
-    // Ctrl+Arrow jumps between section starts (command / history / api /
-    // browser) instead of stepping row by row.
+  const sectionJump = IS_MAC ? e.metaKey || e.ctrlKey : e.ctrlKey;
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && sectionJump && items.length > 0) {
+    // Cmd+Arrow (macOS) / Ctrl+Arrow jumps between section starts (command /
+    // history / api / browser) instead of stepping row by row.
     e.preventDefault();
     if (activeSuggestionIndex === -1) typedText = searchInput.value;
     const kinds = currentSuggestionItems.map((it) => it.kind);
@@ -949,16 +976,14 @@ searchInput.addEventListener("keydown", (e) => {
     );
     updateActiveSuggestion(items);
     autofillFromActive(items);
-  } else if (e.key === "ArrowDown" && items.length > 0) {
+  } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && items.length > 0) {
     e.preventDefault();
     if (activeSuggestionIndex === -1) typedText = searchInput.value;
-    activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, items.length - 1);
-    updateActiveSuggestion(items);
-    autofillFromActive(items);
-  } else if (e.key === "ArrowUp" && items.length > 0) {
-    e.preventDefault();
-    if (activeSuggestionIndex === -1) typedText = searchInput.value;
-    activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, -1);
+    activeSuggestionIndex = cycleSuggestionIndex(
+      activeSuggestionIndex,
+      e.key === "ArrowDown" ? 1 : -1,
+      items.length,
+    );
     updateActiveSuggestion(items);
     autofillFromActive(items);
   } else if (e.key === "Tab" && items.length > 0) {
@@ -981,6 +1006,19 @@ searchInput.addEventListener("keydown", (e) => {
     if (currentTypo) hideTypo();
   }
 });
+
+/**
+ * Step the highlight by one row, cycling through the typed-text state (#83).
+ * The states are -1 (typed text) plus each row, so `count + 1` in total —
+ * making ↑ then ↓ the identity in both directions.
+ */
+function cycleSuggestionIndex(
+  current: number,
+  delta: 1 | -1,
+  count: number,
+): number {
+  return ((current + 1 + delta + count + 1) % (count + 1)) - 1;
+}
 
 function updateActiveSuggestion(items: NodeListOf<HTMLElement>): void {
   items.forEach((item, i) => item.classList.toggle("active", i === activeSuggestionIndex));
@@ -1031,6 +1069,12 @@ searchInput.addEventListener("input", () => {
   if (currentTypo) hideTypo();
   showSuggestions(searchInput.value);
   updateChipsVisibility();
+  // Re-evaluate overflow against the CURRENT value. Without this the class was
+  // only refreshed on blur and on resize, so a value that overflowed once kept
+  // `direction: rtl` all the way down as it was deleted — mirroring a short
+  // string, and finally the placeholder ("…Search or type a command") once the
+  // field was empty.
+  applyTailVisible(searchInput);
 });
 
 searchInput.addEventListener("focus", () => {
