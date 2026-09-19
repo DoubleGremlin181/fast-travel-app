@@ -8,6 +8,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.charset.Charset
 
 data class Suggestion(
     val text: String,
@@ -137,8 +138,12 @@ object SuggestionProvider {
                 return@withContext emptyList()
             }
 
+            // Decode with the charset the server declared. Google's suggest
+            // endpoint answers in ISO-8859-1 by default, so reading it as
+            // UTF-8 turns "pokémon" into "pok\uFFFDmon".
+            val charset = charsetFrom(connection.contentType)
             val responseText = try {
-                BufferedReader(InputStreamReader(connection.inputStream)).use { it.readText() }
+                BufferedReader(InputStreamReader(connection.inputStream, charset)).use { it.readText() }
             } finally {
                 connection.disconnect()
             }
@@ -148,6 +153,25 @@ object SuggestionProvider {
             emptyList()
         }
     }
+
+    /**
+     * Extract the `charset` parameter from a Content-Type header value such as
+     * `text/javascript; charset=ISO-8859-1`. Falls back to UTF-8 when the header
+     * is absent, has no charset parameter, or names an unsupported encoding.
+     */
+    internal fun charsetFrom(contentType: String?): Charset {
+        if (contentType == null) return Charsets.UTF_8
+        val match = CHARSET_PARAM.find(contentType) ?: return Charsets.UTF_8
+        val name = match.groupValues[1].trim().trim('"', '\'')
+        if (name.isEmpty()) return Charsets.UTF_8
+        return try {
+            Charset.forName(name)
+        } catch (_: Exception) {
+            Charsets.UTF_8
+        }
+    }
+
+    private val CHARSET_PARAM = Regex(""";\s*charset\s*=\s*([^;]+)""", RegexOption.IGNORE_CASE)
 
     private fun parseResponse(responseText: String): List<String> {
         return try {

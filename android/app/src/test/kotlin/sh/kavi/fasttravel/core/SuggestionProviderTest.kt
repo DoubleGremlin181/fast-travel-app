@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import java.net.ServerSocket
 import java.net.Socket
+import java.nio.charset.Charset
 
 /**
  * Unit tests for [SuggestionProvider], specifically the case-insensitive trigger-prefix
@@ -24,6 +25,16 @@ class SuggestionProviderTest {
 
     /** The raw suggestion strings the stub server will return in its next response. */
     private val stubSuggestions = mutableListOf<String>()
+
+    /** Charset the stub server encodes its body with. */
+    private var stubCharset: Charset = Charsets.UTF_8
+
+    /**
+     * Whether the stub server advertises [stubCharset] in its Content-Type header.
+     * When false the header is a bare `application/json`, mimicking servers that
+     * omit the parameter (the client must then assume UTF-8).
+     */
+    private var stubDeclaresCharset: Boolean = true
 
     @BeforeEach
     fun startServer() {
@@ -45,13 +56,20 @@ class SuggestionProviderTest {
                     // Build OpenSearch-format response: ["q", ["sug1", "sug2", ...]]
                     val sugJson = stubSuggestions
                         .joinToString(",") { "\"${it.replace("\"", "\\\"")}\"" }
-                    val body = "[\"q\",[$sugJson]]"
-                    val response = "HTTP/1.0 200 OK\r\n" +
-                        "Content-Type: application/json\r\n" +
-                        "Content-Length: ${body.length}\r\n" +
-                        "\r\n" +
-                        body
-                    client.getOutputStream().write(response.toByteArray())
+                    val body = "[\"q\",[$sugJson]]".toByteArray(stubCharset)
+                    val contentType = if (stubDeclaresCharset)
+                        "application/json; charset=${stubCharset.name()}"
+                    else
+                        "application/json"
+                    val headers = "HTTP/1.0 200 OK\r\n" +
+                        "Content-Type: $contentType\r\n" +
+                        "Content-Length: ${body.size}\r\n" +
+                        "\r\n"
+                    client.getOutputStream().apply {
+                        write(headers.toByteArray(Charsets.US_ASCII))
+                        write(body)
+                        flush()
+                    }
                 } finally {
                     client.close()
                 }
@@ -65,6 +83,8 @@ class SuggestionProviderTest {
     fun stopServer() {
         serverSocket.close()
         serverThread.join(500)
+        stubCharset = Charsets.UTF_8
+        stubDeclaresCharset = true
     }
 
     // ---------------------------------------------------------------------------
@@ -173,5 +193,64 @@ class SuggestionProviderTest {
             results[0].text,
             "text should be 'g search term'",
         )
+    }
+
+    // ---------------------------------------------------------------------------
+    // Response charset handling
+    // ---------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("ISO-8859-1 response body is decoded using the declared charset")
+    fun `latin1 response body decodes accented characters`() {
+        // Google's suggest endpoint answers "charset=ISO-8859-1" unless asked
+        // otherwise; "é" is the single byte 0xE9 there. Decoding it as UTF-8
+        // produced U+FFFD ("pok\uFFFDmon"), which then leaked into the search.
+        stubCharset = Charsets.ISO_8859_1
+        stubSuggestions.clear()
+        stubSuggestions.add("pokémon")
+        stubSuggestions.add("pokémon go")
+
+        val results = suggestions("g", "poké")
+
+        assertEquals(listOf("pokémon", "pokémon go"), results.map { it.displayText })
+        assertEquals("g pokémon", results[0].text)
+    }
+
+    @Test
+    @DisplayName("UTF-8 response body with explicit charset decodes accented characters")
+    fun `utf8 response body with explicit charset decodes accented characters`() {
+        stubCharset = Charsets.UTF_8
+        stubSuggestions.clear()
+        stubSuggestions.add("pokémon")
+        stubSuggestions.add("日本語")
+
+        val results = suggestions("g", "poké")
+
+        assertEquals(listOf("pokémon", "日本語"), results.map { it.displayText })
+    }
+
+    @Test
+    @DisplayName("response without a charset parameter is treated as UTF-8")
+    fun `missing charset parameter falls back to utf8`() {
+        stubCharset = Charsets.UTF_8
+        stubDeclaresCharset = false
+        stubSuggestions.clear()
+        stubSuggestions.add("pokémon")
+
+        val results = suggestions("g", "poké")
+
+        assertEquals(listOf("pokémon"), results.map { it.displayText })
+    }
+
+    @Test
+    @DisplayName("charsetFrom parses Content-Type values and falls back to UTF-8")
+    fun `charsetFrom handles header variants`() {
+        assertEquals(Charsets.ISO_8859_1, SuggestionProvider.charsetFrom("text/javascript; charset=ISO-8859-1"))
+        assertEquals(Charsets.UTF_8, SuggestionProvider.charsetFrom("application/json; charset=utf-8"))
+        assertEquals(Charsets.UTF_8, SuggestionProvider.charsetFrom("application/json;charset=\"UTF-8\""))
+        assertEquals(Charsets.ISO_8859_1, SuggestionProvider.charsetFrom("text/plain; CHARSET=iso-8859-1; foo=bar"))
+        assertEquals(Charsets.UTF_8, SuggestionProvider.charsetFrom("application/json"))
+        assertEquals(Charsets.UTF_8, SuggestionProvider.charsetFrom(null))
+        assertEquals(Charsets.UTF_8, SuggestionProvider.charsetFrom("text/plain; charset=not-a-real-charset"))
     }
 }

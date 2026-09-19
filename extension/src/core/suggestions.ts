@@ -114,7 +114,12 @@ async function fetchFromApi(
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) return [];
 
-    const data = await response.json();
+    // `response.json()` always decodes as UTF-8, but Google's suggest endpoint
+    // answers in ISO-8859-1 by default, which turned "pokémon" into
+    // "pok\uFFFDmon". Decode with the charset the server actually declared.
+    const bytes = await response.arrayBuffer();
+    const charset = charsetFromContentType(response.headers?.get("content-type"));
+    const data: unknown = JSON.parse(decodeBody(bytes, charset));
 
     // OpenSearch format: [query, [suggestions, ...]]
     if (Array.isArray(data) && data.length >= 2 && Array.isArray(data[1])) {
@@ -139,5 +144,27 @@ async function fetchFromApi(
     return [];
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * Extract the `charset` parameter from a Content-Type header value such as
+ * `text/javascript; charset=ISO-8859-1`. Returns "utf-8" when the header is
+ * missing or carries no charset parameter.
+ */
+export function charsetFromContentType(contentType: string | null | undefined): string {
+  if (!contentType) return "utf-8";
+  const match = /;\s*charset\s*=\s*([^;]+)/i.exec(contentType);
+  if (!match) return "utf-8";
+  const name = match[1].trim().replace(/^["']|["']$/g, "");
+  return name || "utf-8";
+}
+
+function decodeBody(bytes: ArrayBuffer, charset: string): string {
+  try {
+    return new TextDecoder(charset).decode(bytes);
+  } catch {
+    // Unknown encoding label → fall back to UTF-8 rather than dropping results.
+    return new TextDecoder("utf-8").decode(bytes);
   }
 }
