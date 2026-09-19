@@ -784,7 +784,10 @@ private fun SearchBarPill(
                     fontSize = 16.sp,
                 ),
                 cursorBrush = SolidColor(appearance.searchBarContentColor),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                keyboardOptions = KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    imeAction = ImeAction.Go,
+                ),
                 onKeyboardAction = { _ -> onSearch() },
                 modifier = Modifier
                     .fillMaxWidth()
