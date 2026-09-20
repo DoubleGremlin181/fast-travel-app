@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { buildLuckyUrl } from "../../src/core/lucky.js";
+import {
+  buildLuckyUrl,
+  extractRedirectNoticeTarget,
+  isGoogleSearchUrl,
+} from "../../src/core/lucky.js";
 import type { FastTravelConfig } from "../../src/core/types.js";
 
 function makeConfig(defaultLuckyUrl?: string | null, defaultCommand = "g"): FastTravelConfig {
@@ -72,6 +76,34 @@ describe("buildLuckyUrl — shared fixtures", () => {
       const cfg = makeConfig(fixture.input.defaultLuckyUrl, fixture.input.defaultCommand);
       const result = buildLuckyUrl(cfg, fixture.input.query);
       expect(result).toEqual(fixture.expected);
+    });
+  }
+});
+
+interface RedirectFixtures {
+  isGoogleSearchUrl: { description: string; input: string; expected: boolean }[];
+  extractRedirectNoticeTarget: { description: string; input: string; expected: string | null }[];
+}
+
+const redirectFixtures: RedirectFixtures = JSON.parse(
+  readFileSync(
+    resolve(__dirname, "../../../shared/test-fixtures/lucky-redirect.fixtures.json"),
+    "utf-8",
+  ),
+);
+
+describe("isGoogleSearchUrl — shared fixtures", () => {
+  for (const fixture of redirectFixtures.isGoogleSearchUrl) {
+    it(fixture.description, () => {
+      expect(isGoogleSearchUrl(fixture.input)).toBe(fixture.expected);
+    });
+  }
+});
+
+describe("extractRedirectNoticeTarget — shared fixtures", () => {
+  for (const fixture of redirectFixtures.extractRedirectNoticeTarget) {
+    it(fixture.description, () => {
+      expect(extractRedirectNoticeTarget(fixture.input)).toBe(fixture.expected);
     });
   }
 });

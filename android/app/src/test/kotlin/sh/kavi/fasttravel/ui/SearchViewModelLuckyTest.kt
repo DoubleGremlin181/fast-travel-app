@@ -74,10 +74,12 @@ class SearchViewModelLuckyTest {
         // default-config.json ships defaultLuckyUrl = "https://www.google.com/search?q={query}&btnI".
         cacheConfig(defaultConfigJson().toString())
 
-        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher)
+        // Identity resolver: what LuckyRedirectResolver returns when it can't resolve.
+        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher, resolveLuckyUrl = { it })
         scheduler.advanceUntilIdle() // let init load the cached config
 
         vm.onLuckySearch("cat pics")
+        scheduler.advanceUntilIdle() // let the resolver coroutine finish
 
         val state = vm.searchState.value
         assertTrue("expected a Navigate state, got $state", state is SearchState.Navigate)
@@ -88,11 +90,37 @@ class SearchViewModelLuckyTest {
     }
 
     @Test
+    fun `navigates to the resolved target instead of Google's redirect notice`() {
+        cacheConfig(defaultConfigJson().toString())
+
+        val resolved = mutableListOf<String>()
+        val vm = SearchViewModel(
+            app,
+            io = dispatcher,
+            work = dispatcher,
+            resolveLuckyUrl = { url ->
+                resolved += url
+                "https://example.com/cats"
+            },
+        )
+        scheduler.advanceUntilIdle()
+
+        vm.onLuckySearch("cat pics")
+        vm.onLuckySearch("cat pics") // a repeat press while resolving is ignored
+        scheduler.advanceUntilIdle()
+
+        assertEquals(listOf("https://www.google.com/search?q=cat%20pics&btnI"), resolved)
+        val state = vm.searchState.value
+        assertTrue("expected a Navigate state, got $state", state is SearchState.Navigate)
+        assertEquals("https://example.com/cats", (state as SearchState.Navigate).url)
+    }
+
+    @Test
     fun `falls back to a normal search when defaultLuckyUrl is absent`() {
         val configJson = defaultConfigJson().apply { remove("defaultLuckyUrl") }
         cacheConfig(configJson.toString())
 
-        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher)
+        val vm = SearchViewModel(app, io = dispatcher, work = dispatcher, resolveLuckyUrl = { it })
         scheduler.advanceUntilIdle() // let init load the cached config
 
         // "scholr" is a detectable typo of the "scholar" trigger (per

@@ -6,6 +6,7 @@
  *   2. A multi-token query containing a domain-like word still searches
  *   3. javascript: input never navigates (complements xss-javascript-url.spec.ts)
  *   4. Ctrl+Enter routes through the top-level defaultLuckyUrl template
+ *   5. Ctrl+Enter skips Google's "Redirect Notice" and opens its target directly
  *
  * Navigation assertions use waitForRequest so tests resolve when the request
  * is issued, without depending on external sites actually loading.
@@ -130,4 +131,61 @@ test("Ctrl+Enter routes through the top-level defaultLuckyUrl", async ({
     page.keyboard.press("Control+Enter"),
   ]);
   expect(request.url()).toMatch(/google\.com\/search\?q=wikipedia&btnI/);
+});
+
+test("Ctrl+Enter opens the redirect notice's target directly", async ({
+  context,
+  extensionId,
+}) => {
+  const page = await readyNewtab(context, extensionId);
+
+  // Stand in for Google: &btnI 302s to the /url?q=<target> "Redirect Notice"
+  // interstitial, with the target's query string percent-encoded. Registered
+  // after readyNewtab's abort-all route, so these take precedence.
+  await context.route(/^https:\/\/www\.google\.com\/search\?/, (route) =>
+    route.fulfill({
+      status: 302,
+      headers: {
+        location: "https://www.google.com/url?q=https://example.com/watch%3Fv%3Dabc",
+      },
+    }),
+  );
+  await context.route(/^https:\/\/www\.google\.com\/url\?/, (route) =>
+    route.fulfill({ status: 200, contentType: "text/html", body: "Redirect Notice" }),
+  );
+
+  const sw = context.serviceWorkers()[0];
+  await sw.evaluate(() =>
+    chrome.storage.local
+      .get("fast-travel-config")
+      .then((v: Record<string, any>) => {
+        const cfg = v["fast-travel-config"];
+        cfg.defaultLuckyUrl = "https://www.google.com/search?q={query}&btnI";
+        return chrome.storage.local.set({ "fast-travel-config": cfg });
+      }),
+  );
+  await page.reload();
+  await page.locator("html[data-ft-ready]").waitFor();
+
+  await page.locator("#search-input").fill("some video");
+
+  const navigations: string[] = [];
+  page.on("request", (r) => {
+    if (r.isNavigationRequest() && r.frame() === page.mainFrame()) {
+      navigations.push(r.url());
+    }
+  });
+  const [request] = await Promise.all([
+    page.waitForRequest(
+      (r) =>
+        r.isNavigationRequest() &&
+        r.frame() === page.mainFrame() &&
+        r.url().startsWith("https://example.com"),
+      { timeout: 10000 },
+    ),
+    page.keyboard.press("Control+Enter"),
+  ]);
+  expect(request.url()).toBe("https://example.com/watch?v=abc");
+  // The tab never navigates to Google — only the resolving fetch() contacts it.
+  expect(navigations).toEqual(["https://example.com/watch?v=abc"]);
 });

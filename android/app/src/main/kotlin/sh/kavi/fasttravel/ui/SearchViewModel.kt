@@ -16,6 +16,7 @@ import sh.kavi.fasttravel.core.Group
 import sh.kavi.fasttravel.core.InstalledApp
 import sh.kavi.fasttravel.core.InstalledAppResolver
 import sh.kavi.fasttravel.core.Lucky
+import sh.kavi.fasttravel.core.LuckyRedirectResolver
 import sh.kavi.fasttravel.core.ParseInput
 import sh.kavi.fasttravel.core.ParseOutput
 import sh.kavi.fasttravel.core.Suggestion
@@ -57,6 +58,9 @@ class SearchViewModel @JvmOverloads constructor(
      *  lookups and icon loads. Both dispatchers are injectable so unit tests can
      *  run the whole startup pipeline on a TestDispatcher. */
     private val work: CoroutineDispatcher = Dispatchers.Default,
+    /** Blocking lucky-URL resolver, run on [io]. Injectable so unit tests never
+     *  hit the network. */
+    private val resolveLuckyUrl: (String) -> String = LuckyRedirectResolver::resolve,
 ) : AndroidViewModel(application) {
 
     private val configRepository = ConfigRepository(application, io)
@@ -76,6 +80,7 @@ class SearchViewModel @JvmOverloads constructor(
     private var suggestionJob: Job? = null
     private var installedAppsJob: Job? = null
     private var chipJob: Job? = null
+    private var luckyJob: Job? = null
 
     private val _chipItems = MutableStateFlow<List<ChipItem>>(emptyList())
     val chipItems: StateFlow<List<ChipItem>> = _chipItems.asStateFlow()
@@ -525,11 +530,14 @@ class SearchViewModel @JvmOverloads constructor(
      * Ctrl+Enter (hardware keyboard only): "I'm feeling lucky"-style navigation
      * via the top-level defaultLuckyUrl template. Falls back to a normal search when
      * the config doesn't define one, the default command doesn't resolve, or the
-     * built URL fails the scheme guard. Mirrors handleLuckySearch in newtab.ts.
+     * built URL fails the scheme guard. A Google &btnI URL is resolved to its
+     * target first so the browser skips Google's "Redirect Notice" interstitial.
+     * Mirrors handleLuckySearch in newtab.ts.
      */
     fun onLuckySearch(searchQuery: String) {
         val cfg = config ?: return
         if (searchQuery.isBlank()) return
+        if (luckyJob?.isActive == true) return
 
         val lucky = Lucky.buildLuckyUrl(effectiveConfig(cfg), searchQuery)
         // Tighter than the general allowlist: the defaultLuckyUrl contract is
@@ -543,7 +551,10 @@ class SearchViewModel @JvmOverloads constructor(
         _suggestions.value = emptyList()
         searchHistory.addEntry(searchQuery, lucky.commandId)
         updateChipCommands()
-        _searchState.value = SearchState.Navigate(lucky.url)
+        luckyJob = viewModelScope.launch {
+            val url = withContext(io) { resolveLuckyUrl(lucky.url) }
+            _searchState.value = SearchState.Navigate(url)
+        }
     }
 
     fun acceptTypo() {

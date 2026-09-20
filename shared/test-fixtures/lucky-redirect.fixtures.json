@@ -1,0 +1,121 @@
+{
+  "isGoogleSearchUrl": [
+    {
+      "description": "google.com search with btnI",
+      "input": "https://www.google.com/search?q=a&btnI",
+      "expected": true
+    },
+    {
+      "description": "bare google.com host",
+      "input": "https://google.com/search?q=a&btnI",
+      "expected": true
+    },
+    {
+      "description": "two-part country domain",
+      "input": "https://www.google.co.uk/search?q=a&btnI",
+      "expected": true
+    },
+    {
+      "description": "single-part country domain",
+      "input": "https://www.google.de/search?q=a&btnI",
+      "expected": true
+    },
+    {
+      "description": "other search engine",
+      "input": "https://duckduckgo.com/?q=!ducky+a",
+      "expected": false
+    },
+    {
+      "description": "Google host, non-search path",
+      "input": "https://www.google.com/maps?q=a",
+      "expected": false
+    },
+    {
+      "description": "Google as a subdomain of another host",
+      "input": "https://www.google.com.evil.example/search?q=a",
+      "expected": false
+    },
+    {
+      "description": "host merely ending in google.com",
+      "input": "https://notgoogle.com/search?q=a",
+      "expected": false
+    },
+    {
+      "description": "plain http",
+      "input": "http://www.google.com/search?q=a",
+      "expected": false
+    },
+    {
+      "description": "not a URL",
+      "input": "not a url",
+      "expected": false
+    }
+  ],
+  "extractRedirectNoticeTarget": [
+    {
+      "description": "unencoded target",
+      "input": "https://www.google.com/url?q=https://en.wikipedia.org/wiki/Rust_(programming_language)",
+      "expected": "https://en.wikipedia.org/wiki/Rust_(programming_language)"
+    },
+    {
+      "description": "percent-encoded query string in the target is decoded",
+      "input": "https://www.google.com/url?q=https://www.youtube.com/watch%3Fv%3DdQw4w9WgXcQ",
+      "expected": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    {
+      "description": "Google's own tracking params after the target are ignored",
+      "input": "https://www.google.co.uk/url?q=https://example.com/a%3Fb%3D1%26c%3D2&sa=U&ved=xyz",
+      "expected": "https://example.com/a?b=1&c=2"
+    },
+    {
+      "description": "url= param is accepted when q= is absent",
+      "input": "https://www.google.com/url?sa=t&url=https%3A%2F%2Fexample.com%2Fpage",
+      "expected": "https://example.com/page"
+    },
+    {
+      "description": "search results page (Google declined to redirect)",
+      "input": "https://www.google.com/search?q=a&btnI",
+      "expected": null
+    },
+    {
+      "description": "consent interstitial",
+      "input": "https://consent.google.com/m?continue=x",
+      "expected": null
+    },
+    {
+      "description": "bot-check page",
+      "input": "https://www.google.com/sorry/index",
+      "expected": null
+    },
+    {
+      "description": "non-Google host with the same shape",
+      "input": "https://evil.example/url?q=https://example.com",
+      "expected": null
+    },
+    {
+      "description": "redirect notice without a target",
+      "input": "https://www.google.com/url",
+      "expected": null
+    },
+    {
+      "description": "empty string",
+      "input": "",
+      "expected": null
+    },
+    {
+      "description": "javascript: target is refused",
+      "input": "https://www.google.com/url?q=javascript:alert(1)",
+      "expected": null
+    },
+    {
+      "description": "relative target is refused",
+      "input": "https://www.google.com/url?q=/relative/path",
+      "expected": null
+    },
+    {
+      "description": "file: target is refused",
+      "input": "https://www.google.com/url?q=file:///etc/passwd",
+      "expected": null
+    }
+  ]
+}
