@@ -2,7 +2,7 @@
   "$schema": "./config.schema.json",
   "version": 2,
   "defaultCommand": "g",
-  "defaultSuggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&q={query}",
+  "defaultSuggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&oe=utf-8&q={query}",
   "defaultLuckyUrl": "https://www.google.com/search?q={query}&btnI",
   "groups": [
     {
@@ -18,7 +18,7 @@
           "name": "Google",
           "type": "standard",
           "iconUrl": "https://www.google.com/s2/favicons?domain=google.com&sz=128",
-          "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&q={query}",
+          "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&oe=utf-8&q={query}",
           "routes": [
             {
               "devices": "*",
@@ -711,7 +711,7 @@
           "name": "YouTube",
           "type": "standard",
           "iconUrl": "https://icons.duckduckgo.com/ip3/youtube.com.ico",
-          "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q={query}",
+          "suggestionsApi": "https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&oe=utf-8&q={query}",
           "routes": [
             {
               "devices": "*",

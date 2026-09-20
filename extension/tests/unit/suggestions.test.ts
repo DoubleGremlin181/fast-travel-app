@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fetchSuggestions } from "../../src/core/suggestions.js";
+import { charsetFromContentType, fetchSuggestions } from "../../src/core/suggestions.js";
 import type { FastTravelConfig } from "../../src/core/types.js";
 
 // Minimal config for testing
@@ -97,6 +97,25 @@ const testConfig: FastTravelConfig = {
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
+/**
+ * Build a fetch Response stand-in. `body` is either a value serialised as UTF-8
+ * JSON, or raw bytes for tests that need a specific encoding on the wire.
+ */
+function jsonResponse(
+  body: unknown,
+  contentType: string | null = "application/json; charset=utf-8",
+) {
+  const bytes =
+    body instanceof Uint8Array ? body : new TextEncoder().encode(JSON.stringify(body));
+  const headers = new Headers();
+  if (contentType !== null) headers.set("content-type", contentType);
+  return {
+    ok: true,
+    headers,
+    arrayBuffer: () => Promise.resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)),
+  };
+}
+
 beforeEach(() => {
   mockFetch.mockReset();
 });
@@ -109,10 +128,7 @@ describe("fetchSuggestions", () => {
   });
 
   it("uses command-specific API when command matches", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(["weather", ["weather forecast", "weather today"]]),
-    });
+    mockFetch.mockResolvedValueOnce(jsonResponse(["weather", ["weather forecast", "weather today"]]));
 
     const result = await fetchSuggestions("g weather", testConfig);
 
@@ -127,10 +143,7 @@ describe("fetchSuggestions", () => {
   });
 
   it("prepends command trigger to suggestions", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(["test", ["result one", "result two"]]),
-    });
+    mockFetch.mockResolvedValueOnce(jsonResponse(["test", ["result one", "result two"]]));
 
     const result = await fetchSuggestions("ddg test", testConfig);
 
@@ -139,10 +152,7 @@ describe("fetchSuggestions", () => {
   });
 
   it("falls back to default API when command has no suggestionsApi", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(["test", ["suggestion"]]),
-    });
+    mockFetch.mockResolvedValueOnce(jsonResponse(["test", ["suggestion"]]));
 
     const result = await fetchSuggestions("noapi test", testConfig);
 
@@ -154,10 +164,7 @@ describe("fetchSuggestions", () => {
   });
 
   it("uses default API for unrecognized commands", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(["hello world", ["hello world population"]]),
-    });
+    mockFetch.mockResolvedValueOnce(jsonResponse(["hello world", ["hello world population"]]));
 
     const result = await fetchSuggestions("hello world", testConfig);
 
@@ -185,24 +192,17 @@ describe("fetchSuggestions", () => {
 
   it("limits to 8 suggestions max", async () => {
     const manySuggestions = Array.from({ length: 15 }, (_, i) => `suggestion ${i}`);
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(["q", manySuggestions]),
-    });
+    mockFetch.mockResolvedValueOnce(jsonResponse(["q", manySuggestions]));
 
     const result = await fetchSuggestions("g test", testConfig);
     expect(result.length).toBe(8);
   });
 
   it("handles DuckDuckGo response format", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve([
+    mockFetch.mockResolvedValueOnce(jsonResponse([
           { phrase: "duck typing" },
           { phrase: "ducks" },
-        ]),
-    });
+        ]));
 
     const result = await fetchSuggestions("ddg duck", testConfig);
     expect(result[0].text).toBe("ddg duck typing");
@@ -218,14 +218,10 @@ describe("fetchSuggestions", () => {
 
   describe("prefix commands", () => {
     it("queries with the full input (prefix included) and tags suggestions", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () =>
-          Promise.resolve([
+      mockFetch.mockResolvedValueOnce(jsonResponse([
             "r/ask",
             ["r/askreddit", "r/askmen", "r/askscience"],
-          ]),
-      });
+          ]));
 
       const result = await fetchSuggestions("r/ask", testConfig);
 
@@ -241,10 +237,7 @@ describe("fetchSuggestions", () => {
     });
 
     it("stitches the prefix on when upstream omits it", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(["r/ask", ["askreddit", "askmen"]]),
-      });
+      mockFetch.mockResolvedValueOnce(jsonResponse(["r/ask", ["askreddit", "askmen"]]));
 
       const result = await fetchSuggestions("r/ask", testConfig);
       expect(result.map((s) => s.text)).toEqual(["r/askreddit", "r/askmen"]);
@@ -257,10 +250,7 @@ describe("fetchSuggestions", () => {
     });
 
     it("uses the default API when the prefix command has no suggestionsApi", async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(["$AAPL", ["$AAPL stock", "$AAPL news"]]),
-      });
+      mockFetch.mockResolvedValueOnce(jsonResponse(["$AAPL", ["$AAPL stock", "$AAPL news"]]));
 
       const result = await fetchSuggestions("$AAPL", testConfig);
 
@@ -270,6 +260,77 @@ describe("fetchSuggestions", () => {
       );
       expect(result[0].commandTrigger).toBe("$");
       expect(result[0].commandName).toBe("Stock ticker");
+    });
+  });
+
+  describe("response charset handling", () => {
+    // "pokémon" as ISO-8859-1 bytes: é is the single byte 0xE9.
+    const latin1Body = new Uint8Array([
+      ...new TextEncoder().encode('["pok'), 0xe9, ...new TextEncoder().encode('mon",["pok'),
+      0xe9, ...new TextEncoder().encode('mon","pok'), 0xe9, ...new TextEncoder().encode('mon go"]]'),
+    ]);
+
+    it("decodes an ISO-8859-1 body using the declared charset", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse(latin1Body, "text/javascript; charset=ISO-8859-1"),
+      );
+
+      const result = await fetchSuggestions("g poké", testConfig);
+
+      expect(result.map((s) => s.displayText)).toEqual(["pokémon", "pokémon go"]);
+      expect(result[0].text).toBe("g pokémon");
+    });
+
+    it("decodes a UTF-8 body with an explicit charset", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse(["poké", ["pokémon", "日本語"]], "text/javascript; charset=UTF-8"),
+      );
+
+      const result = await fetchSuggestions("g poké", testConfig);
+      expect(result.map((s) => s.displayText)).toEqual(["pokémon", "日本語"]);
+    });
+
+    it("treats a missing charset parameter as UTF-8", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(["poké", ["pokémon"]], "application/json"));
+
+      const result = await fetchSuggestions("g poké", testConfig);
+      expect(result.map((s) => s.displayText)).toEqual(["pokémon"]);
+    });
+
+    it("treats a missing Content-Type header as UTF-8", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse(["poké", ["pokémon"]], null));
+
+      const result = await fetchSuggestions("g poké", testConfig);
+      expect(result.map((s) => s.displayText)).toEqual(["pokémon"]);
+    });
+
+    it("falls back to UTF-8 for an unknown charset label", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse(["poké", ["pokémon"]], "application/json; charset=not-a-real-charset"),
+      );
+
+      const result = await fetchSuggestions("g poké", testConfig);
+      expect(result.map((s) => s.displayText)).toEqual(["pokémon"]);
+    });
+
+    it("returns empty when the body is not valid JSON", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse(new TextEncoder().encode("not json"), "text/plain"),
+      );
+
+      const result = await fetchSuggestions("g test", testConfig);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("charsetFromContentType", () => {
+    it("parses header variants and defaults to utf-8", () => {
+      expect(charsetFromContentType("text/javascript; charset=ISO-8859-1")).toBe("ISO-8859-1");
+      expect(charsetFromContentType("application/json;charset=\"UTF-8\"")).toBe("UTF-8");
+      expect(charsetFromContentType("text/plain; CHARSET=iso-8859-1; foo=bar")).toBe("iso-8859-1");
+      expect(charsetFromContentType("application/json")).toBe("utf-8");
+      expect(charsetFromContentType(null)).toBe("utf-8");
+      expect(charsetFromContentType(undefined)).toBe("utf-8");
     });
   });
 });
