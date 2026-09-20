@@ -1,5 +1,9 @@
 import { parseCommand, buildTriggerMap, tryUrlDetection } from "../core/parser.js";
-import { buildLuckyUrl } from "../core/lucky.js";
+import {
+  buildLuckyUrl,
+  extractRedirectNoticeTarget,
+  isGoogleSearchUrl,
+} from "../core/lucky.js";
 import { fetchSuggestions } from "../core/suggestions.js";
 import { detectDevice } from "../core/device.js";
 import { resolveIconUrl } from "../core/icon.js";
@@ -417,8 +421,35 @@ function handleSearch(): void {
 // Ctrl/Cmd+Enter: "I'm feeling lucky"-style navigation via the top-level
 // defaultLuckyUrl template. Falls back to a normal search when the config
 // doesn't define one.
-function handleLuckySearch(): void {
-  if (!config) return;
+const LUCKY_RESOLVE_TIMEOUT_MS = 3000;
+let luckyInFlight = false;
+
+// Google's &btnI redirect lands on a click-through "Redirect Notice" when the
+// visitor doesn't come from a Google page. Follow the redirect here instead and
+// return the notice's target so the tab can open it directly. Any failure
+// (offline, timeout, host permission not granted, Google serving results or a
+// consent page instead) returns the lucky URL unchanged.
+async function resolveLuckyUrl(url: string): Promise<string> {
+  if (!isGoogleSearchUrl(url)) return url;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), LUCKY_RESOLVE_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      credentials: "include",
+      signal: controller.signal,
+    });
+    return extractRedirectNoticeTarget(res.url) ?? url;
+  } catch {
+    return url;
+  } finally {
+    clearTimeout(timer);
+    // Only the final URL matters — drop the unread body.
+    controller.abort();
+  }
+}
+
+async function handleLuckySearch(): Promise<void> {
+  if (!config || luckyInFlight) return;
   const query = searchInput.value.trim();
   if (!query) return;
 
@@ -439,7 +470,12 @@ function handleLuckySearch(): void {
     type: "addHistory",
     value: { query, commandId: lucky.commandId, timestamp: Date.now() },
   });
-  window.location.href = lucky.url;
+  luckyInFlight = true;
+  try {
+    window.location.href = await resolveLuckyUrl(lucky.url);
+  } finally {
+    luckyInFlight = false;
+  }
 }
 
 function showTypoSuggestion(typo: TypoResult): void {
@@ -993,7 +1029,7 @@ searchInput.addEventListener("keydown", (e) => {
   } else if (e.key === "Enter") {
     if (e.ctrlKey || e.metaKey) {
       hideSuggestions();
-      handleLuckySearch();
+      void handleLuckySearch();
     } else if (activeSuggestionIndex >= 0 && items.length > 0) {
       items[activeSuggestionIndex].click();
     } else {

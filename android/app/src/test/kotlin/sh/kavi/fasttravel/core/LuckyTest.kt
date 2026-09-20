@@ -145,4 +145,51 @@ class LuckyTest {
             )
         }
     }
+
+    data class GoogleSearchUrlFixture(val description: String, val input: String, val expected: Boolean) {
+        override fun toString() = description
+    }
+
+    data class RedirectTargetFixture(val description: String, val input: String, val expected: String?) {
+        override fun toString() = description
+    }
+
+    private fun redirectFixtures(): JSONObject =
+        JSONObject(resolveSharedFile("test-fixtures/lucky-redirect.fixtures.json").readText())
+
+    private fun loadGoogleSearchUrlFixtures(): Stream<GoogleSearchUrlFixture> {
+        val arr = redirectFixtures().getJSONArray("isGoogleSearchUrl")
+        return (0 until arr.length()).map { i ->
+            val obj = arr.getJSONObject(i)
+            GoogleSearchUrlFixture(obj.getString("description"), obj.getString("input"), obj.getBoolean("expected"))
+        }.stream()
+    }
+
+    private fun loadRedirectTargetFixtures(): Stream<RedirectTargetFixture> {
+        val arr = redirectFixtures().getJSONArray("extractRedirectNoticeTarget")
+        return (0 until arr.length()).map { i ->
+            val obj = arr.getJSONObject(i)
+            RedirectTargetFixture(obj.getString("description"), obj.getString("input"), obj.optStringOrNull("expected"))
+        }.stream()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("loadGoogleSearchUrlFixtures")
+    @DisplayName("isGoogleSearchUrl fixtures")
+    fun `isGoogleSearchUrl fixtures`(fixture: GoogleSearchUrlFixture) {
+        assertEquals(fixture.expected, Lucky.isGoogleSearchUrl(fixture.input), fixture.description)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("loadRedirectTargetFixtures")
+    @DisplayName("extractRedirectNoticeTarget fixtures")
+    fun `extractRedirectNoticeTarget fixtures`(fixture: RedirectTargetFixture) {
+        assertEquals(fixture.expected, Lucky.extractRedirectNoticeTarget(fixture.input), fixture.description)
+    }
+
+    @Test
+    fun `resolver leaves non-Google lucky URLs untouched without any request`() {
+        val url = "https://duckduckgo.com/?q=!ducky+cats"
+        assertEquals(url, LuckyRedirectResolver.resolve(url))
+    }
 }
