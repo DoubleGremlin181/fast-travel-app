@@ -47,7 +47,11 @@ jobs:
 
   extension-e2e:
     name: Extension — e2e tests
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04 in Nov 2026, and Playwright 1.59
+    # (the locked version) refuses to install Chromium there ("Playwright does
+    # not support chromium on ubuntu26.04-x64"). Unpin after upgrading Playwright
+    # to a release that supports 26.04.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -69,7 +73,7 @@ jobs:
         working-directory: extension
 
       - name: Install Firefox
-        # ubuntu-latest (24.04) no longer ships Firefox; install.spec.ts loads
+        # ubuntu-24.04 no longer ships Firefox; install.spec.ts loads
         # the packaged extension into system Firefox via /usr/bin/firefox.
         # Use Mozilla's apt repo so the install pulls in shared libs (libdbus-glib,
         # libgtk-3, libxt6 etc.) that web-ext run needs to launch Firefox under xvfb.
