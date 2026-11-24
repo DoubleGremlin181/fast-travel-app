@@ -28,6 +28,24 @@ permissions:
   pull-requests: write
 
 jobs:
+  # GitHub auto-disables scheduled workflows in public repos after 60 days with
+  # no repository activity. This workflow only lands a commit when a domain
+  # actually needs replacing, so in quiet stretches nothing counts as activity
+  # and the schedule gets switched off (it was, in Nov 2026). Re-enabling the
+  # workflow through the API on every run resets the inactivity counter (the
+  # same technique as the community keepalive actions; GitHub doesn't document
+  # this reset). It lives in its own job so it still runs when the domain check
+  # fails, and so only this job holds `actions: write`.
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Re-enable this workflow to reset the inactivity timer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/auto-update-domains.yml/enable"
+
   check-domains:
     runs-on: ubuntu-latest
     steps:
